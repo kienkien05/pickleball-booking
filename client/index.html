@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="vi">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,24 +8,25 @@
   <meta name="description" content="Hệ thống đặt sân Pickleball trực tuyến - Tìm và đặt sân nhanh chóng">
   <link rel="stylesheet" href="/assets/css/main.css">
 </head>
+
 <body>
   <div class="page-wrapper">
     <!-- Header -->
     <header class="header">
       <div class="container">
         <a href="/" class="logo">🏓 Pickleball</a>
-        
+
         <nav class="nav">
           <a href="/" class="active">Trang chủ</a>
           <a href="/user/search/search.html">Tìm sân</a>
         </nav>
-        
+
         <!-- Auth Navigation (not logged in) -->
         <div class="auth-nav">
           <a href="/auth/login/login.html" class="btn btn-secondary btn-sm">Đăng nhập</a>
           <a href="/auth/register/register.html" class="btn btn-primary btn-sm">Đăng ký</a>
         </div>
-        
+
         <!-- User Navigation (logged in) -->
         <div class="user-nav hidden">
           <div class="user-menu">
@@ -45,10 +47,12 @@
     <!-- Main Content -->
     <main class="main-content">
       <!-- Hero Section -->
-      <section style="background: linear-gradient(135deg, #0066CC 0%, #004C99 100%); color: white; padding: 4rem 0; text-align: center;">
+      <section
+        style="background: linear-gradient(135deg, #0066CC 0%, #004C99 100%); color: white; padding: 4rem 0; text-align: center;">
         <div class="container">
           <h1 style="font-size: 2.5rem; margin-bottom: 1rem;">Đặt sân Pickleball dễ dàng</h1>
-          <p style="font-size: 1.25rem; margin-bottom: 2rem; opacity: 0.9;">Tìm và đặt sân Pickleball tại các địa điểm hàng đầu</p>
+          <p style="font-size: 1.25rem; margin-bottom: 2rem; opacity: 0.9;">Tìm và đặt sân Pickleball tại các địa điểm
+            hàng đầu</p>
           <a href="/user/search/search.html" class="btn btn-lg" style="background: white; color: #0066CC;">
             Tìm sân ngay
           </a>
@@ -84,7 +88,9 @@
           <a href="/user/search/search.html" class="btn btn-secondary btn-sm">Xem tất cả</a>
         </div>
         <div id="featured-courts" class="grid grid-3">
-          <div class="loading"><div class="spinner"></div></div>
+          <div class="loading">
+            <div class="spinner"></div>
+          </div>
         </div>
       </section>
     </main>
@@ -95,11 +101,11 @@
         <div class="footer-content">
           <div>
             <strong>🏓 Pickleball Court Booking</strong>
-            <p class="text-sm" style="opacity: 0.7; margin-top: 0.5rem;">© 2024 - Hệ thống đặt sân Pickleball</p>
+            <p class="text-sm" style="opacity: 0.7; margin-top: 0.5rem;">© 2025 - Hệ thống đặt sân Pickleball</p>
           </div>
           <div>
-            <a href="#">Điều khoản</a> • 
-            <a href="#">Chính sách</a> • 
+            <a href="#">Điều khoản</a> •
+            <a href="#">Chính sách</a> •
             <a href="#">Liên hệ</a>
           </div>
         </div>
@@ -112,15 +118,15 @@
     // Load featured courts
     async function loadFeaturedCourts() {
       const container = document.getElementById('featured-courts');
-      
+
       try {
         const courts = await api.get('/courts');
-        
+
         if (courts.length === 0) {
           container.innerHTML = '<p class="text-center text-muted">Chưa có sân nào.</p>';
           return;
         }
-        
+
         // Show first 3 courts
         container.innerHTML = courts.slice(0, 3).map(court => `
           <div class="court-card">
@@ -145,11 +151,11 @@
         container.innerHTML = '<p class="text-center text-danger">Không thể tải danh sách sân.</p>';
       }
     }
-    
+
     // Check for admin and show admin link
     document.addEventListener('DOMContentLoaded', () => {
       loadFeaturedCourts();
-      
+
       if (isAdmin()) {
         const nav = document.querySelector('.nav');
         const adminLink = document.createElement('a');
@@ -161,4 +167,5 @@
     });
   </script>
 </body>
+
 </html>

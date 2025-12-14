@@ -1,7 +1,7 @@
 const jwt = require('jsonwebtoken');
 const { query, queryOne } = require('../config/database');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'pickleball-secret-key-2024';
+const JWT_SECRET = process.env.JWT_SECRET || 'pickleball-secret-key-2025';
 
 // Generate JWT token
 const generateToken = (userId) => {
