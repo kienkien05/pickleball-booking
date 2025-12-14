@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lịch sử đặt sân - Pickleball</title>
+    <link rel="stylesheet" href="/assets/css/main.css">
+    <link rel="stylesheet" href="history.css">
+</head>
+
+<body>
+    <div class="page-wrapper">
+        <header class="header">
+            <div class="container">
+                <a href="/" class="logo">🏓 Pickleball</a>
+                <nav class="nav">
+                    <a href="/">Trang chủ</a>
+                    <a href="/user/search/search.html">Tìm sân</a>
+                    <a href="/user/history/history.html" class="active">Lịch sử đặt</a>
+                </nav>
+                <div class="user-nav">
+                    <div class="user-menu">
+                        <button class="user-menu-btn"><span class="user-name">Người dùng</span> ▼</button>
+                        <div class="user-dropdown">
+                            <a href="/user/profile/profile.html">Thông tin cá nhân</a>
+                            <a href="/user/history/history.html" class="active">Lịch sử đặt sân</a>
+                            <a href="/user/review/review.html">Đánh giá</a>
+                            <a href="#" class="logout-btn">Đăng xuất</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <main class="main-content">
+            <div class="container">
+                <h1 class="mb-3">Lịch sử đặt sân</h1>
+
+                <div id="bookings-list">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Cancel Modal -->
+        <div class="modal-overlay" id="cancel-modal">
+            <div class="modal">
+                <div class="modal-header">
+                    <h3 class="modal-title">Xác nhận hủy đặt sân</h3>
+                    <button class="modal-close" onclick="hideModal('cancel-modal')">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <p>Bạn có chắc muốn hủy đơn đặt sân này?</p>
+                    <div class="form-group mt-2">
+                        <label class="form-label">Lý do hủy (không bắt buộc)</label>
+                        <textarea id="cancel-reason" class="form-control" rows="3"
+                            placeholder="Nhập lý do..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" onclick="hideModal('cancel-modal')">Quay lại</button>
+                    <button class="btn btn-danger" id="confirm-cancel-btn">Xác nhận hủy</button>
+                </div>
+            </div>
+        </div>
+
+        <footer class="footer">
+            <div class="container">
+                <div class="footer-content">
+                    <div>© 2024 Pickleball Court Booking</div>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <script src="/assets/js/common.js"></script>
+    <script src="history.js"></script>
+</body>
+
+</html>

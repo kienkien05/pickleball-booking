@@ -1,0 +1,39 @@
+/* Booking Page Styles */
+.slot-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 0.75rem;
+}
+
+.slot-btn {
+    padding: 0.75rem;
+    border: 2px solid var(--border-color);
+    border-radius: var(--radius);
+    background: var(--background);
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.2s;
+}
+
+.slot-btn:hover:not(.unavailable) {
+    border-color: var(--primary-color);
+}
+
+.slot-btn.selected {
+    border-color: var(--primary-color);
+    background: var(--primary-color);
+    color: white;
+}
+
+.slot-btn.unavailable {
+    background: var(--background-alt);
+    color: var(--text-light);
+    cursor: not-allowed;
+    text-decoration: line-through;
+}
+
+@media (max-width: 768px) {
+    #court-detail {
+        grid-template-columns: 1fr !important;
+    }
+}

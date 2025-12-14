@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tìm sân Pickleball</title>
+    <link rel="stylesheet" href="/assets/css/main.css">
+    <link rel="stylesheet" href="search.css">
+</head>
+
+<body>
+    <div class="page-wrapper">
+        <!-- Header -->
+        <header class="header">
+            <div class="container">
+                <a href="/" class="logo">🏓 Pickleball</a>
+                <nav class="nav">
+                    <a href="/">Trang chủ</a>
+                    <a href="/user/search/search.html" class="active">Tìm sân</a>
+                    <a href="/user/history/history.html">Lịch sử đặt</a>
+                </nav>
+                <div class="auth-nav">
+                    <a href="/auth/login/login.html" class="btn btn-secondary btn-sm">Đăng nhập</a>
+                    <a href="/auth/register/register.html" class="btn btn-primary btn-sm">Đăng ký</a>
+                </div>
+                <div class="user-nav hidden">
+                    <div class="user-menu">
+                        <button class="user-menu-btn"><span class="user-name">Người dùng</span> ▼</button>
+                        <div class="user-dropdown">
+                            <a href="/user/profile/profile.html">Thông tin cá nhân</a>
+                            <a href="/user/history/history.html">Lịch sử đặt sân</a>
+                            <a href="/user/review/review.html">Đánh giá</a>
+                            <a href="#" class="logout-btn">Đăng xuất</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="container">
+                <h1 class="mb-3">Tìm sân Pickleball</h1>
+
+                <!-- Search Filters -->
+                <div class="card mb-3">
+                    <div class="flex gap-2" style="flex-wrap: wrap;">
+                        <div class="form-group" style="flex: 1; min-width: 200px; margin-bottom: 0;">
+                            <input type="text" id="search-input" class="form-control" placeholder="Tìm theo tên sân...">
+                        </div>
+                        <div class="form-group" style="min-width: 150px; margin-bottom: 0;">
+                            <select id="district-filter" class="form-control">
+                                <option value="">Tất cả quận</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="min-width: 150px; margin-bottom: 0;">
+                            <select id="price-filter" class="form-control">
+                                <option value="">Tất cả giá</option>
+                                <option value="0-150000">Dưới 150k</option>
+                                <option value="150000-200000">150k - 200k</option>
+                                <option value="200000-999999">Trên 200k</option>
+                            </select>
+                        </div>
+                        <button class="btn btn-primary" id="search-btn">Tìm kiếm</button>
+                    </div>
+                </div>
+
+                <!-- Results -->
+                <div id="results-info" class="mb-2 text-muted"></div>
+                <div id="courts-list" class="grid grid-3">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <div class="container">
+                <div class="footer-content">
+                    <div>© 2024 Pickleball Court Booking</div>
+                    <div><a href="#">Điều khoản</a> • <a href="#">Liên hệ</a></div>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <script src="/assets/js/common.js"></script>
+    <script src="search.js"></script>
+</body>
+
+</html>

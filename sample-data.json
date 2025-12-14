@@ -1,0 +1,180 @@
+{
+    "accounts": {
+        "admin": {
+            "email": "admin@pickleball.com",
+            "password": "admin123",
+            "full_name": "Quản Trị Viên",
+            "role": "admin"
+        },
+        "users": [
+            {
+                "email": "user1@gmail.com",
+                "phone": "0901234567",
+                "password": "user123",
+                "full_name": "Nguyễn Văn A"
+            },
+            {
+                "email": "user2@gmail.com",
+                "phone": "0912345678",
+                "password": "user123",
+                "full_name": "Trần Thị B"
+            },
+            {
+                "email": "user3@gmail.com",
+                "phone": "0923456789",
+                "password": "user123",
+                "full_name": "Lê Văn C"
+            }
+        ]
+    },
+    "lookup_data": {
+        "roles": [
+            "admin",
+            "user"
+        ],
+        "booking_statuses": [
+            "pending",
+            "confirmed",
+            "cancelled",
+            "completed"
+        ],
+        "payment_methods": [
+            {
+                "name": "cash",
+                "display_name": "Tiền mặt"
+            },
+            {
+                "name": "bank_transfer",
+                "display_name": "Chuyển khoản"
+            },
+            {
+                "name": "momo",
+                "display_name": "Ví MoMo"
+            },
+            {
+                "name": "vnpay",
+                "display_name": "VNPay"
+            }
+        ],
+        "districts": [
+            "Quận 1",
+            "Quận 3",
+            "Quận 7",
+            "Thủ Đức",
+            "Bình Thạnh"
+        ]
+    },
+    "courts": [
+        {
+            "name": "Sân Pickleball Landmark",
+            "address": "123 Đường ABC, Phường Bến Nghé",
+            "district": "Quận 1",
+            "price_per_hour": 200000,
+            "description": "Sân tiêu chuẩn quốc tế, có máy lạnh"
+        },
+        {
+            "name": "Sân Pickleball Sunrise",
+            "address": "456 Đường DEF, Phường Tân Phong",
+            "district": "Quận 7",
+            "price_per_hour": 180000,
+            "description": "Sân ngoài trời, view đẹp"
+        },
+        {
+            "name": "Sân Pickleball Green Park",
+            "address": "789 Đường GHI, Phường Hiệp Bình",
+            "district": "Thủ Đức",
+            "price_per_hour": 150000,
+            "description": "Không gian xanh mát"
+        },
+        {
+            "name": "Sân Pickleball Star",
+            "address": "321 Đường JKL, Phường Võ Thị Sáu",
+            "district": "Quận 3",
+            "price_per_hour": 220000,
+            "description": "Sân cao cấp, có quán cafe"
+        },
+        {
+            "name": "Sân Pickleball Victory",
+            "address": "654 Đường MNO, Phường 25",
+            "district": "Bình Thạnh",
+            "price_per_hour": 170000,
+            "description": "Sân rộng rãi, nhiều bãi đổ xe"
+        }
+    ],
+    "time_slots": [
+        {
+            "start_time": "06:00",
+            "end_time": "07:30"
+        },
+        {
+            "start_time": "07:30",
+            "end_time": "09:00"
+        },
+        {
+            "start_time": "09:00",
+            "end_time": "10:30"
+        },
+        {
+            "start_time": "14:00",
+            "end_time": "15:30"
+        },
+        {
+            "start_time": "15:30",
+            "end_time": "17:00"
+        },
+        {
+            "start_time": "17:00",
+            "end_time": "18:30"
+        },
+        {
+            "start_time": "18:30",
+            "end_time": "20:00"
+        },
+        {
+            "start_time": "20:00",
+            "end_time": "21:30"
+        }
+    ],
+    "sample_bookings": [
+        {
+            "user": "user1@gmail.com",
+            "court": "Sân Pickleball Landmark",
+            "date": "2024-12-15",
+            "time_slot": "17:00-18:30",
+            "status": "confirmed",
+            "payment": "MoMo"
+        },
+        {
+            "user": "user2@gmail.com",
+            "court": "Sân Pickleball Sunrise",
+            "date": "2024-12-16",
+            "time_slot": "09:00-10:30",
+            "status": "pending",
+            "payment": "Tiền mặt"
+        },
+        {
+            "user": "user1@gmail.com",
+            "court": "Sân Pickleball Green Park",
+            "date": "2024-12-14",
+            "time_slot": "18:30-20:00",
+            "status": "completed",
+            "payment": "Chuyển khoản"
+        },
+        {
+            "user": "user3@gmail.com",
+            "court": "Sân Pickleball Star",
+            "date": "2024-12-17",
+            "time_slot": "15:30-17:00",
+            "status": "confirmed",
+            "payment": "VNPay"
+        }
+    ],
+    "sample_reviews": [
+        {
+            "user": "user1@gmail.com",
+            "court": "Sân Pickleball Green Park",
+            "rating": 5,
+            "comment": "Không gian thoáng mát, sẽ quay lại!"
+        }
+    ]
+}

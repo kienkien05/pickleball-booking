@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - Khách hàng</title>
+    <link rel="stylesheet" href="/assets/css/main.css">
+</head>
+
+<body>
+    <div class="admin-layout">
+        <aside class="admin-sidebar">
+            <a href="/" class="admin-sidebar-logo">🏓 Pickleball Admin</a>
+            <ul class="admin-nav">
+                <li><a href="/admin/dashboard/dashboard.html">📊 Dashboard</a></li>
+                <li><a href="/admin/revenue/revenue.html">💰 Doanh thu</a></li>
+                <li><a href="/admin/orders/orders.html">📋 Đơn đặt sân</a></li>
+                <li><a href="/admin/customers/customers.html" class="active">👥 Khách hàng</a></li>
+                <li><a href="/admin/courts/courts.html">🏟️ Quản lý sân</a></li>
+                <li><a href="/admin/timeslots/timeslots.html">🕐 Khung giờ</a></li>
+                <li><a href="#" class="logout-btn">🚪 Đăng xuất</a></li>
+            </ul>
+        </aside>
+
+        <main class="admin-content">
+            <div class="admin-header">
+                <h1>Quản lý khách hàng</h1>
+            </div>
+
+            <div class="card">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Họ tên</th>
+                            <th>Email</th>
+                            <th>SĐT</th>
+                            <th>Số đơn</th>
+                            <th>Trạng thái</th>
+                            <th>Thao tác</th>
+                        </tr>
+                    </thead>
+                    <tbody id="customers-list"></tbody>
+                </table>
+            </div>
+        </main>
+    </div>
+
+    <div class="modal-overlay" id="confirm-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title" id="modal-title">Xác nhận</h3>
+                <button class="modal-close" onclick="hideModal('confirm-modal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p id="modal-message"></p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="hideModal('confirm-modal')">Hủy</button>
+                <button class="btn btn-primary" id="confirm-btn">Xác nhận</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/assets/js/common.js"></script>
+    <script src="customers.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pickleball Court Booking - Đặt sân Pickleball</title>
+  <meta name="description" content="Hệ thống đặt sân Pickleball trực tuyến - Tìm và đặt sân nhanh chóng">
+  <link rel="stylesheet" href="/assets/css/main.css">
+</head>
+<body>
+  <div class="page-wrapper">
+    <!-- Header -->
+    <header class="header">
+      <div class="container">
+        <a href="/" class="logo">🏓 Pickleball</a>
+        
+        <nav class="nav">
+          <a href="/" class="active">Trang chủ</a>
+          <a href="/user/search/search.html">Tìm sân</a>
+        </nav>
+        
+        <!-- Auth Navigation (not logged in) -->
+        <div class="auth-nav">
+          <a href="/auth/login/login.html" class="btn btn-secondary btn-sm">Đăng nhập</a>
+          <a href="/auth/register/register.html" class="btn btn-primary btn-sm">Đăng ký</a>
+        </div>
+        
+        <!-- User Navigation (logged in) -->
+        <div class="user-nav hidden">
+          <div class="user-menu">
+            <button class="user-menu-btn">
+              <span class="user-name">Người dùng</span> ▼
+            </button>
+            <div class="user-dropdown">
+              <a href="/user/profile/profile.html">Thông tin cá nhân</a>
+              <a href="/user/history/history.html">Lịch sử đặt sân</a>
+              <a href="/user/review/review.html">Đánh giá</a>
+              <a href="#" class="logout-btn">Đăng xuất</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <!-- Hero Section -->
+      <section style="background: linear-gradient(135deg, #0066CC 0%, #004C99 100%); color: white; padding: 4rem 0; text-align: center;">
+        <div class="container">
+          <h1 style="font-size: 2.5rem; margin-bottom: 1rem;">Đặt sân Pickleball dễ dàng</h1>
+          <p style="font-size: 1.25rem; margin-bottom: 2rem; opacity: 0.9;">Tìm và đặt sân Pickleball tại các địa điểm hàng đầu</p>
+          <a href="/user/search/search.html" class="btn btn-lg" style="background: white; color: #0066CC;">
+            Tìm sân ngay
+          </a>
+        </div>
+      </section>
+
+      <!-- Features -->
+      <section class="container" style="padding: 4rem 0;">
+        <h2 class="text-center mb-3">Tại sao chọn chúng tôi?</h2>
+        <div class="grid grid-3">
+          <div class="card text-center">
+            <div style="font-size: 3rem; margin-bottom: 1rem;">📍</div>
+            <h3>Nhiều địa điểm</h3>
+            <p class="text-muted">Hàng chục sân Pickleball chất lượng cao tại TP.HCM</p>
+          </div>
+          <div class="card text-center">
+            <div style="font-size: 3rem; margin-bottom: 1rem;">⚡</div>
+            <h3>Đặt sân nhanh</h3>
+            <p class="text-muted">Chỉ cần vài bước đơn giản để hoàn tất đặt sân</p>
+          </div>
+          <div class="card text-center">
+            <div style="font-size: 3rem; margin-bottom: 1rem;">💳</div>
+            <h3>Thanh toán linh hoạt</h3>
+            <p class="text-muted">Hỗ trợ nhiều phương thức: tiền mặt, MoMo, VNPay</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Featured Courts -->
+      <section class="container" style="padding: 0 0 4rem;">
+        <div class="flex-between mb-2">
+          <h2>Sân nổi bật</h2>
+          <a href="/user/search/search.html" class="btn btn-secondary btn-sm">Xem tất cả</a>
+        </div>
+        <div id="featured-courts" class="grid grid-3">
+          <div class="loading"><div class="spinner"></div></div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <div class="container">
+        <div class="footer-content">
+          <div>
+            <strong>🏓 Pickleball Court Booking</strong>
+            <p class="text-sm" style="opacity: 0.7; margin-top: 0.5rem;">© 2024 - Hệ thống đặt sân Pickleball</p>
+          </div>
+          <div>
+            <a href="#">Điều khoản</a> • 
+            <a href="#">Chính sách</a> • 
+            <a href="#">Liên hệ</a>
+          </div>
+        </div>
+      </div>
+    </footer>
+  </div>
+
+  <script src="/assets/js/common.js"></script>
+  <script>
+    // Load featured courts
+    async function loadFeaturedCourts() {
+      const container = document.getElementById('featured-courts');
+      
+      try {
+        const courts = await api.get('/courts');
+        
+        if (courts.length === 0) {
+          container.innerHTML = '<p class="text-center text-muted">Chưa có sân nào.</p>';
+          return;
+        }
+        
+        // Show first 3 courts
+        container.innerHTML = courts.slice(0, 3).map(court => `
+          <div class="court-card">
+            <img src="${court.image_url || '/assets/images/court-placeholder.jpg'}" 
+                 alt="${court.name}" 
+                 class="court-card-image"
+                 onerror="this.src='https://via.placeholder.com/400x200?text=Pickleball+Court'">
+            <div class="court-card-body">
+              <h3 class="court-card-title">${court.name}</h3>
+              <p class="court-card-location">📍 ${court.district_name}</p>
+              <p class="court-card-price">${formatPrice(court.price_per_hour)}/giờ</p>
+            </div>
+            <div class="court-card-footer">
+              <div class="stars">
+                ${court.avg_rating ? getStarsHTML(Math.round(court.avg_rating)) : '<span class="text-muted text-sm">Chưa có đánh giá</span>'}
+              </div>
+              <a href="/user/booking/booking.html?id=${court.id}" class="btn btn-primary btn-sm">Đặt sân</a>
+            </div>
+          </div>
+        `).join('');
+      } catch (error) {
+        container.innerHTML = '<p class="text-center text-danger">Không thể tải danh sách sân.</p>';
+      }
+    }
+    
+    // Check for admin and show admin link
+    document.addEventListener('DOMContentLoaded', () => {
+      loadFeaturedCourts();
+      
+      if (isAdmin()) {
+        const nav = document.querySelector('.nav');
+        const adminLink = document.createElement('a');
+        adminLink.href = '/admin/dashboard/dashboard.html';
+        adminLink.textContent = 'Quản trị';
+        adminLink.style.color = '#DC3545';
+        nav.appendChild(adminLink);
+      }
+    });
+  </script>
+</body>
+</html>

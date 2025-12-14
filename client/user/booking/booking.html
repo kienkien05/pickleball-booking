@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Đặt sân - Pickleball</title>
+    <link rel="stylesheet" href="/assets/css/main.css">
+    <link rel="stylesheet" href="booking.css">
+</head>
+
+<body>
+    <div class="page-wrapper">
+        <!-- Header -->
+        <header class="header">
+            <div class="container">
+                <a href="/" class="logo">🏓 Pickleball</a>
+                <nav class="nav">
+                    <a href="/">Trang chủ</a>
+                    <a href="/user/search/search.html">Tìm sân</a>
+                    <a href="/user/history/history.html">Lịch sử đặt</a>
+                </nav>
+                <div class="auth-nav">
+                    <a href="/auth/login/login.html" class="btn btn-secondary btn-sm">Đăng nhập</a>
+                </div>
+                <div class="user-nav hidden">
+                    <div class="user-menu">
+                        <button class="user-menu-btn"><span class="user-name">Người dùng</span> ▼</button>
+                        <div class="user-dropdown">
+                            <a href="/user/profile/profile.html">Thông tin cá nhân</a>
+                            <a href="/user/history/history.html">Lịch sử đặt sân</a>
+                            <a href="#" class="logout-btn">Đăng xuất</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="container">
+                <a href="/user/search/search.html" class="text-muted mb-2" style="display: inline-block;">← Quay lại tìm
+                    kiếm</a>
+
+                <div id="court-detail" class="grid" style="grid-template-columns: 1fr 1fr; gap: 2rem;">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Confirm Modal -->
+        <div class="modal-overlay" id="confirm-modal">
+            <div class="modal">
+                <div class="modal-header">
+                    <h3 class="modal-title">Xác nhận đặt sân</h3>
+                    <button class="modal-close" onclick="hideModal('confirm-modal')">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <table class="table">
+                        <tr>
+                            <td>Sân:</td>
+                            <td id="confirm-court"></td>
+                        </tr>
+                        <tr>
+                            <td>Ngày:</td>
+                            <td id="confirm-date"></td>
+                        </tr>
+                        <tr>
+                            <td>Khung giờ:</td>
+                            <td id="confirm-slot"></td>
+                        </tr>
+                        <tr>
+                            <td>Thanh toán:</td>
+                            <td id="confirm-payment"></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Tổng tiền:</strong></td>
+                            <td><strong id="confirm-price"></strong></td>
+                        </tr>
+                    </table>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" onclick="hideModal('confirm-modal')">Hủy</button>
+                    <button class="btn btn-primary" id="confirm-booking-btn">Xác nhận đặt sân</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <div class="container">
+                <div class="footer-content">
+                    <div>© 2024 Pickleball Court Booking</div>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <script src="/assets/js/common.js"></script>
+    <script src="booking.js"></script>
+</body>
+
+</html>

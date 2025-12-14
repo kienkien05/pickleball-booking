@@ -1,0 +1,6 @@
+/* Profile Page Specific Styles */
+@media (max-width: 768px) {
+    .grid {
+        grid-template-columns: 1fr !important;
+    }
+}

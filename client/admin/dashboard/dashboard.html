@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - Dashboard</title>
+    <link rel="stylesheet" href="/assets/css/main.css">
+    <link rel="stylesheet" href="dashboard.css">
+</head>
+
+<body>
+    <div class="admin-layout">
+        <!-- Sidebar -->
+        <aside class="admin-sidebar">
+            <a href="/" class="admin-sidebar-logo">🏓 Pickleball Admin</a>
+            <ul class="admin-nav">
+                <li><a href="/admin/dashboard/dashboard.html" class="active">📊 Dashboard</a></li>
+                <li><a href="/admin/revenue/revenue.html">💰 Doanh thu</a></li>
+                <li><a href="/admin/orders/orders.html">📋 Đơn đặt sân</a></li>
+                <li><a href="/admin/customers/customers.html">👥 Khách hàng</a></li>
+                <li><a href="/admin/courts/courts.html">🏟️ Quản lý sân</a></li>
+                <li><a href="/admin/timeslots/timeslots.html">🕐 Khung giờ</a></li>
+                <li><a href="#" class="logout-btn">🚪 Đăng xuất</a></li>
+            </ul>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="admin-content">
+            <div class="admin-header">
+                <h1>Dashboard</h1>
+                <span class="text-muted">Xin chào, <span id="admin-name">Admin</span></span>
+            </div>
+
+            <!-- Stats -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value" id="stat-revenue">0</div>
+                    <div class="stat-label">Doanh thu tháng này</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="stat-bookings">0</div>
+                    <div class="stat-label">Tổng đơn đặt</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="stat-pending">0</div>
+                    <div class="stat-label">Đơn chờ xác nhận</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="stat-customers">0</div>
+                    <div class="stat-label">Khách hàng</div>
+                </div>
+            </div>
+
+            <!-- Recent Bookings -->
+            <div class="card">
+                <div class="card-header flex-between">
+                    <h2 class="card-title mb-0">Đơn đặt gần đây</h2>
+                    <a href="/admin/orders/orders.html" class="btn btn-secondary btn-sm">Xem tất cả</a>
+                </div>
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Khách hàng</th>
+                            <th>Sân</th>
+                            <th>Ngày</th>
+                            <th>Trạng thái</th>
+                            <th>Tổng tiền</th>
+                        </tr>
+                    </thead>
+                    <tbody id="recent-bookings">
+                        <tr>
+                            <td colspan="6" class="text-center">Đang tải...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </main>
+    </div>
+
+    <script src="/assets/js/common.js"></script>
+    <script src="dashboard.js"></script>
+</body>
+
+</html>
