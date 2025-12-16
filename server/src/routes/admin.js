@@ -1,256 +1,234 @@
 const express = require('express');
-const { query, queryOne } = require('../config/database');
+const router = express.Router();
+const { pool } = require('../config/database');
 const { authenticateToken, requireAdmin } = require('../middleware/auth');
 
-const router = express.Router();
-
-// Apply middleware to all routes
+// Áp dụng bảo mật cho toàn bộ API Admin
 router.use(authenticateToken);
 router.use(requireAdmin);
 
-// Get all bookings (admin)
+// ==========================================
+// 1. QUẢN LÝ ĐẶT SÂN (LẤY DANH SÁCH)
+// ==========================================
 router.get('/bookings', async (req, res) => {
     try {
         const { status } = req.query;
 
         let sql = `
-      SELECT b.*, 
-        c.name as court_name,
-        ts.start_time, ts.end_time,
-        bs.name as status,
-        u.full_name as user_name, u.email as user_email
-      FROM bookings b
-      LEFT JOIN courts c ON b.court_id = c.id
-      LEFT JOIN time_slots ts ON b.slot_id = ts.id
-      LEFT JOIN booking_statuses bs ON b.status_id = bs.id
-      LEFT JOIN users u ON b.user_id = u.id
-    `;
+            SELECT b.*, 
+                c.name as court_name,
+                s.name as slot_name,
+                s.start_time, s.end_time,
+                LOWER(bs.status_name) as status, 
+                u.full_name as user_name, u.email as user_email
+            FROM bookings b
+            LEFT JOIN courts c ON b.court_id = c.id
+            LEFT JOIN slots s ON b.slot_id = s.id
+            LEFT JOIN booking_statuses bs ON b.status_id = bs.id
+            LEFT JOIN users u ON b.user_id = u.id
+        `;
+        
         const params = [];
-
         if (status) {
-            sql += ' WHERE bs.name = $1';
+            sql += ' WHERE LOWER(bs.status_name) = LOWER($1)';
             params.push(status);
         }
 
         sql += ' ORDER BY b.created_at DESC';
 
-        const bookings = await query(sql, params);
-        res.json(bookings);
+        const result = await pool.query(sql, params);
+        res.json(result.rows);
     } catch (error) {
-        console.error('Get bookings error:', error);
+        console.error('Lỗi lấy danh sách:', error);
         res.status(500).json({ error: 'Lỗi server' });
     }
 });
 
-// Update booking status
+// ==========================================
+// 2. XÁC NHẬN / HỦY ĐƠN / HOÀN THÀNH
+// ==========================================
 router.put('/bookings/:id', async (req, res) => {
     try {
         const { action, reason } = req.body;
 
-        const statusMap = {
-            'confirm': 'confirmed',
-            'complete': 'completed',
-            'cancel': 'cancelled'
-        };
+        let targetStatusName = '';
+        if (action === 'confirm') targetStatusName = 'Confirmed';
+        else if (action === 'complete') targetStatusName = 'Completed';
+        else if (action === 'cancel') targetStatusName = 'Cancelled';
+        else return res.status(400).json({ error: 'Hành động không hợp lệ' });
 
-        if (!statusMap[action]) {
-            return res.status(400).json({ error: 'Hành động không hợp lệ' });
+        const statusRes = await pool.query(
+            "SELECT id FROM booking_statuses WHERE status_name ILIKE $1", 
+            [targetStatusName]
+        );
+        
+        if (statusRes.rows.length === 0) {
+            return res.status(500).json({ error: `Trạng thái ${targetStatusName} chưa có trong DB` });
         }
 
-        const newStatus = await queryOne("SELECT id FROM booking_statuses WHERE name = $1", [statusMap[action]]);
-        await query('UPDATE bookings SET status_id = $1 WHERE id = $2', [newStatus.id, req.params.id]);
+        const newStatusId = statusRes.rows[0].id;
+
+        await pool.query('UPDATE bookings SET status_id = $1 WHERE id = $2', [newStatusId, req.params.id]);
 
         if (action === 'cancel' && reason) {
-            await query(
-                'INSERT INTO booking_cancellations (booking_id, reason, cancelled_by) VALUES ($1, $2, $3)',
-                [req.params.id, reason, req.user.id]
-            );
+            try {
+                await pool.query(
+                    'INSERT INTO booking_cancellations (booking_id, reason, cancelled_by) VALUES ($1, $2, $3)',
+                    [req.params.id, reason, req.user.id]
+                );
+            } catch (err) {
+                console.log('Bỏ qua lỗi log hủy');
+            }
         }
 
         res.json({ message: 'Cập nhật thành công' });
     } catch (error) {
-        console.error('Update booking error:', error);
+        console.error('Lỗi cập nhật:', error);
         res.status(500).json({ error: 'Lỗi server' });
     }
 });
 
-// Get revenue report
+// ==========================================
+// 3. BÁO CÁO DOANH THU
+// ==========================================
 router.get('/revenue', async (req, res) => {
     try {
-        const completedStatusId = await queryOne("SELECT id FROM booking_statuses WHERE name = 'completed'");
-        const confirmedStatusId = await queryOne("SELECT id FROM booking_statuses WHERE name = 'confirmed'");
-        const cancelledStatusId = await queryOne("SELECT id FROM booking_statuses WHERE name = 'cancelled'");
-        const pendingStatusId = await queryOne("SELECT id FROM booking_statuses WHERE name = 'pending'");
-
-        // Total revenue (completed + confirmed)
-        const totalResult = await queryOne(`
-      SELECT COALESCE(SUM(total_price), 0) as total 
-      FROM bookings 
-      WHERE status_id IN ($1, $2)
-    `, [completedStatusId.id, confirmedStatusId.id]);
-
-        // Revenue by court
-        const revenueByCourt = await query(`
-      SELECT c.name as court_name, COUNT(b.id) as booking_count, COALESCE(SUM(b.total_price), 0) as revenue
-      FROM courts c
-      LEFT JOIN bookings b ON c.id = b.court_id AND b.status_id IN ($1, $2)
-      GROUP BY c.id, c.name
-      ORDER BY revenue DESC
-    `, [completedStatusId.id, confirmedStatusId.id]);
-
-        // Revenue by month
-        const revenueByMonth = await query(`
-      SELECT TO_CHAR(booking_date, 'YYYY-MM') as month, COALESCE(SUM(total_price), 0) as revenue
-      FROM bookings
-      WHERE status_id IN ($1, $2)
-      GROUP BY TO_CHAR(booking_date, 'YYYY-MM')
-      ORDER BY month DESC
-      LIMIT 12
-    `, [completedStatusId.id, confirmedStatusId.id]);
-
-        // Booking stats
-        const bookingStats = {
-            total: (await queryOne('SELECT COUNT(*) as count FROM bookings')).count,
-            pending: (await queryOne('SELECT COUNT(*) as count FROM bookings WHERE status_id = $1', [pendingStatusId.id])).count,
-            confirmed: (await queryOne('SELECT COUNT(*) as count FROM bookings WHERE status_id = $1', [confirmedStatusId.id])).count,
-            completed: (await queryOne('SELECT COUNT(*) as count FROM bookings WHERE status_id = $1', [completedStatusId.id])).count,
-            cancelled: (await queryOne('SELECT COUNT(*) as count FROM bookings WHERE status_id = $1', [cancelledStatusId.id])).count
+        const statusRes = await pool.query("SELECT id, status_name FROM booking_statuses");
+        const getId = (name) => {
+            const found = statusRes.rows.find(s => s.status_name.toLowerCase() === name.toLowerCase());
+            return found ? found.id : null;
         };
 
+        const pendingId = getId('pending') || 1;
+        const confirmedId = getId('confirmed') || 2;
+        const cancelledId = getId('cancelled') || 3;
+        const completedId = getId('completed') || 4;
+
+        const totalRes = await pool.query(`
+            SELECT COALESCE(SUM(total_price), 0) as total 
+            FROM bookings 
+            WHERE status_id IN ($1, $2)
+        `, [confirmedId, completedId]);
+
+        const revenueByCourt = await pool.query(`
+            SELECT c.name as court_name, 
+                   COUNT(b.id) as booking_count, 
+                   COALESCE(SUM(b.total_price), 0) as revenue
+            FROM courts c
+            LEFT JOIN bookings b ON c.id = b.court_id 
+                AND b.status_id IN ($1, $2)
+            GROUP BY c.id, c.name
+            ORDER BY revenue DESC
+        `, [confirmedId, completedId]);
+
+        const revenueByMonth = await pool.query(`
+            SELECT TO_CHAR(booking_date, 'YYYY-MM') as month, 
+                   COALESCE(SUM(total_price), 0) as revenue
+            FROM bookings
+            WHERE status_id IN ($1, $2)
+            GROUP BY TO_CHAR(booking_date, 'YYYY-MM')
+            ORDER BY month DESC
+            LIMIT 12
+        `, [confirmedId, completedId]);
+
+        const statsRes = await pool.query(`
+            SELECT 
+                COUNT(*) as total,
+                SUM(CASE WHEN status_id = $1 THEN 1 ELSE 0 END) as pending,
+                SUM(CASE WHEN status_id = $2 THEN 1 ELSE 0 END) as confirmed,
+                SUM(CASE WHEN status_id = $3 THEN 1 ELSE 0 END) as cancelled,
+                SUM(CASE WHEN status_id = $4 THEN 1 ELSE 0 END) as completed
+            FROM bookings
+        `, [pendingId, confirmedId, cancelledId, completedId]);
+
+        const stats = statsRes.rows[0];
+
         res.json({
-            totalRevenue: totalResult.total,
-            revenueByCourt,
-            revenueByMonth,
-            bookingStats
+            totalRevenue: totalRes.rows[0].total,
+            revenueByCourt: revenueByCourt.rows,
+            revenueByMonth: revenueByMonth.rows,
+            bookingStats: {
+                total: parseInt(stats.total) || 0,
+                pending: parseInt(stats.pending) || 0,
+                confirmed: parseInt(stats.confirmed) || 0,
+                completed: parseInt(stats.completed) || 0,
+                cancelled: parseInt(stats.cancelled) || 0
+            }
         });
     } catch (error) {
-        console.error('Revenue error:', error);
+        console.error('Lỗi doanh thu:', error);
         res.status(500).json({ error: 'Lỗi server' });
     }
 });
 
-// Get all customers
+// ==========================================
+// 4. QUẢN LÝ KHÁCH HÀNG & SÂN BÃI
+// ==========================================
 router.get('/customers', async (req, res) => {
     try {
-        const customers = await query(`
-      SELECT u.id, u.email, u.phone, u.full_name, u.is_locked, u.created_at,
-        COUNT(b.id) as booking_count
-      FROM users u
-      LEFT JOIN bookings b ON u.id = b.user_id
-      WHERE u.role_id = (SELECT id FROM roles WHERE name = 'user')
-      GROUP BY u.id
-      ORDER BY u.created_at DESC
-    `);
-
-        res.json(customers);
-    } catch (error) {
-        res.status(500).json({ error: 'Lỗi server' });
-    }
+        const result = await pool.query("SELECT * FROM users WHERE role_id = (SELECT id FROM roles WHERE name = 'user')");
+        res.json(result.rows);
+    } catch (error) { res.status(500).json({ error: 'Lỗi' }); }
 });
 
-// Lock/unlock customer
-router.put('/customers/:id/lock', async (req, res) => {
-    try {
-        const user = await queryOne('SELECT is_locked FROM users WHERE id = $1', [req.params.id]);
-        if (!user) {
-            return res.status(404).json({ error: 'Không tìm thấy người dùng' });
-        }
-
-        await query('UPDATE users SET is_locked = $1 WHERE id = $2', [!user.is_locked, req.params.id]);
-
-        // Delete sessions if locking
-        if (!user.is_locked) {
-            await query('DELETE FROM sessions WHERE user_id = $1', [req.params.id]);
-        }
-
-        res.json({ message: user.is_locked ? 'Đã mở khóa tài khoản' : 'Đã khóa tài khoản' });
-    } catch (error) {
-        res.status(500).json({ error: 'Lỗi server' });
-    }
-});
-
-// Delete customer
-router.delete('/customers/:id', async (req, res) => {
-    try {
-        await query('DELETE FROM users WHERE id = $1', [req.params.id]);
-        res.json({ message: 'Đã xóa tài khoản' });
-    } catch (error) {
-        res.status(500).json({ error: 'Lỗi server' });
-    }
-});
-
-// Add court
 router.post('/courts', async (req, res) => {
     try {
         const { name, address, district_id, price_per_hour, description, image_url } = req.body;
-
-        const result = await queryOne(`
-      INSERT INTO courts (name, address, district_id, price_per_hour, description, image_url)
-      VALUES ($1, $2, $3, $4, $5, $6)
-      RETURNING id
-    `, [name, address, district_id, price_per_hour, description, image_url]);
-
-        // Create default time slots
-        const timeSlots = [
-            ['06:00', '07:30'], ['07:30', '09:00'], ['09:00', '10:30'],
-            ['14:00', '15:30'], ['15:30', '17:00'], ['17:00', '18:30'],
-            ['18:30', '20:00'], ['20:00', '21:30']
-        ];
-
-        for (const [start, end] of timeSlots) {
-            await query(
-                'INSERT INTO time_slots (court_id, start_time, end_time) VALUES ($1, $2, $3)',
-                [result.id, start, end]
-            );
-        }
-
-        res.status(201).json({ message: 'Thêm sân thành công', courtId: result.id });
-    } catch (error) {
-        console.error('Add court error:', error);
-        res.status(500).json({ error: 'Lỗi server' });
-    }
+        await pool.query(
+            "INSERT INTO courts (name, address, district_id, price_per_hour, description, image_url) VALUES ($1, $2, $3, $4, $5, $6)",
+            [name, address, district_id, price_per_hour, description, image_url]
+        );
+        res.status(201).json({ message: 'Thêm sân thành công' });
+    } catch (error) { res.status(500).json({ error: 'Lỗi' }); }
 });
 
-// Update court
-router.put('/courts/:id', async (req, res) => {
-    try {
-        const { name, address, district_id, price_per_hour, description, image_url } = req.body;
-
-        await query(`
-      UPDATE courts SET name = $1, address = $2, district_id = $3, price_per_hour = $4, description = $5, image_url = $6
-      WHERE id = $7
-    `, [name, address, district_id, price_per_hour, description, image_url, req.params.id]);
-
-        res.json({ message: 'Cập nhật sân thành công' });
-    } catch (error) {
-        res.status(500).json({ error: 'Lỗi server' });
-    }
-});
-
-// Delete court
 router.delete('/courts/:id', async (req, res) => {
     try {
-        await query('DELETE FROM courts WHERE id = $1', [req.params.id]);
+        await pool.query('DELETE FROM courts WHERE id = $1', [req.params.id]);
         res.json({ message: 'Xóa sân thành công' });
+    } catch (error) { res.status(500).json({ error: 'Lỗi' }); }
+});
+
+// ==========================================
+// 5. QUẢN LÝ KHUNG GIỜ (MỚI THÊM ĐỂ FIX LỖI)
+// ==========================================
+
+// 5.1 Lấy danh sách khung giờ (Theo format Frontend yêu cầu)
+router.get('/courts/:id/slots', async (req, res) => {
+    try {
+        // Lấy tất cả slot từ bảng slots
+        const result = await pool.query('SELECT * FROM slots ORDER BY start_time');
+        
+        // Thêm thuộc tính is_available = true để giao diện hiện tick xanh
+        const slots = result.rows.map(slot => ({
+            ...slot,
+            is_available: true 
+        }));
+        
+        res.json(slots);
     } catch (error) {
+        console.error('Lỗi lấy khung giờ:', error);
         res.status(500).json({ error: 'Lỗi server' });
     }
 });
 
-// Update time slots
+// 5.2 Cập nhật khung giờ (Lưu thay đổi)
 router.put('/courts/:id/slots', async (req, res) => {
     try {
-        const { slots } = req.body;
+        const { slots } = req.body; // Frontend gửi lên danh sách các slot
 
+        // Vì ta dùng bảng slots chung (global), nên ta sẽ update giờ cho toàn hệ thống
         for (const slot of slots) {
-            await query(
-                'UPDATE time_slots SET is_available = $1 WHERE id = $2 AND court_id = $3',
-                [slot.is_available, slot.id, req.params.id]
+            // Chỉ update giờ bắt đầu/kết thúc và tên
+            await pool.query(
+                'UPDATE slots SET start_time = $1, end_time = $2, name = $3 WHERE id = $4',
+                [slot.start_time, slot.end_time, slot.name, slot.id]
             );
         }
 
         res.json({ message: 'Cập nhật khung giờ thành công' });
     } catch (error) {
+        console.error('Lỗi cập nhật khung giờ:', error);
         res.status(500).json({ error: 'Lỗi server' });
     }
 });

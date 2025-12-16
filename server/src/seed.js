@@ -52,13 +52,14 @@ async function seed() {
   `, [userPasswordHash]);
 
     // Insert courts
+    // Insert courts
     await query(`
-    INSERT INTO courts (name, address, district_id, price_per_hour, description) VALUES
-    ('Sân Pickleball Landmark', '123 Đường ABC, Phường Bến Nghé', 1, 200000, 'Sân tiêu chuẩn quốc tế, có máy lạnh'),
-    ('Sân Pickleball Sunrise', '456 Đường DEF, Phường Tân Phong', 3, 180000, 'Sân ngoài trời, view đẹp'),
-    ('Sân Pickleball Green Park', '789 Đường GHI, Phường Hiệp Bình', 4, 150000, 'Không gian xanh mát'),
-    ('Sân Pickleball Star', '321 Đường JKL, Phường Võ Thị Sáu', 2, 220000, 'Sân cao cấp, có quán cafe'),
-    ('Sân Pickleball Victory', '654 Đường MNO, Phường 25', 5, 170000, 'Sân rộng rãi, nhiều bãi đổ xe')
+    INSERT INTO courts (name, address, district_id, price_per_hour, description, image_url) VALUES
+    ('Sân Pickleball Landmark', '123 Đường ABC, Phường Bến Nghé', 1, 200000, 'Sân tiêu chuẩn quốc tế, có máy lạnh', '/uploads/court-1.jpg'),
+    ('Sân Pickleball Sunrise', '456 Đường DEF, Phường Tân Phong', 3, 180000, 'Sân ngoài trời, view đẹp', '/uploads/court-2.jpg'),
+    ('Sân Pickleball Green Park', '789 Đường GHI, Phường Hiệp Bình', 4, 150000, 'Không gian xanh mát', '/uploads/court-3.jpg'),
+    ('Sân Pickleball Star', '321 Đường JKL, Phường Võ Thị Sáu', 2, 220000, 'Sân cao cấp, có quán cafe', '/uploads/court-4.jpg'),
+    ('Sân Pickleball Victory', '654 Đường MNO, Phường 25', 5, 170000, 'Sân rộng rãi, nhiều bãi đổ xe', '/uploads/court-5.jpg')
   `);
 
     // Insert time slots for each court

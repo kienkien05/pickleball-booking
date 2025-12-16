@@ -6,7 +6,7 @@ const pool = new Pool({
   port: process.env.DB_PORT || 5432,
   database: process.env.DB_NAME || 'pickleball',
   user: process.env.DB_USER || 'postgres',
-  password: process.env.DB_PASSWORD || 'postgres123'
+  password: process.env.DB_PASSWORD || '123456'
 });
 
 // Helper function to run queries
@@ -15,7 +15,7 @@ const query = async (text, params) => {
   return result.rows;
 };
 
-// Get single row
+// Get single row 
 const queryOne = async (text, params) => {
   const result = await pool.query(text, params);
   return result.rows[0];

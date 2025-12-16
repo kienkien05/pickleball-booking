@@ -19,6 +19,8 @@ app.use(cors());
 app.use(express.json());
 
 // Serve static files
+// Thêm dấu ../ để thoát ra khỏi thư mục src
+app.use('/uploads', express.static(path.join(__dirname, '../public/uploads')));
 app.use(express.static(path.join(__dirname, '../../client')));
 
 // API Routes
