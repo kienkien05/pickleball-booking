@@ -38,7 +38,7 @@ async function loadSlots() {
     container.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
 
     try {
-        const slots = await api.get(`/courts/${courtId}/slots`);
+       const slots = await api.get(`/admin/courts/${courtId}/slots`);
         currentSlots = slots;
 
         container.innerHTML = slots.map(slot => `

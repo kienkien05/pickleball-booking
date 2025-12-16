@@ -164,6 +164,28 @@ router.get('/revenue', async (req, res) => {
 // ==========================================
 // 4. QUẢN LÝ KHÁCH HÀNG & SÂN BÃI
 // ==========================================
+
+// PUT (Cập nhật sân) - Fix lỗi Unexpected token
+router.put('/courts/:id', async (req, res) => {
+    try {
+        const { name, address, district_id, price_per_hour, description, image_url } = req.body;
+        const courtId = req.params.id;
+
+        const sql = `
+            UPDATE courts 
+            SET name = $1, address = $2, district_id = $3, price_per_hour = $4, description = $5, image_url = $6
+            WHERE id = $7
+        `;
+        const values = [name, address, district_id, price_per_hour, description, image_url, courtId];
+        
+        await pool.query(sql, values);
+        res.json({ message: 'Cập nhật sân thành công' });
+    } catch (error) {
+        console.error('Lỗi cập nhật sân:', error);
+        res.status(500).json({ error: 'Lỗi server khi cập nhật sân' });
+    }
+});
+
 router.get('/customers', async (req, res) => {
     try {
         const result = await pool.query("SELECT * FROM users WHERE role_id = (SELECT id FROM roles WHERE name = 'user')");
@@ -190,46 +212,63 @@ router.delete('/courts/:id', async (req, res) => {
 });
 
 // ==========================================
-// 5. QUẢN LÝ KHUNG GIỜ (MỚI THÊM ĐỂ FIX LỖI)
+// 5. QUẢN LÝ KHUNG GIỜ (ĐÃ FIX HOÀN CHỈNH)
 // ==========================================
 
-// 5.1 Lấy danh sách khung giờ (Theo format Frontend yêu cầu)
+// 5.1 Lấy danh sách khung giờ (GET)
+// Fix: Lấy dữ liệu thực tế từ DB, nếu null thì mặc định true
 router.get('/courts/:id/slots', async (req, res) => {
     try {
-        // Lấy tất cả slot từ bảng slots
+        // SELECT * để lấy cả cột is_available
         const result = await pool.query('SELECT * FROM slots ORDER BY start_time');
         
-        // Thêm thuộc tính is_available = true để giao diện hiện tick xanh
         const slots = result.rows.map(slot => ({
             ...slot,
-            is_available: true 
+            // Nếu DB có giá trị thì dùng, nếu null/undefined thì mặc định là true
+            is_available: (slot.is_available === undefined || slot.is_available === null) ? true : slot.is_available
         }));
         
         res.json(slots);
     } catch (error) {
         console.error('Lỗi lấy khung giờ:', error);
-        res.status(500).json({ error: 'Lỗi server' });
+        res.status(500).json({ error: 'Lỗi server: ' + error.message });
     }
 });
 
-// 5.2 Cập nhật khung giờ (Lưu thay đổi)
+// 5.2 Cập nhật khung giờ (PUT)
+// Fix: Chỉ update trạng thái is_available, dùng Transaction an toàn
 router.put('/courts/:id/slots', async (req, res) => {
+    const client = await pool.connect();
     try {
-        const { slots } = req.body; // Frontend gửi lên danh sách các slot
+        await client.query('BEGIN'); // Bắt đầu Transaction
 
-        // Vì ta dùng bảng slots chung (global), nên ta sẽ update giờ cho toàn hệ thống
-        for (const slot of slots) {
-            // Chỉ update giờ bắt đầu/kết thúc và tên
-            await pool.query(
-                'UPDATE slots SET start_time = $1, end_time = $2, name = $3 WHERE id = $4',
-                [slot.start_time, slot.end_time, slot.name, slot.id]
-            );
+        const { slots } = req.body; 
+
+        // 1. Kiểm tra dữ liệu gửi lên
+        if (!slots || !Array.isArray(slots)) {
+            return res.status(400).json({ error: 'Dữ liệu slots không hợp lệ' });
         }
 
+        // 2. Duyệt qua danh sách slots và CHỈ UPDATE trường is_available
+        for (const slot of slots) {
+            // Đảm bảo chỉ update nếu có id và is_available
+            if (slot.id && slot.is_available !== undefined) {
+                 await client.query(
+                    'UPDATE slots SET is_available = $1 WHERE id = $2',
+                    [slot.is_available, slot.id]
+                );
+            }
+        }
+
+        await client.query('COMMIT'); // Hoàn thành Transaction
         res.json({ message: 'Cập nhật khung giờ thành công' });
+
     } catch (error) {
-        console.error('Lỗi cập nhật khung giờ:', error);
-        res.status(500).json({ error: 'Lỗi server' });
+        await client.query('ROLLBACK'); // Hoàn tác nếu có lỗi
+        console.error('Lỗi PUT slots:', error);
+        res.status(500).json({ error: 'Lỗi server khi cập nhật khung giờ' });
+    } finally {
+        client.release();
     }
 });
 
