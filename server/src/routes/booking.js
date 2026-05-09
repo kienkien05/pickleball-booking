@@ -580,7 +580,7 @@ router.get('/', async (req, res) => {
         const result = await pool.query(`
             SELECT
                 b.id,
-                b.booking_date,
+                TO_CHAR(b.booking_date, 'YYYY-MM-DD') AS booking_date,
                 b.total_price,
                 b.deposit_amount,
                 b.amount_paid,

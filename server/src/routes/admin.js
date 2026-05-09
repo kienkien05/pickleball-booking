@@ -83,7 +83,7 @@ router.get('/bookings', async (req, res) => {
 
         let sql = `
             SELECT
-                b.id, b.booking_date, b.total_price, b.deposit_amount,
+                b.id, TO_CHAR(b.booking_date, 'YYYY-MM-DD') AS booking_date, b.total_price, b.deposit_amount,
                 b.amount_paid, b.payment_type, b.notes, b.is_auto_booking, b.created_at,
                 c.name          AS court_name,
                 c.address       AS court_address,
