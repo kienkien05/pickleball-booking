@@ -104,21 +104,8 @@
 
 <body>
     <div class="admin-layout">
-        <!-- Sidebar -->
-        <aside class="admin-sidebar">
-            <a href="/" class="admin-sidebar-logo">Pickleball Admin</a>
-            <ul class="admin-nav">
-                <li><a href="/admin/dashboard/dashboard.html"> Dashboard</a></li>
-                <li><a href="/admin/revenue/revenue.html"> Doanh thu</a></li>
-                <li><a href="/admin/orders/orders.html"> Đơn đặt sân</a></li>
-                <li><a href="/admin/customers/customers.html"> Khách hàng</a></li>
-                <li><a href="/admin/courts/courts.html"> Quản lý sân</a></li>
-                <li><a href="/admin/timeslots/timeslots.html"> Khung giờ</a></li>
-                <li><a href="/admin/equipment/equipment.html"> Dịch vụ đi kèm</a></li>
-                <li><a href="/admin/scanner/scanner.html" class="active"> Quét mã QR</a></li>
-                <li><a href="#" class="logout-btn"> Đăng xuất</a></li>
-            </ul>
-        </aside>
+        <!-- Sidebar (Loaded dynamically via /assets/js/admin-sidebar.js) -->
+        <aside class="admin-sidebar"></aside>
 
         <!-- Main Content -->
         <main class="admin-content">
@@ -159,6 +146,7 @@
     </div>
 
     <script src="/assets/js/common.js"></script>
+    <script src="/assets/js/admin-sidebar.js"></script>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <script>
         // Cờ kiểm soát trạng thái để tránh việc camera quét liên tục 1 mã nhiều lần
