@@ -576,40 +576,57 @@ router.put('/customers/:id/reset-cancels', async (req, res) => {
 
 router.get('/equipment', async (req, res) => {
     try {
-        const result = await pool.query('SELECT * FROM equipment ORDER BY id');
+        const { court_id } = req.query;
+        let sql = `
+            SELECT e.*, c.name AS court_name 
+            FROM equipment e
+            LEFT JOIN courts c ON e.court_id = c.id
+        `;
+        const params = [];
+        if (court_id) {
+            sql += ' WHERE e.court_id = $1';
+            params.push(court_id);
+        }
+        sql += ' ORDER BY e.court_id, e.id';
+        const result = await pool.query(sql, params);
         res.json(result.rows);
     } catch (error) {
+        console.error('Lỗi lấy danh sách thiết bị admin:', error);
         res.status(500).json({ error: 'Lỗi server' });
     }
 });
 
 router.post('/equipment', async (req, res) => {
     try {
-        const { name, description, price_per_booking, available_quantity, is_active = true } = req.body;
+        const { name, description, price_per_booking, available_quantity, is_active = true, court_id } = req.body;
         if (!name || price_per_booking === undefined || price_per_booking === null) {
             return res.status(400).json({ error: 'Thiếu tên hoặc giá thiết bị' });
         }
         const result = await pool.query(
-            "INSERT INTO equipment (name, description, price_per_booking, available_quantity, is_active) VALUES ($1,$2,$3,$4,$5) RETURNING *",
-            [name, description || null, price_per_booking, available_quantity ?? 10, is_active]
+            "INSERT INTO equipment (name, description, price_per_booking, available_quantity, is_active, court_id) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *",
+            [name, description || null, price_per_booking, available_quantity ?? 10, is_active ?? true, court_id || null]
         );
         res.status(201).json({ message: 'Thêm thiết bị thành công', equipment: result.rows[0] });
     } catch (error) {
+        console.error('Lỗi thêm thiết bị:', error);
         res.status(500).json({ error: 'Lỗi server' });
     }
 });
 
 router.put('/equipment/:id', async (req, res) => {
     try {
-        const { name, description, price_per_booking, available_quantity, is_active } = req.body;
+        const { name, description, price_per_booking, available_quantity, is_active, court_id } = req.body;
         await pool.query(`
             UPDATE equipment
             SET name=$1, description=$2, price_per_booking=$3,
-                available_quantity=$4, is_active=COALESCE($5, is_active)
-            WHERE id=$6
-        `, [name, description, price_per_booking, available_quantity, is_active, req.params.id]);
+                available_quantity=COALESCE($4, available_quantity), 
+                is_active=COALESCE($5, is_active),
+                court_id=$6
+            WHERE id=$7
+        `, [name, description, price_per_booking, available_quantity ?? null, is_active ?? null, court_id || null, req.params.id]);
         res.json({ message: 'Cập nhật thiết bị thành công' });
     } catch (error) {
+        console.error('Lỗi cập nhật thiết bị:', error);
         res.status(500).json({ error: 'Lỗi server' });
     }
 });

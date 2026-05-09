@@ -123,11 +123,13 @@ const initDatabase = async () => {
 
       CREATE TABLE IF NOT EXISTS equipment (
         id SERIAL PRIMARY KEY,
+        court_id INTEGER REFERENCES courts(id) ON DELETE CASCADE,
         name VARCHAR(255) NOT NULL,
         description TEXT,
         price_per_booking DECIMAL(10,2) NOT NULL,
         available_quantity INTEGER DEFAULT 10,
-        is_active BOOLEAN DEFAULT TRUE
+        is_active BOOLEAN DEFAULT TRUE,
+        category VARCHAR(50)
       );
 
       -- ===== BOOKINGS =====
@@ -227,6 +229,7 @@ const initDatabase = async () => {
       ALTER TABLE notifications ADD COLUMN IF NOT EXISTS is_read BOOLEAN DEFAULT FALSE;
       ALTER TABLE notifications ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}'::jsonb;
       ALTER TABLE equipment ADD COLUMN IF NOT EXISTS category VARCHAR(50);
+      ALTER TABLE equipment ADD COLUMN IF NOT EXISTS court_id INTEGER REFERENCES courts(id) ON DELETE CASCADE;
     `);
 
     await client.query(`

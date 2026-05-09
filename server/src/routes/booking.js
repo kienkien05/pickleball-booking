@@ -169,12 +169,17 @@ router.get('/payment-methods/list', async (req, res) => {
 // ────────────────────────────────────────────────
 router.get('/equipment/list', async (req, res) => {
     try {
-        const result = await pool.query(`
-            SELECT id, name, description, price_per_booking, available_quantity
-            FROM equipment
-            WHERE is_active = true
-            ORDER BY id
-        `);
+        const { court_id } = req.query;
+        let sql = 'SELECT id, name, description, price_per_booking, available_quantity, court_id FROM equipment WHERE is_active = true';
+        const params = [];
+
+        if (court_id) {
+            sql += ' AND court_id = $1';
+            params.push(court_id);
+        }
+
+        sql += ' ORDER BY id';
+        const result = await pool.query(sql, params);
         res.json(result.rows);
     } catch (error) {
         console.error('Lỗi lấy danh sách thiết bị:', error);
