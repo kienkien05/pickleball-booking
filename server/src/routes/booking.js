@@ -309,7 +309,7 @@ router.post('/', async (req, res) => {
                 SELECT id, name, price_per_booking, available_quantity
                 FROM equipment
                 WHERE id = ANY($1::int[]) AND is_active = true
-                FOR SHARE
+                FOR UPDATE
             `, [equipmentIds]);
 
             if (equipmentRes.rows.length !== equipmentIds.length) {
@@ -408,6 +408,13 @@ router.post('/', async (req, res) => {
                 INSERT INTO booking_equipment (booking_id, equipment_id, quantity, subtotal)
                 VALUES ($1, $2, $3, $4)
             `, [newBooking.rows[0].id, item.equipment_id, item.quantity, item.subtotal]);
+
+            // Cập nhật giảm số lượng thiết bị khả dụng
+            await client.query(`
+                UPDATE equipment
+                SET available_quantity = available_quantity - $1
+                WHERE id = $2
+            `, [item.quantity, item.equipment_id]);
         }
 
         await createNotification(client, {
@@ -929,6 +936,14 @@ router.put('/:id/cancel', async (req, res) => {
             [user_id]
         );
 
+        // ⑧b Hoàn trả số lượng thiết bị đi kèm (nếu có)
+        await client.query(`
+            UPDATE equipment e
+            SET available_quantity = e.available_quantity + be.quantity
+            FROM booking_equipment be
+            WHERE be.equipment_id = e.id AND be.booking_id = $1
+        `, [bookingId]);
+
         await client.query('COMMIT');
 
         const newCancelCount = (booking.cancel_count || 0) + 1;
@@ -990,7 +1005,7 @@ router.post('/:id/equipment', async (req, res) => {
 
         // Kiểm tra thiết bị
         const equipRes = await client.query(
-            'SELECT id, name, price_per_booking, available_quantity FROM equipment WHERE id = $1 AND is_active = true',
+            'SELECT id, name, price_per_booking, available_quantity FROM equipment WHERE id = $1 AND is_active = true FOR UPDATE',
             [equipment_id]
         );
         if (equipRes.rows.length === 0) {
@@ -1038,6 +1053,13 @@ router.post('/:id/equipment', async (req, res) => {
                 END
             WHERE id = $2
         `, [subtotal, bookingId]);
+
+        // Cập nhật giảm số lượng thiết bị khả dụng
+        await client.query(`
+            UPDATE equipment
+            SET available_quantity = available_quantity - $1
+            WHERE id = $2
+        `, [quantity, equipment_id]);
 
         await client.query('COMMIT');
         res.json({ message: `Đã thêm ${quantity} ${equip.name} vào đơn đặt sân` });

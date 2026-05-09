@@ -245,6 +245,14 @@ router.put('/bookings/:id', async (req, res) => {
                     [booking.user_id]
                 );
             }
+
+            // Hoàn trả số lượng thiết bị đi kèm (nếu có) khi hủy hoặc vắng mặt
+            await client.query(`
+                UPDATE equipment e
+                SET available_quantity = e.available_quantity + be.quantity
+                FROM booking_equipment be
+                WHERE be.equipment_id = e.id AND be.booking_id = $1
+            `, [req.params.id]);
         }
 
         // Ghi nhận thanh toán vào bảng payments khi check-in (thu 90% còn lại)
