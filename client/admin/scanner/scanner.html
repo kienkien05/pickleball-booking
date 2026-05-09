@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - Quét mã QR</title>
+    <link rel="stylesheet" href="/assets/css/main.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <style>
+        .scanner-container {
+            max-width: 500px;
+            margin: 0 auto;
+            position: relative;
+            background: white;
+            padding: 1.5rem;
+            border-radius: 16px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Tùy chỉnh lại giao diện mặc định của thư viện Html5QrcodeScanner */
+        #reader {
+            width: 100%;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 2px dashed #cbd5e1 !important;
+        }
+
+        #reader img {
+            max-width: 100%;
+        }
+
+        #reader button {
+            background-color: #3b82f6;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            margin: 5px;
+            font-weight: bold;
+        }
+
+        #reader button:hover {
+            background-color: #2563eb;
+        }
+
+        .result-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.85);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+            backdrop-filter: blur(8px);
+        }
+
+        .result-card {
+            background: white;
+            padding: 2.5rem;
+            border-radius: 24px;
+            text-align: center;
+            width: 90%;
+            max-width: 400px;
+            position: relative;
+            /* Quan trọng: Dùng để làm gốc tọa độ cho nút X */
+        }
+
+        /* Thêm style cho nút X */
+        .close-popup-btn {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            background: transparent;
+            border: none;
+            font-size: 1.5rem;
+            color: #9ca3af;
+            /* Màu xám nhạt */
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 4px;
+            border-radius: 50%;
+        }
+
+        .close-popup-btn:hover {
+            color: #ef4444;
+            background-color: #fee2e2;
+        }
+
+        .status-icon {
+            font-size: 5rem;
+            margin-bottom: 1.5rem;
+            display: block;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="admin-layout">
+        <!-- Sidebar -->
+        <aside class="admin-sidebar">
+            <a href="/" class="admin-sidebar-logo">Pickleball Admin</a>
+            <ul class="admin-nav">
+                <li><a href="/admin/dashboard/dashboard.html"> Dashboard</a></li>
+                <li><a href="/admin/revenue/revenue.html"> Doanh thu</a></li>
+                <li><a href="/admin/orders/orders.html"> Đơn đặt sân</a></li>
+                <li><a href="/admin/customers/customers.html"> Khách hàng</a></li>
+                <li><a href="/admin/courts/courts.html"> Quản lý sân</a></li>
+                <li><a href="/admin/timeslots/timeslots.html"> Khung giờ</a></li>
+                <li><a href="/admin/equipment/equipment.html"> Dịch vụ đi kèm</a></li>
+                <li><a href="/admin/scanner/scanner.html" class="active"> Quét mã QR</a></li>
+                <li><a href="#" class="logout-btn"> Đăng xuất</a></li>
+            </ul>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="admin-content">
+            <div class="admin-header">
+                <div>
+                    <h1>Quét mã QR</h1>
+                    <p class="text-muted">Đưa mã QR vào khung hình hoặc chọn "Scan an Image File" để tải ảnh lên</p>
+                </div>
+            </div>
+
+            <div class="scanner-container mt-3">
+                <!-- Thư viện sẽ tự động render toàn bộ UI (Camera, Upload ảnh) vào thẻ div này -->
+                <div id="reader"></div>
+
+                <div class="mt-4 flex gap-2" style="margin-top: 1.5rem;">
+                    <input type="text" id="manual-id" class="form-control"
+                        placeholder="Hoặc nhập tay ID đơn (ví dụ: 8)">
+                    <button class="btn btn-primary" onclick="handleManualInput()"
+                        style="padding: 10px 20px; border-radius: 8px;">Xử lý</button>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Result Overlay -->
+    <!-- Result Overlay -->
+    <div id="result-overlay" class="result-overlay">
+        <div class="result-card">
+            <!-- Thêm nút X ở đây -->
+            <button class="close-popup-btn" onclick="closeResult()">
+                <i class="bi bi-x-lg"></i>
+            </button>
+
+            <span id="status-icon" class="status-icon"></span>
+            <h2 id="result-title">Kết quả</h2>
+            <p id="result-message" class="mt-2 text-lg"></p>
+        </div>
+    </div>
+
+    <script src="/assets/js/common.js"></script>
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <script>
+        // Cờ kiểm soát trạng thái để tránh việc camera quét liên tục 1 mã nhiều lần
+        let isProcessing = false;
+
+        const overlay = document.getElementById('result-overlay');
+        const resultTitle = document.getElementById('result-title');
+        const resultMessage = document.getElementById('result-message');
+
+        function playSuccessBeep() {
+            try {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                const audioCtx = new AudioContext();
+                const oscillator = audioCtx.createOscillator();
+                const gainNode = audioCtx.createGain();
+                oscillator.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+                oscillator.type = 'sine';
+                oscillator.frequency.value = 800;
+                gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                oscillator.start();
+                setTimeout(() => oscillator.stop(), 150);
+            } catch (err) { }
+        }
+
+        // Khởi tạo Scanner giống hệt dự án HRM
+        function initScanner() {
+            // Sử dụng Html5QrcodeScanner thay vì Html5Qrcode
+            const html5QrcodeScanner = new Html5QrcodeScanner(
+                "reader",
+                {
+                    fps: 10,
+                    qrbox: { width: 250, height: 250 },
+                    aspectRatio: 1.0
+                },
+                false // verbose = false
+            );
+
+            // Hàm callback khi quét thành công
+            const onScanSuccess = (decodedText, decodedResult) => {
+                // Nếu đang xử lý API hoặc popup đang mở thì bỏ qua, không quét tiếp
+                if (isProcessing) return;
+
+                console.log(`Scan result: ${decodedText}`);
+                playSuccessBeep();
+                processScan(decodedText.trim());
+            };
+
+            // Hàm callback khi đang tìm mã (thường chạy liên tục, bỏ qua log để sạch console)
+            const onScanFailure = (error) => {
+                // console.warn(`QR Scan Error: ${error}`);
+            };
+
+            // Render giao diện tự động
+            html5QrcodeScanner.render(onScanSuccess, onScanFailure);
+        }
+
+        // Gọi API xử lý
+        async function processScan(bookingId) {
+            if (!bookingId) return;
+
+            // Bật cờ khóa luồng quét
+            isProcessing = true;
+
+            try {
+                overlay.style.display = 'flex';
+                resultTitle.textContent = 'Đang xử lý...';
+                resultTitle.style.color = '#333';
+                resultMessage.textContent = `Đang xác thực ID: ${bookingId}`;
+
+                // GỌI API
+                const response = await api.post('/bookings/scan-qr', { booking_id: bookingId });
+
+                resultTitle.textContent = 'Thành công';
+                resultTitle.style.color = '#10b981';
+                resultMessage.textContent = response.message || "Đã check-in thành công!";
+
+                // Đóng popup sau 2 giây và MỞ KHÓA quét tiếp
+                setTimeout(() => {
+                    closeResult();
+                }, 2000);
+
+            } catch (error) {
+                resultTitle.textContent = 'Thất bại';
+                resultTitle.style.color = '#ef4444';
+                resultMessage.textContent = error.message || "Lỗi kết nối máy chủ!";
+
+                // Đóng popup sau 3.5 giây và MỞ KHÓA quét tiếp
+                setTimeout(() => {
+                    closeResult();
+                }, 3500);
+            }
+        }
+
+        function handleManualInput() {
+            const val = document.getElementById('manual-id').value.trim();
+            if (val) {
+                processScan(val);
+            } else {
+                alert("Vui lòng nhập ID đơn!");
+            }
+        }
+
+        function closeResult() {
+            overlay.style.display = 'none';
+            document.getElementById('manual-id').value = '';
+
+            // Mở khóa để camera có thể quét mã tiếp theo
+            isProcessing = false;
+        }
+
+        // Khởi động khi tải xong trang
+        document.addEventListener('DOMContentLoaded', () => {
+            initScanner();
+        });
+    </script>
+</body>
+
+</html>

@@ -141,6 +141,10 @@ function renderBookings() {
                     ? `<button class="btn btn-primary btn-sm mt-1"
                                onclick="openAutoPayModal(${booking.id})">Thanh toán online</button>`
                     : ''}
+                ${booking.status === 'confirmed' || booking.status === 'in_progress'
+                    ? `<button class="btn btn-info btn-sm mt-1"
+                                onclick="openQrModal(${booking.id})">Mã QR Check-in</button>`
+                    : ''}
             </div>
         </div>`;
     });
@@ -255,4 +259,29 @@ async function confirmAutoPayment() {
         btn.textContent = 'Xác nhận thanh toán';
         autoPayBookingId = null;
     }
+}
+
+function openQrModal(bookingId) {
+    const container = document.getElementById('qr-code-container');
+    const label = document.getElementById('qr-booking-id');
+    container.innerHTML = '';
+    label.textContent = `Mã đơn: #${bookingId}`;
+
+    const canvas = document.createElement('canvas');
+    container.appendChild(canvas);
+
+    // Sử dụng thư viện qrcode ở mức cơ bản nhất để máy quét dễ đọc nhất
+    QRCode.toCanvas(canvas, String(bookingId), { 
+        width: 280,
+        margin: 1,
+        scale: 10,
+        errorCorrectionLevel: 'M'
+    }, (error) => {
+        if (error) {
+            console.error(error);
+            container.innerHTML = '<p class="text-danger">Không thể tạo mã QR</p>';
+        }
+    });
+
+    showModal('qr-modal');
 }

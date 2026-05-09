@@ -1051,4 +1051,32 @@ router.post('/:id/equipment', async (req, res) => {
     }
 });
 
+const { processQrScan } = require('../services/qrCheckin');
+
+// ────────────────────────────────────────────────
+// 9. QUÉT MÃ QR CHECK-IN/CHECK-OUT
+// ────────────────────────────────────────────────
+router.post('/scan-qr', async (req, res) => {
+    const { booking_id } = req.body;
+    const user_id = req.user.id;
+    const isAdmin = req.user.role === 'admin';
+
+    if (!booking_id) {
+        return res.status(400).json({ error: 'Thiếu mã đơn đặt sân (booking_id).' });
+    }
+
+    try {
+        const result = await processQrScan(booking_id, user_id, isAdmin);
+        if (result.success) {
+            res.json({ message: result.message });
+        } else {
+            res.status(400).json({ error: result.message });
+        }
+    } catch (error) {
+        console.error('Lỗi quét mã QR:', error);
+        res.status(500).json({ error: 'Lỗi server khi xử lý quét mã QR.' });
+    }
+});
+
 module.exports = router;
+

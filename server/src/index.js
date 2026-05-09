@@ -3,6 +3,7 @@ const cors = require('cors');
 const path = require('path');
 const { initDatabase } = require('./config/database');
 const { startVipAutoBookingScheduler } = require('./services/vipAutoBooking');
+const { startAutoCheckoutScheduler } = require('./services/autoCheckout');
 
 // Routes
 const authRoutes    = require('./routes/auth');
@@ -49,6 +50,7 @@ async function startServer() {
         app.listen(PORT, () => {
             console.log(`Server chạy tại http://localhost:${PORT}`);
             startVipAutoBookingScheduler();
+            startAutoCheckoutScheduler();
         });
     } catch (error) {
         console.error('Không thể khởi động server:', error);

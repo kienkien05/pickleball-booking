@@ -124,6 +124,7 @@ module.exports = {
     isValidDateString,
     getBangkokTodayString,
     getBangkokTimestampString,
+    getBangkokParts,
     getMondayIndex,
     getNextWeekWindowForWeekday,
     getNextAutoScheduleFromTargetDate,

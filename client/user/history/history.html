@@ -128,6 +128,24 @@
             </div>
         </div>
 
+        <!-- QR Code Modal -->
+        <div class="modal-overlay" id="qr-modal">
+            <div class="modal">
+                <div class="modal-header">
+                    <h3 class="modal-title">Mã QR Check-in/out</h3>
+                    <button class="modal-close" onclick="hideModal('qr-modal')">&times;</button>
+                </div>
+                <div class="modal-body text-center">
+                    <p>Hãy đưa mã này cho nhân viên tại sân để check-in hoặc check-out.</p>
+                    <div id="qr-code-container" style="display: flex; justify-content: center; padding: 20px;"></div>
+                    <div id="qr-booking-id" class="mt-2 text-muted"></div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" onclick="hideModal('qr-modal')">Đóng</button>
+                </div>
+            </div>
+        </div>
+
         <footer class="footer">
             <div class="container">
                 <div class="footer-content">
@@ -138,6 +156,7 @@
     </div>
 
     <script src="/assets/js/common.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
     <script src="history.js"></script>
 </body>
 

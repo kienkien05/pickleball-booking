@@ -3,9 +3,17 @@ const router = express.Router();
 const { pool } = require('../config/database');
 const { authenticateToken, requireAdmin } = require('../middleware/auth');
 
+const { getScheduleBoard } = require('../controllers/adminScheduleController');
+
 // Toàn bộ API Admin yêu cầu đăng nhập + quyền admin
 router.use(authenticateToken);
 router.use(requireAdmin);
+
+/**
+ * @route GET /api/admin/schedule-board
+ * @desc Lấy danh sách đặt sân phục vụ giao diện Thời khóa biểu
+ */
+router.get('/schedule-board', getScheduleBoard);
 
 function formatVnd(amount) {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(amount) || 0);
