@@ -327,4 +327,61 @@ router.post('/trigger-vip-auto-book', authenticate, requireAdmin, async (req, re
   }
 });
 
+// Schedule Board for Admin
+router.get('/schedule-board', authenticate, requireAdmin, async (req, res) => {
+  try {
+    const { start_date, end_date, court_id } = req.query;
+
+    if (!start_date || !end_date) {
+      return res.status(400).json({ error: 'Vui lòng cung cấp start_date và end_date' });
+    }
+
+    const startDate = new Date(start_date);
+    const endDate = new Date(end_date);
+    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+      return res.status(400).json({ error: 'Định dạng ngày không hợp lệ (YYYY-MM-DD)' });
+    }
+    if (startDate > endDate) {
+      return res.status(400).json({ error: 'start_date không được lớn hơn end_date' });
+    }
+
+    const params = [start_date, end_date];
+    let courtFilter = '';
+    if (court_id !== undefined && court_id !== '') {
+      const cid = parseInt(court_id, 10);
+      if (isNaN(cid) || cid <= 0) {
+        return res.status(400).json({ error: 'court_id không hợp lệ' });
+      }
+      params.push(cid);
+      courtFilter = `AND b.sanId = $${params.length}`;
+    }
+
+    const result = await pool.query(
+      `SELECT b.id AS booking_id,
+              b.sanId AS court_id,
+              c.tenSan AS court_name,
+              b.khungGioId AS slot_id,
+              t.gioBatDau AS start_time,
+              t.gioKetThuc AS end_time,
+              b.ngayChoi AS booking_date,
+              u.hoTen AS user_name,
+              u.isVIP AS is_vip,
+              b.isAutoBooking AS is_auto_booking
+       FROM bookings b
+       JOIN timeslots t ON b.khungGioId = t.id
+       JOIN users u ON b.nguoiDungId = u.id
+       JOIN courts c ON b.sanId = c.id
+       WHERE b.ngayChoi BETWEEN $1 AND $2
+         AND b.trangThai != 'Da huy'
+         ${courtFilter}
+       ORDER BY b.ngayChoi, t.gioBatDau, c.tenSan`,
+      params
+    );
+
+    res.json({ data: result.rows });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;

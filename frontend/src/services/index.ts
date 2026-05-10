@@ -108,6 +108,9 @@ export const adminService = {
   exportReports: (params?: { startDate?: string; endDate?: string }) =>
     api.get('/admin/reports/export', { params, responseType: 'blob' }),
 
+  getScheduleBoard: (params: { start_date: string; end_date: string; court_id?: string }) =>
+    api.get('/admin/schedule-board', { params }),
+
   getUsers: (params?: { page?: number; limit?: number; search?: string; status?: string }) =>
     api.get('/users', { params }),
 

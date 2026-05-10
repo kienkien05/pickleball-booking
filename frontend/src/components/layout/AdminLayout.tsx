@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Outlet, NavLink, Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { LayoutDashboard, MapPin, Users, ClipboardList, Package, Clock, BarChart3, Menu, X, Sun, Moon, ChevronLeft, QrCode, Ticket } from 'lucide-react'
+import { LayoutDashboard, MapPin, Users, ClipboardList, Package, Clock, BarChart3, Menu, X, Sun, Moon, ChevronLeft, QrCode, Ticket, CalendarDays } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
 import { useThemeStore } from '@/stores/themeStore'
 import { Button } from '@/components/ui/Button'
@@ -12,6 +12,7 @@ const sidebarLinks = [
   { to: '/admin/courts', icon: MapPin, label: 'Quản lý sân' },
   { to: '/admin/timeslots', icon: Clock, label: 'Khung giờ & Giá' },
   { to: '/admin/bookings', icon: ClipboardList, label: 'Đơn đặt sân' },
+  { to: '/admin/schedule-board', icon: CalendarDays, label: 'Thời khóa biểu' },
   { to: '/admin/services', icon: Package, label: 'Dịch vụ' },
   { to: '/admin/discounts', icon: Ticket, label: 'Giảm giá' },
   { to: '/admin/users', icon: Users, label: 'Khách hàng' },

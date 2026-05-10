@@ -28,6 +28,7 @@ const UsersManagePage = lazy(() => import('@/pages/admin/UsersManagePage'))
 const ReportsPage = lazy(() => import('@/pages/admin/ReportsPage'))
 const DiscountsManagePage = lazy(() => import('@/pages/admin/DiscountsManagePage'))
 const QRScannerPage = lazy(() => import('@/pages/admin/QRScannerPage'))
+const ScheduleBoardPage = lazy(() => import('@/pages/admin/ScheduleBoardPage'))
 
 const ForbiddenPage = lazy(() => import('@/pages/error/ForbiddenPage'))
 
@@ -92,6 +93,7 @@ export default function App() {
           <Route path="reports" element={<ReportsPage />} />
           <Route path="discounts" element={<DiscountsManagePage />} />
           <Route path="scanner" element={<QRScannerPage />} />
+          <Route path="schedule-board" element={<ScheduleBoardPage />} />
         </Route>
 
         <Route path="/forbidden" element={<ForbiddenPage />} />
