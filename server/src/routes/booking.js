@@ -13,6 +13,13 @@ router.post('/', authenticate, async (req, res) => {
     }
     await client.query('BEGIN');
 
+    // Check court is available for booking
+    const courtCheck = await client.query('SELECT trangThai FROM courts WHERE id = $1', [sanId]);
+    if (courtCheck.rows.length === 0 || courtCheck.rows[0].trangthai !== 'Sẵn sàng') {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Sân này hiện không khả dụng để đặt' });
+    }
+
     // Check for conflicts
     const conflictCheck = await client.query(
       "SELECT id FROM bookings WHERE sanId = $1 AND ngayChoi = $2 AND khungGioId = ANY($3) AND trangThai NOT IN ('Đã hủy')",
@@ -27,14 +34,14 @@ router.post('/', authenticate, async (req, res) => {
     let courtPrice = 0;
     for (const slotId of khungGioIds) {
       const slot = await client.query('SELECT mucGia FROM timeslots WHERE id = $1', [slotId]);
-      if (slot.rows.length > 0) courtPrice += parseFloat(slot.rows[0].mucGia) || 0;
+      if (slot.rows.length > 0) courtPrice += parseFloat(slot.rows[0].mucgia) || 0;
     }
 
     let servicesPrice = 0;
     if (dichVu && dichVu.length > 0) {
       for (const d of dichVu) {
         const svc = await client.query('SELECT donGia FROM services WHERE id = $1', [d.dichVuId]);
-        if (svc.rows.length > 0) servicesPrice += (parseFloat(svc.rows[0].donGia) || 0) * (d.soLuong || 1);
+        if (svc.rows.length > 0) servicesPrice += (parseFloat(svc.rows[0].dongia) || 0) * (d.soLuong || 1);
       }
     }
 
@@ -44,7 +51,7 @@ router.post('/', authenticate, async (req, res) => {
     const bookingIds = [];
     for (const slotId of khungGioIds) {
       const slot = await client.query('SELECT mucGia FROM timeslots WHERE id = $1', [slotId]);
-      const slotPrice = parseFloat(slot.rows[0].mucGia) || 0;
+      const slotPrice = parseFloat(slot.rows[0].mucgia) || 0;
       const autoBook = isAutoBooking === true;
       const booking = await client.query(
         `INSERT INTO bookings (nguoiDungId, sanId, khungGioId, ngayChoi, tongTien, tienDaCoc, trangThai, isAutoBooking)
@@ -68,14 +75,14 @@ router.post('/', authenticate, async (req, res) => {
         const svc = await client.query('SELECT donGia, soLuongTon FROM services WHERE id = $1', [d.dichVuId]);
         if (svc.rows.length > 0) {
           const qty = d.soLuong || 1;
-          const currentStock = parseInt(svc.rows[0].soLuongTon) || 0;
+          const currentStock = parseInt(svc.rows[0].soluongton) || 0;
           if (currentStock > 0) {
             const newStock = Math.max(0, currentStock - qty);
             await client.query('UPDATE services SET soLuongTon = $1 WHERE id = $2', [newStock, d.dichVuId]);
           }
           await client.query(
             'INSERT INTO booking_services (donDatId, dichVuId, soLuong, tongTien) VALUES ($1, $2, $3, $4)',
-            [bookingIds[0], d.dichVuId, qty, (parseFloat(svc.rows[0].donGia) || 0) * qty]
+            [bookingIds[0], d.dichVuId, qty, (parseFloat(svc.rows[0].dongia) || 0) * qty]
           );
         }
       }
@@ -277,6 +284,10 @@ router.post('/:id/checkin', authenticate, async (req, res) => {
       return res.status(400).json({ error: 'Chỉ check-in đơn ở trạng thái Đã thanh toán' });
     }
     await pool.query("UPDATE bookings SET trangThai = 'Đang sử dụng', updated_at = NOW() WHERE id = $1", [req.params.id]);
+    await pool.query(
+      "INSERT INTO notifications (nguoiDungId, tieuDe, noiDung, loaiThongBao, maDonDat) VALUES ($1, $2, $3, 'auto_checkin', $4)",
+      [booking.nguoiDungId, 'Check-in thành công', `Đơn #${req.params.id} đã được check-in. Chúc bạn chơi vui vẻ!`, req.params.id]
+    );
     res.json({ message: 'Check-in thành công' });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -295,6 +306,10 @@ router.post('/:id/checkout', authenticate, async (req, res) => {
       return res.status(400).json({ error: 'Chỉ check-out đơn đang sử dụng' });
     }
     await pool.query("UPDATE bookings SET trangThai = 'Hoàn thành', updated_at = NOW() WHERE id = $1", [req.params.id]);
+    await pool.query(
+      "INSERT INTO notifications (nguoiDungId, tieuDe, noiDung, loaiThongBao, maDonDat) VALUES ($1, $2, $3, 'auto_checkout', $4)",
+      [result.rows[0].nguoiDungId, 'Check-out thành công', `Đơn #${req.params.id} đã hoàn thành. Cảm ơn bạn đã sử dụng dịch vụ!`, req.params.id]
+    );
     res.json({ message: 'Check-out thành công' });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -313,6 +328,10 @@ router.post('/:id/noshow', authenticate, async (req, res) => {
       return res.status(400).json({ error: 'Chỉ hủy vắng mặt đơn Đã thanh toán' });
     }
     await pool.query("UPDATE bookings SET trangThai = 'Đã hủy', ghiChu = 'No-show', updated_at = NOW() WHERE id = $1", [req.params.id]);
+    await pool.query(
+      "INSERT INTO notifications (nguoiDungId, tieuDe, noiDung, loaiThongBao, maDonDat) VALUES ($1, $2, $3, 'noshow', $4)",
+      [result.rows[0].nguoiDungId, 'Hủy vắng mặt', `Đơn #${req.params.id} đã bị hủy do không đến đúng giờ.`, req.params.id]
+    );
     res.json({ message: 'Đã hủy vắng mặt' });
   } catch (err) {
     res.status(500).json({ error: err.message });

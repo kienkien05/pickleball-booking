@@ -305,4 +305,26 @@ router.post('/discounts/validate', authenticate, async (req, res) => {
   }
 });
 
+// Manual trigger: cancel past auto-bookings (for testing)
+router.post('/trigger-cancel-past', authenticate, requireAdmin, async (req, res) => {
+  try {
+    const { autoCancelPastBookings } = require('../services/scheduler');
+    await autoCancelPastBookings();
+    res.json({ message: 'Đã chạy autoCancelPastBookings' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Manual trigger: VIP auto-booking (for testing) — bypasses Monday check
+router.post('/trigger-vip-auto-book', authenticate, requireAdmin, async (req, res) => {
+  try {
+    const { processVipAutoBooking } = require('../services/scheduler');
+    await processVipAutoBooking(true);
+    res.json({ message: 'Đã chạy VIP auto-booking (force mode)' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;

@@ -11,7 +11,7 @@ router.get('/', async (req, res) => {
     let query = `SELECT c.*,
       (SELECT ROUND(COALESCE(AVG(diemSao), 0), 1) FROM reviews WHERE donDatId IN (SELECT id FROM bookings WHERE sanId = c.id)) as avgRating,
       (SELECT COUNT(*) FROM timeslots WHERE sanId = c.id) as slotCount
-      FROM courts c WHERE c.trangThai != 'Ẩn'`;
+      FROM courts c WHERE c.trangThai NOT IN ('Ẩn', 'Bảo trì')`;
     const params = [];
     let idx = 1;
     if (search) { query += ` AND c.tenSan ILIKE $${idx}`; params.push(`%${search}%`); idx++; }
@@ -52,6 +52,14 @@ router.get('/:id/timeslots', async (req, res) => {
   try {
     const { date } = req.query;
     const courtId = req.params.id;
+
+    // Block timelots for courts that are not ready
+    const courtCheck = await pool.query('SELECT trangThai FROM courts WHERE id = $1', [courtId]);
+    if (courtCheck.rows.length === 0) return res.status(404).json({ error: 'Không tìm thấy sân' });
+    if (courtCheck.rows[0].trangThai !== 'Sẵn sàng') {
+      return res.json({ data: [] });
+    }
+
     const slots = await pool.query(
       'SELECT * FROM timeslots WHERE sanId = $1 ORDER BY gioBatDau',
       [courtId]

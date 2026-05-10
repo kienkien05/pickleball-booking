@@ -97,6 +97,7 @@ export default function CourtDetailPage() {
         isAutoBooking: autoBooking,
       })
       toast.success(autoBooking ? 'Đặt sân thành công! Hệ thống sẽ tự động đặt lịch cho tuần sau.' : 'Đặt sân thành công!')
+      queryClient.invalidateQueries({ queryKey: ['notifications'] })
       setConfirmOpen(false)
       navigate('/my-bookings')
     } catch (err: any) {
@@ -232,18 +233,25 @@ export default function CourtDetailPage() {
 
           {/* RIGHT TAB: Booking */}
           <div className="space-y-6">
-            {/* Date Picker */}
-            <div className="rounded-xl border border-border bg-card p-6">
-              <h2 className="font-semibold mb-4">Chọn ngày</h2>
-              <input type="date" value={selectedDate} min={today}
-                onChange={e => { setSelectedDate(e.target.value); setSelectedSlots([]) }}
-                className="w-full sm:w-auto h-11 px-4 rounded-lg border border-input bg-background focus:ring-2 focus:ring-ring outline-none" />
-            </div>
+            {court.trangThai !== 'Sẵn sàng' ? (
+              <div className="rounded-xl border border-warning/50 bg-warning/5 p-6 text-center">
+                <AlertCircle className="size-10 mx-auto mb-3 text-warning" />
+                <p className="font-semibold text-warning">Sân đang bảo trì</p>
+                <p className="text-sm text-muted-foreground mt-1">Sân này hiện không khả dụng để đặt lịch. Vui lòng chọn sân khác.</p>
+              </div>
+            ) : (<>
+              {/* Date Picker */}
+              <div className="rounded-xl border border-border bg-card p-6">
+                <h2 className="font-semibold mb-4">Chọn ngày</h2>
+                <input type="date" value={selectedDate} min={today}
+                  onChange={e => { setSelectedDate(e.target.value); setSelectedSlots([]) }}
+                  className="w-full sm:w-auto h-11 px-4 rounded-lg border border-input bg-background focus:ring-2 focus:ring-ring outline-none" />
+              </div>
 
-            {/* Time Slots Grid */}
-            <div className="rounded-xl border border-border bg-card p-6">
-              <h2 className="font-semibold mb-4">Khung giờ trống</h2>
-              {timeSlots.length === 0 ? (
+              {/* Time Slots Grid */}
+              <div className="rounded-xl border border-border bg-card p-6">
+                <h2 className="font-semibold mb-4">Khung giờ trống</h2>
+                {timeSlots.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
                   <Clock className="size-10 mx-auto mb-2 opacity-30" />
                   <p>Chưa có khung giờ nào cho ngày này</p>
@@ -348,6 +356,7 @@ export default function CourtDetailPage() {
                 </div>
               </div>
             )}
+            </>)}
           </div>
         </div>
       </motion.div>
