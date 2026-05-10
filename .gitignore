@@ -21,3 +21,7 @@ Thumbs.db
 
 # Docker volumes data
 postgres_data/
+
+pickleball-rework
+.claude/
+package-lock.json

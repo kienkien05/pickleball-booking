@@ -1,333 +1,295 @@
 /**
- * Seed script — Nạp dữ liệu mẫu vào database pickleball
+ * Seed script - Nạp dữ liệu mẫu vào database pickleball_rework
  * Chạy: node src/seed.js
  */
 const { pool, initDatabase } = require('./config/database');
 const bcrypt = require('bcryptjs');
 
 async function seed() {
-    console.log('Đang khởi tạo database...');
-    await initDatabase();
-    console.log('Đang nạp dữ liệu mẫu...');
+  console.log('Đang khởi tạo database...');
+  await initDatabase();
+  console.log('Đang nạp dữ liệu mẫu...');
 
-    const client = await pool.connect();
+  const client = await pool.connect();
 
-    try {
-        await client.query('BEGIN');
+  try {
+    await client.query('BEGIN');
 
-        // ── Xóa sạch dữ liệu cũ + reset lại ID tự tăng ───────────────────
-        // RESTART IDENTITY giúp id quay lại từ 1
-        // CASCADE giúp tự xử lý các bảng có khóa ngoại liên quan
-        await client.query(`
-            TRUNCATE TABLE
-                booking_cancellations,
-                booking_equipment,
-                reviews,
-                bookings,
-                vip_auto_bookings,
-                equipment,
-                notifications,
-                sessions,
-                password_reset_tokens,
-                users,
-                slots,
-                courts,
-                districts,
-                payment_methods,
-                booking_statuses,
-                roles
-            RESTART IDENTITY CASCADE
-        `);
+    // ── Xóa dữ liệu cũ ─────────────────────────────────────────────────
+    await client.query(`
+      TRUNCATE TABLE
+        booking_services, payments, reviews, notifications,
+        bookings, court_images, discounts,
+        timeslots, services, users, courts
+      RESTART IDENTITY CASCADE
+    `);
 
-        // ── Roles ────────────────────────────────────────────────────────
-        await client.query(`
-            INSERT INTO roles (id, name) VALUES
-            (1, 'admin'),
-            (2, 'user')
-            ON CONFLICT (id) DO NOTHING
-        `);
+    // ── Users ──────────────────────────────────────────────────────────
+    const adminHash = bcrypt.hashSync('admin123', 10);
+    const userHash = bcrypt.hashSync('user123', 10);
 
-        // ── Booking statuses ─────────────────────────────────────────────
-        await client.query(`
-            INSERT INTO booking_statuses (id, status_name) VALUES
-            (1, 'Pending'),
-            (2, 'Confirmed'),
-            (3, 'Cancelled'),
-            (4, 'Completed'),
-            (5, 'In_Progress')
-            ON CONFLICT (id) DO NOTHING
-        `);
+    await client.query(`
+      INSERT INTO users (hoTen, email, soDienThoai, matKhau, vaiTro, isVIP, trangThai, diaChi, gioiTinh)
+      VALUES
+        ('Quản Trị Viên', 'admin@pickleball.com',  NULL,          '${adminHash}', 'Admin', false, 'Active', 'TP. Hồ Chí Minh', 'Nam'),
+        ('Nguyễn Văn An', 'user1@gmail.com',      '0901234567',  '${userHash}', 'Customer', false, 'Active', 'Quận 1, TP.HCM', 'Nam'),
+        ('Trần Thị Bình', 'vip@gmail.com',        '0912345678',  '${userHash}', 'Customer', true,  'Active', 'Quận 7, TP.HCM', 'Nữ'),
+        ('Lê Văn Cường',  'problem@gmail.com',    '0923456789',  '${userHash}', 'Customer', false, 'Active', 'Thủ Đức, TP.HCM', 'Nam'),
+        ('Phạm Thị Dung', 'dung@gmail.com',       '0934567890',  '${userHash}', 'Customer', false, 'Active', 'Bình Thạnh, TP.HCM', 'Nữ'),
+        ('Hoàng Văn Em',  'em@gmail.com',         '0945678901',  '${userHash}', 'Customer', true,  'Active', 'Quận 3, TP.HCM', 'Nam')
+    `);
 
-        // ── Payment methods ───────────────────────────────────────────────
-        // Có id cố định vì bookings phía dưới dùng payment_method_id = 1,2,3
-        await client.query(`
-            INSERT INTO payment_methods (id, method_name, display_name) VALUES
-            (1, 'cash',          'Tiền mặt tại sân'),
-            (2, 'bank_transfer', 'Chuyển khoản ngân hàng'),
-            (3, 'momo',          'Ví MoMo'),
-            (4, 'vnpay',         'VNPay')
-            ON CONFLICT (id) DO NOTHING
-        `);
+    // ── Courts ─────────────────────────────────────────────────────────
+    // Sân 1
+    await client.query(`
+      INSERT INTO courts (tenSan, moTa, hinhAnh, trangThai) VALUES
+        ('Sân Pickleball Landmark', 'Sân tiêu chuẩn quốc tế, có mái che, đèn chiếu sáng LED, mặt sân acrylic chuyên nghiệp. Có phòng thay đồ và quầy nước.', '/uploads/courts/court-1.jpg', 'Sẵn sàng'),
+        ('Sân Pickleball Sunrise', 'Sân ngoài trời view đẹp, không gian thoáng mát. Mặt sân được bảo trì hàng tuần.', '/uploads/courts/court-2.jpg', 'Sẵn sàng'),
+        ('Sân Pickleball Green Park', 'Không gian xanh mát giữa lòng thành phố. Sân có bóng mát tự nhiên, phù hợp chơi mọi thời điểm.', '/uploads/courts/court-3.jpg', 'Sẵn sàng'),
+        ('Sân Pickleball Star', 'Sân cao cấp, có quán cafe phục vụ tại chỗ. Hệ thống âm thanh, wifi miễn phí.', '/uploads/courts/court-4.jpg', 'Sẵn sàng'),
+        ('Sân Pickleball Victory', 'Sân rộng rãi, nhiều bãi đỗ xe. Có khu vực khởi động và huấn luyện viên chuyên nghiệp.', '/uploads/courts/court-5.jpg', 'Bảo trì')
+    `);
 
-        // ── Districts ─────────────────────────────────────────────────────
-        // Có id cố định vì courts phía dưới dùng district_id = 1..5
-        await client.query(`
-            INSERT INTO districts (id, name) VALUES
-            (1, 'Quận 1'),
-            (2, 'Quận 3'),
-            (3, 'Quận 7'),
-            (4, 'Thủ Đức'),
-            (5, 'Bình Thạnh')
-            ON CONFLICT (id) DO NOTHING
-        `);
+    // Court images (1 ảnh chính cho mỗi sân)
+    await client.query(`
+      INSERT INTO court_images (sanId, duongDanAnh, isMain) VALUES
+        (1, '/uploads/courts/court-1.jpg', true),
+        (2, '/uploads/courts/court-2.jpg', true),
+        (3, '/uploads/courts/court-3.jpg', true),
+        (4, '/uploads/courts/court-4.jpg', true),
+        (5, '/uploads/courts/court-5.jpg', true)
+    `);
 
-        // ── Users ─────────────────────────────────────────────────────────
-        const adminHash = bcrypt.hashSync('admin123', 10);
-        const userHash = bcrypt.hashSync('user123', 10);
+    // ── Time slots (per court) ─────────────────────────────────────────
+    const slotData = [
+      // Court 1 - Landmark (giá cao hơn)
+      { sanId: 1, gioBatDau: '05:30', gioKetThuc: '07:00', mucGia: 200000 },
+      { sanId: 1, gioBatDau: '07:00', gioKetThuc: '08:30', mucGia: 240000 },
+      { sanId: 1, gioBatDau: '08:30', gioKetThuc: '10:00', mucGia: 240000 },
+      { sanId: 1, gioBatDau: '10:00', gioKetThuc: '11:30', mucGia: 200000 },
+      { sanId: 1, gioBatDau: '13:30', gioKetThuc: '15:00', mucGia: 200000 },
+      { sanId: 1, gioBatDau: '15:00', gioKetThuc: '16:30', mucGia: 240000 },
+      { sanId: 1, gioBatDau: '16:30', gioKetThuc: '18:00', mucGia: 260000 },
+      { sanId: 1, gioBatDau: '18:00', gioKetThuc: '19:30', mucGia: 260000 },
+      { sanId: 1, gioBatDau: '19:30', gioKetThuc: '21:00', mucGia: 220000 },
 
-        await client.query(`
-            INSERT INTO users 
-                (email, phone, password_hash, full_name, role_id, is_vip, cancel_count) 
-            VALUES
-                ('admin@pickleball.com', NULL,          $1, 'Quản Trị Viên', 1, false, 0),
-                ('user1@gmail.com',      '0901234567',  $2, 'Nguyễn Văn An', 2, false, 0),
-                ('vip@gmail.com',        '0912345678',  $2, 'Trần Thị Bình', 2, true,  0),
-                ('problem@gmail.com',    '0923456789',  $2, 'Lê Văn Cường',  2, false, 3)
-        `, [adminHash, userHash]);
+      // Court 2 - Sunrise
+      { sanId: 2, gioBatDau: '05:30', gioKetThuc: '07:00', mucGia: 180000 },
+      { sanId: 2, gioBatDau: '07:00', gioKetThuc: '08:30', mucGia: 216000 },
+      { sanId: 2, gioBatDau: '08:30', gioKetThuc: '10:00', mucGia: 216000 },
+      { sanId: 2, gioBatDau: '10:00', gioKetThuc: '11:30', mucGia: 180000 },
+      { sanId: 2, gioBatDau: '13:30', gioKetThuc: '15:00', mucGia: 180000 },
+      { sanId: 2, gioBatDau: '15:00', gioKetThuc: '16:30', mucGia: 216000 },
+      { sanId: 2, gioBatDau: '16:30', gioKetThuc: '18:00', mucGia: 234000 },
+      { sanId: 2, gioBatDau: '18:00', gioKetThuc: '19:30', mucGia: 234000 },
+      { sanId: 2, gioBatDau: '19:30', gioKetThuc: '21:00', mucGia: 198000 },
 
-        // ── Courts ────────────────────────────────────────────────────────
-        await client.query(`
-            INSERT INTO courts 
-                (name, address, district_id, price_per_hour, description, image_url) 
-            VALUES
-                (
-                    'Sân Pickleball Landmark',
-                    '123 Đường ABC, Phường Bến Nghé',
-                    1,
-                    200000,
-                    'Sân tiêu chuẩn quốc tế, có máy lạnh',
-                    '/uploads/court-1.jpg'
-                ),
-                (
-                    'Sân Pickleball Sunrise',
-                    '456 Đường DEF, Phường Tân Phong',
-                    3,
-                    180000,
-                    'Sân ngoài trời, view đẹp',
-                    '/uploads/court-2.jpg'
-                ),
-                (
-                    'Sân Pickleball Green Park',
-                    '789 Đường GHI, Phường Hiệp Bình',
-                    4,
-                    150000,
-                    'Không gian xanh mát, yên tĩnh',
-                    '/uploads/court-3.jpg'
-                ),
-                (
-                    'Sân Pickleball Star',
-                    '321 Đường JKL, Phường Võ Thị Sáu',
-                    2,
-                    220000,
-                    'Sân cao cấp, có quán cafe',
-                    '/uploads/court-4.jpg'
-                ),
-                (
-                    'Sân Pickleball Victory',
-                    '654 Đường MNO, Phường 25',
-                    5,
-                    170000,
-                    'Sân rộng rãi, nhiều bãi đổ xe',
-                    '/uploads/court-5.jpg'
-                )
-        `);
+      // Court 3 - Green Park
+      { sanId: 3, gioBatDau: '05:30', gioKetThuc: '07:00', mucGia: 150000 },
+      { sanId: 3, gioBatDau: '07:00', gioKetThuc: '08:30', mucGia: 180000 },
+      { sanId: 3, gioBatDau: '08:30', gioKetThuc: '10:00', mucGia: 180000 },
+      { sanId: 3, gioBatDau: '10:00', gioKetThuc: '11:30', mucGia: 150000 },
+      { sanId: 3, gioBatDau: '13:30', gioKetThuc: '15:00', mucGia: 150000 },
+      { sanId: 3, gioBatDau: '15:00', gioKetThuc: '16:30', mucGia: 180000 },
+      { sanId: 3, gioBatDau: '16:30', gioKetThuc: '18:00', mucGia: 195000 },
+      { sanId: 3, gioBatDau: '18:00', gioKetThuc: '19:30', mucGia: 195000 },
 
-        // ── Slots ─────────────────────────────────────────────────────────
-        // duration_hours = 1.5h
-        // price_modifier: 1.0 bình thường, 1.2 giờ cao điểm
-        await client.query(`
-            INSERT INTO slots 
-                (name, start_time, end_time, duration_hours, price_modifier) 
-            VALUES
-                ('Ca Sáng 1',  '05:30', '07:00', 1.5, 1.0),
-                ('Ca Sáng 2',  '07:00', '08:30', 1.5, 1.2),
-                ('Ca Sáng 3',  '08:30', '10:00', 1.5, 1.2),
-                ('Ca Trưa',    '10:00', '11:30', 1.5, 1.0),
-                ('Ca Chiều 1', '11:50', '15:30', 1.5, 1.0),
-                ('Ca Chiều 2', '15:30', '17:00', 1.5, 1.2),
-                ('Ca Tối 1',   '17:00', '18:30', 1.5, 1.2),
-                ('Ca Tối 2',   '18:30', '20:00', 1.5, 1.2),
-                ('Ca Tối 3',   '20:00', '21:30', 1.5, 1.0)
-        `);
+      // Court 4 - Star
+      { sanId: 4, gioBatDau: '06:00', gioKetThuc: '07:30', mucGia: 220000 },
+      { sanId: 4, gioBatDau: '07:30', gioKetThuc: '09:00', mucGia: 264000 },
+      { sanId: 4, gioBatDau: '09:00', gioKetThuc: '10:30', mucGia: 264000 },
+      { sanId: 4, gioBatDau: '14:00', gioKetThuc: '15:30', mucGia: 220000 },
+      { sanId: 4, gioBatDau: '15:30', gioKetThuc: '17:00', mucGia: 264000 },
+      { sanId: 4, gioBatDau: '17:00', gioKetThuc: '18:30', mucGia: 286000 },
+      { sanId: 4, gioBatDau: '18:30', gioKetThuc: '20:00', mucGia: 286000 },
+      { sanId: 4, gioBatDau: '20:00', gioKetThuc: '21:30', mucGia: 242000 },
 
-        // ── Equipment ─────────────────────────────────────────────────────
-        await client.query(`
-            INSERT INTO equipment 
-                (name, description, price_per_booking, available_quantity, category) 
-            VALUES
-                ('Vợt Pickleball',     'Vợt tiêu chuẩn dành cho người mới', 50000,  20,  'Dụng cụ'),
-                ('Bóng Pickleball',    'Hộp 3 bóng',                        20000,  50,  'Dụng cụ'),
-                ('Giày thể thao',      'Size 36–45, vệ sinh sạch sẽ',       30000,  15,  'Dụng cụ'),
-                ('Bình nước thể thao', '500ml, tặng nước lọc miễn phí',     15000,  100, 'Đồ uống'),
-                ('Khăn tắm',           'Khăn cotton mềm',                   10000,  50,  'Dụng cụ')
-        `);
+      // Court 5 - Victory (Bảo trì nhưng vẫn có slot)
+      { sanId: 5, gioBatDau: '06:00', gioKetThuc: '07:30', mucGia: 170000 },
+      { sanId: 5, gioBatDau: '07:30', gioKetThuc: '09:00', mucGia: 204000 },
+      { sanId: 5, gioBatDau: '09:00', gioKetThuc: '10:30', mucGia: 204000 },
+      { sanId: 5, gioBatDau: '14:00', gioKetThuc: '15:30', mucGia: 170000 },
+      { sanId: 5, gioBatDau: '15:30', gioKetThuc: '17:00', mucGia: 204000 },
+      { sanId: 5, gioBatDau: '17:00', gioKetThuc: '18:30', mucGia: 221000 },
+      { sanId: 5, gioBatDau: '18:30', gioKetThuc: '20:00', mucGia: 221000 },
+    ];
 
-        // ── Lấy id mẫu ────────────────────────────────────────────────────
-        const user1 = await client.query(`
-            SELECT id FROM users WHERE email = 'user1@gmail.com'
-        `);
-
-        const vipUser = await client.query(`
-            SELECT id FROM users WHERE email = 'vip@gmail.com'
-        `);
-
-        const probUser = await client.query(`
-            SELECT id FROM users WHERE email = 'problem@gmail.com'
-        `);
-
-        const court1Res = await client.query(`
-            SELECT id FROM courts ORDER BY id LIMIT 1
-        `);
-
-        const court2Res = await client.query(`
-            SELECT id FROM courts ORDER BY id OFFSET 1 LIMIT 1
-        `);
-
-        const court3Res = await client.query(`
-            SELECT id FROM courts ORDER BY id OFFSET 2 LIMIT 1
-        `);
-
-        const slots = await client.query(`
-            SELECT id FROM slots ORDER BY id
-        `);
-
-        const uid1 = user1.rows[0].id;
-        const uidVip = vipUser.rows[0].id;
-        const uidProb = probUser.rows[0].id;
-
-        const cid1 = court1Res.rows[0].id;
-        const cid2 = court2Res.rows[0].id;
-        const cid3 = court3Res.rows[0].id;
-
-        const slotIds = slots.rows.map(row => row.id);
-
-        // ── Sample bookings ───────────────────────────────────────────────
-
-        // Booking pending: user1, sân 1, ngày mai
-        await client.query(`
-            INSERT INTO bookings
-                (
-                    user_id,
-                    court_id,
-                    slot_id,
-                    booking_date,
-                    status_id,
-                    payment_method_id,
-                    payment_type,
-                    total_price,
-                    deposit_amount,
-                    amount_paid
-                )
-            VALUES 
-                ($1, $2, $3, CURRENT_DATE + 1, 1, 1, 'deposit', 300000, 30000, 30000)
-        `, [uid1, cid1, slotIds[1]]);
-
-        // Booking confirmed: VIP user, sân 2, ngày kia
-        await client.query(`
-            INSERT INTO bookings
-                (
-                    user_id,
-                    court_id,
-                    slot_id,
-                    booking_date,
-                    status_id,
-                    payment_method_id,
-                    payment_type,
-                    total_price,
-                    deposit_amount,
-                    amount_paid
-                )
-            VALUES 
-                ($1, $2, $3, CURRENT_DATE + 2, 2, 3, 'full', 324000, 32400, 324000)
-        `, [uidVip, cid2, slotIds[2]]);
-
-        // Booking completed: user1, sân 3, hôm qua
-        await client.query(`
-            INSERT INTO bookings
-                (
-                    user_id,
-                    court_id,
-                    slot_id,
-                    booking_date,
-                    status_id,
-                    payment_method_id,
-                    payment_type,
-                    total_price,
-                    deposit_amount,
-                    amount_paid
-                )
-            VALUES 
-                ($1, $2, $3, CURRENT_DATE - 1, 4, 2, 'full', 225000, 22500, 225000)
-        `, [uid1, cid3, slotIds[4]]);
-
-        // Booking pending: problem user — phải trả toàn phần
-        await client.query(`
-            INSERT INTO bookings
-                (
-                    user_id,
-                    court_id,
-                    slot_id,
-                    booking_date,
-                    status_id,
-                    payment_method_id,
-                    payment_type,
-                    total_price,
-                    deposit_amount,
-                    amount_paid
-                )
-            VALUES 
-                ($1, $2, $3, CURRENT_DATE + 3, 1, 1, 'full', 300000, 30000, 300000)
-        `, [uidProb, cid1, slotIds[3]]);
-
-        // ── Review cho completed booking ──────────────────────────────────
-        const completedBooking = await client.query(`
-            SELECT id 
-            FROM bookings 
-            WHERE user_id = $1 AND status_id = 4 
-            LIMIT 1
-        `, [uid1]);
-
-        if (completedBooking.rows.length > 0) {
-            await client.query(`
-                INSERT INTO reviews 
-                    (user_id, booking_id, court_id, rating, comment)
-                VALUES 
-                    ($1, $2, $3, 5, 'Không gian thoáng mát, nhân viên nhiệt tình. Sẽ quay lại!')
-            `, [uid1, completedBooking.rows[0].id, cid3]);
-        }
-
-        await client.query('COMMIT');
-
-        console.log('\nSeed hoàn tất!');
-        console.log('─────────────────────────────────────────');
-        console.log('Tài khoản test:');
-        console.log('  Admin   : admin@pickleball.com  / admin123');
-        console.log('  User    : user1@gmail.com       / user123');
-        console.log('  VIP     : vip@gmail.com         / user123');
-        console.log('  Warning : problem@gmail.com     / user123  (đã hủy 3 lần)');
-        console.log('─────────────────────────────────────────');
-
-    } catch (err) {
-        await client.query('ROLLBACK');
-        console.error('Seed lỗi:', err.message);
-        throw err;
-    } finally {
-        client.release();
-        await pool.end();
+    for (const s of slotData) {
+      await client.query(
+        'INSERT INTO timeslots (sanId, gioBatDau, gioKetThuc, mucGia) VALUES ($1, $2, $3, $4)',
+        [s.sanId, s.gioBatDau, s.gioKetThuc, s.mucGia]
+      );
     }
+
+    // ── Services ────────────────────────────────────────────────────────
+    await client.query(`
+      INSERT INTO services (tenDichVu, donGia, loaiDichVu, trangThai) VALUES
+        ('Vợt Pickleball',        50000,  'Dụng cụ',   'Còn hàng'),
+        ('Bóng Pickleball (3 quả)', 20000,  'Dụng cụ',   'Còn hàng'),
+        ('Giày thể thao',         30000,  'Dụng cụ',   'Còn hàng'),
+        ('Khăn tắm',              10000,  'Dụng cụ',   'Còn hàng'),
+        ('Nước suối',             10000,  'Đồ uống',   'Còn hàng'),
+        ('Nước tăng lực',         20000,  'Đồ uống',   'Còn hàng'),
+        ('Cà phê',                25000,  'Đồ uống',   'Còn hàng'),
+        ('Trà đá',                15000,  'Đồ uống',   'Hết hàng')
+    `);
+
+    // ── Bookings ────────────────────────────────────────────────────────
+    const today = new Date().toISOString().slice(0, 10);
+    const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+    const dayAfter = new Date(Date.now() + 2 * 86400000).toISOString().slice(0, 10);
+    const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+    const twoDaysAgo = new Date(Date.now() - 2 * 86400000).toISOString().slice(0, 10);
+
+    // Booking 1: user1, court1, slot1(5:30-7:00), ngày mai, Đã cọc 10%
+    await client.query(`
+      INSERT INTO bookings (nguoiDungId, sanId, khungGioId, ngayChoi, tongTien, tienDaCoc, trangThai)
+      VALUES (2, 1, 1, '${tomorrow}', 200000, 20000, 'Đã cọc')
+    `);
+
+    // Booking 2: user1, court1, slot2(7:00-8:30), ngày mai, Đã cọc
+    await client.query(`
+      INSERT INTO bookings (nguoiDungId, sanId, khungGioId, ngayChoi, tongTien, tienDaCoc, trangThai)
+      VALUES (2, 1, 2, '${tomorrow}', 240000, 24000, 'Đã cọc')
+    `);
+
+    // Booking 3: vip, court2, slot1, ngày mai, Đã thanh toán Full
+    const b3 = await client.query(`
+      INSERT INTO bookings (nguoiDungId, sanId, khungGioId, ngayChoi, tongTien, tienDaCoc, trangThai, isAutoBooking)
+      VALUES (3, 2, 10, '${tomorrow}', 180000, 180000, 'Đã thanh toán Full', TRUE)
+      RETURNING id
+    `);
+
+    // Booking 4: user4 (problem), court1, slot3, ngày kia, Đã cọc
+    await client.query(`
+      INSERT INTO bookings (nguoiDungId, sanId, khungGioId, ngayChoi, tongTien, tienDaCoc, trangThai)
+      VALUES (4, 1, 3, '${dayAfter}', 240000, 24000, 'Đã cọc')
+    `);
+
+    // Booking 5: user5, court3, slot1, hôm qua, Hoàn thành
+    const b5 = await client.query(`
+      INSERT INTO bookings (nguoiDungId, sanId, khungGioId, ngayChoi, tongTien, tienDaCoc, trangThai)
+      VALUES (5, 3, 19, '${yesterday}', 150000, 150000, 'Hoàn thành')
+      RETURNING id
+    `);
+
+    // Booking 6: user5, court3, slot2, 2 ngày trước, Hoàn thành
+    const b6 = await client.query(`
+      INSERT INTO bookings (nguoiDungId, sanId, khungGioId, ngayChoi, tongTien, tienDaCoc, trangThai)
+      VALUES (5, 3, 20, '${twoDaysAgo}', 180000, 180000, 'Hoàn thành')
+      RETURNING id
+    `);
+
+    // Booking 7: user6 (VIP), court4, slot1, hôm nay, Đang sử dụng
+    const b7 = await client.query(`
+      INSERT INTO bookings (nguoiDungId, sanId, khungGioId, ngayChoi, tongTien, tienDaCoc, trangThai, isAutoBooking)
+      VALUES (6, 4, 28, '${today}', 220000, 220000, 'Đang sử dụng', TRUE)
+      RETURNING id
+    `);
+
+    // Booking 8: user2, court3, slot4, 3 ngày trước, Đã hủy
+    await client.query(`
+      INSERT INTO bookings (nguoiDungId, sanId, khungGioId, ngayChoi, tongTien, tienDaCoc, trangThai, ghiChu)
+      VALUES (2, 3, 22, '${twoDaysAgo}', 150000, 15000, 'Đã hủy', 'Khách bận đột xuất')
+    `);
+
+    // Booking 9: user6 (VIP), court4, slot2, ngày mai, Đã cọc (tự động)
+    await client.query(`
+      INSERT INTO bookings (nguoiDungId, sanId, khungGioId, ngayChoi, tongTien, tienDaCoc, trangThai, isAutoBooking)
+      VALUES (6, 4, 29, '${tomorrow}', 264000, 26400, 'Đã cọc', TRUE)
+    `);
+
+    // ── Payments ────────────────────────────────────────────────────────
+    await client.query(`
+      INSERT INTO payments (donDatId, soTien, loaiThanhToan, trangThai) VALUES
+        (1, 20000,  'Deposit',   'Thành công'),
+        (2, 24000,  'Deposit',   'Thành công'),
+        (3, 180000, 'Full',      'Thành công'),
+        (4, 24000,  'Deposit',   'Thành công'),
+        (5, 150000, 'Full',      'Thành công'),
+        (6, 180000, 'Full',      'Thành công'),
+        (7, 220000, 'Full',      'Thành công'),
+        (8, 15000,  'Deposit',   'Thành công'),
+        (9, 26400,  'Deposit',   'Thành công')
+    `);
+
+    // ── Booking Services ────────────────────────────────────────────────
+    // user1's pending booking có thuê vợt + nước
+    await client.query(`
+      INSERT INTO booking_services (donDatId, dichVuId, soLuong, tongTien) VALUES
+        (1, 1, 2, 100000),
+        (1, 5, 2, 20000),
+        (3, 5, 1, 10000),
+        (7, 2, 1, 20000),
+        (7, 7, 2, 50000)
+    `);
+
+    // ── Reviews ─────────────────────────────────────────────────────────
+    await client.query(`
+      INSERT INTO reviews (donDatId, nguoiDungId, diemSao, binhLuan, ngayTao) VALUES
+        (${b5.rows[0].id}, 5, 5, 'Không gian thoáng mát, nhân viên nhiệt tình. Sân sạch sẽ, sẽ quay lại!', NOW() - INTERVAL '1 day'),
+        (${b6.rows[0].id}, 5, 4, 'Sân ổn, giá hợp lý. Hơi ồn một chút vào giờ cao điểm.', NOW() - INTERVAL '2 days')
+    `);
+
+    // ── Notifications ───────────────────────────────────────────────────
+    await client.query(`
+      INSERT INTO notifications (nguoiDungId, tieuDe, noiDung, loaiThongBao, maDonDat, daDoc) VALUES
+        (2, 'Đặt sân thành công', 'Đơn đặt sân #1 đã được xác nhận', 'booking_confirmed', 1, true),
+        (2, 'Đặt sân thành công', 'Đơn đặt sân #2 đã được xác nhận', 'booking_confirmed', 2, false),
+        (3, 'Đặt sân thành công', 'Đơn đặt sân #3 đã được xác nhận', 'booking_confirmed', 3, true),
+        (3, 'Lịch VIP tự động', 'Đã tự động đặt lịch cho ngày mai. Vui lòng thanh toán.', 'vip_auto_success', 3, false),
+        (4, 'Cảnh báo hủy lịch', 'Bạn đã hủy 3 lần. Các đơn tiếp theo sẽ yêu cầu thanh toán 100%.', 'warning', NULL, false),
+        (5, 'Hoàn thành', 'Đơn #5 đã hoàn thành. Hãy đánh giá trải nghiệm của bạn!', 'booking_completed', 5, false),
+        (6, 'Lịch VIP tự động', 'Đã tự động đặt lịch cho hôm nay. Chúc bạn chơi vui vẻ!', 'vip_auto_success', 7, true),
+        (2, 'Khuyến mãi', 'Giảm 20% cho khách hàng mới! Dùng mã WELCOME20 khi đặt sân.', 'promotion', NULL, false)
+    `);
+
+    // ── Discounts ───────────────────────────────────────────────────────
+    await client.query(`
+      INSERT INTO discounts (code, noiDung, moTa, loaiGiamGia, mucGiamGia, ngayBatDau, ngayKetThuc, soLuongBanDau, soLuongDaDung, trangThai) VALUES
+        ('WELCOME20', 'Giảm 20% cho khách mới', 'Áp dụng cho đơn đầu tiên, tối đa giảm 100K', 'percentage', 20, '2026-01-01', '2026-12-31', 100, 12, 'Active'),
+        ('SUMMER50', 'Giảm 50K mùa hè', 'Giảm thẳng 50,000đ cho đơn từ 200K', 'fixed', 50000, '2026-06-01', '2026-08-31', 50, 0, 'Active'),
+        ('VIP10', 'Ưu đãi VIP 10%', 'Dành riêng cho khách VIP', 'percentage', 10, '2026-01-01', '2026-12-31', 0, 0, 'Active'),
+        ('TET2026', 'Giảm 30% Tết', 'Ưu đãi đặc biệt dịp Tết Nguyên Đán', 'percentage', 30, '2026-01-15', '2026-02-15', 200, 45, 'Inactive')
+    `);
+
+    // ── Set updated_at for existing rows ───────────────────────────────
+    await client.query(`UPDATE users SET updated_at = NOW()`);
+    await client.query(`UPDATE courts SET updated_at = NOW()`);
+
+    await client.query('COMMIT');
+
+    console.log('\n✅ Seed hoàn tất!');
+    console.log('──────────────────────────────────────────────');
+    console.log('📊 Thống kê dữ liệu mẫu:');
+    console.log('  🏟️  5 sân Pickleball (1 đang bảo trì)');
+    console.log('  🕐  42 khung giờ (phân bổ theo từng sân)');
+    console.log('  🛒  8 dịch vụ (dụng cụ + đồ uống)');
+    console.log('  📅  9 đơn đặt sân (nhiều trạng thái)');
+    console.log('  ⭐  2 đánh giá');
+    console.log('  🔔  8 thông báo');
+    console.log('  🎫  4 mã giảm giá');
+    console.log('');
+    console.log('👤 Tài khoản test:');
+    console.log('  Admin  : admin@pickleball.com  / admin123');
+    console.log('  User   : user1@gmail.com       / user123');
+    console.log('  VIP    : vip@gmail.com         / user123');
+    console.log('  Warning: problem@gmail.com     / user123  (đã hủy nhiều)');
+    console.log('  User5  : dung@gmail.com        / user123');
+    console.log('  VIP2   : em@gmail.com          / user123');
+    console.log('──────────────────────────────────────────────');
+
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Seed lỗi:', err.message);
+    throw err;
+  } finally {
+    client.release();
+    await pool.end();
+  }
 }
 
 seed().catch(err => {
-    console.error(err);
-    process.exit(1);
+  console.error(err);
+  process.exit(1);
 });
