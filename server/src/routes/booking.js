@@ -39,10 +39,8 @@ router.post('/', authenticate, async (req, res) => {
     }
 
     const totalPrice = courtPrice + servicesPrice;
-    const depositAmount = Math.round(totalPrice * 0.1);
-    const isFullPayment = loaiThanhToan === 'full';
 
-    // Create bookings (one per time slot)
+    // Create bookings (one per time slot) - always full payment
     const bookingIds = [];
     for (const slotId of khungGioIds) {
       const slot = await client.query('SELECT mucGia FROM timeslots WHERE id = $1', [slotId]);
@@ -50,17 +48,16 @@ router.post('/', authenticate, async (req, res) => {
       const autoBook = isAutoBooking === true;
       const booking = await client.query(
         `INSERT INTO bookings (nguoiDungId, sanId, khungGioId, ngayChoi, tongTien, tienDaCoc, trangThai, isAutoBooking)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
-        [req.user.id, sanId, slotId, ngayChoi, slotPrice, isFullPayment ? slotPrice : Math.round(slotPrice * 0.1),
-         isFullPayment ? 'Đã thanh toán Full' : 'Đã cọc', autoBook]
+         VALUES ($1, $2, $3, $4, $5, $6, 'Đã thanh toán', $7) RETURNING id`,
+        [req.user.id, sanId, slotId, ngayChoi, slotPrice, slotPrice, autoBook]
       );
       bookingIds.push(booking.rows[0].id);
 
       // Create payment record
       await client.query(
         'INSERT INTO payments (donDatId, soTien, loaiThanhToan, trangThai) VALUES ($1, $2, $3, $4)',
-        [booking.rows[0].id, isFullPayment ? slotPrice : Math.round(slotPrice * 0.1),
-         `${isFullPayment ? 'Full' : 'Deposit'} - ${phuongThuc === 'transfer' ? 'Chuyển khoản' : phuongThuc === 'momo' ? 'MoMo' : phuongThuc === 'visa' ? 'Visa/MC' : 'Tiền mặt'}`,
+        [booking.rows[0].id, slotPrice,
+         `Full - ${phuongThuc === 'transfer' ? 'Chuyển khoản' : phuongThuc === 'momo' ? 'MoMo' : phuongThuc === 'visa' ? 'Visa/MC' : 'Tiền mặt'}`,
          phuongThuc === 'cash' ? 'Thành công' : 'Chờ xác nhận']
       );
     }
@@ -143,7 +140,7 @@ router.post('/', authenticate, async (req, res) => {
     }
 
     await client.query('COMMIT');
-    res.status(201).json({ data: { bookingIds, totalPrice, depositAmount, isFullPayment } });
+    res.status(201).json({ data: { bookingIds, totalPrice } });
   } catch (err) {
     await client.query('ROLLBACK');
     res.status(500).json({ error: err.message });
@@ -247,11 +244,8 @@ router.post('/:id/cancel', authenticate, async (req, res) => {
     );
     if (result.rows.length === 0) return res.status(404).json({ error: 'Không tìm thấy' });
     const booking = result.rows[0];
-    if (booking.trangThai === 'Đã thanh toán Full') {
-      return res.status(400).json({ error: 'Đơn thanh toán 100% không hỗ trợ hủy. Vui lòng nhượng lại lịch cho người khác' });
-    }
-    if (booking.trangThai !== 'Đã cọc') {
-      return res.status(400).json({ error: 'Chỉ có thể hủy đơn ở trạng thái Đã cọc' });
+    if (booking.trangThai !== 'Đã thanh toán') {
+      return res.status(400).json({ error: 'Chỉ có thể hủy đơn ở trạng thái Đã thanh toán' });
     }
     // Check 3-hour rule
     const playTime = new Date(`${booking.ngayChoi}T${booking.gioBatDau || '00:00'}`);
@@ -262,32 +256,9 @@ router.post('/:id/cancel', authenticate, async (req, res) => {
     await pool.query("UPDATE bookings SET trangThai = 'Đã hủy', updated_at = NOW() WHERE id = $1", [req.params.id]);
     await pool.query(
       "INSERT INTO notifications (nguoiDungId, tieuDe, noiDung, loaiThongBao, maDonDat) VALUES ($1, $2, $3, 'booking_cancelled', $4)",
-      [req.user.id, 'Hủy đặt sân thành công', `Đơn #${req.params.id} đã bị hủy. Khoản cọc sẽ không được hoàn lại.`, req.params.id]
+      [req.user.id, 'Hủy đặt sân thành công', `Đơn #${req.params.id} đã bị hủy.`, req.params.id]
     );
-    res.json({ message: 'Hủy đặt sân thành công. Khoản cọc không được hoàn lại.' });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// Confirm booking (admin) - required step before check-in per thesis doc
-router.post('/:id/confirm', authenticate, async (req, res) => {
-  try {
-    if (req.user.role !== 'admin' && req.user.role !== 'Admin' && req.user.vaiTro !== 'Admin') {
-      return res.status(403).json({ error: 'Không có quyền' });
-    }
-    const result = await pool.query('SELECT * FROM bookings WHERE id = $1', [req.params.id]);
-    if (result.rows.length === 0) return res.status(404).json({ error: 'Không tìm thấy' });
-    const booking = result.rows[0];
-    if (!['Đã cọc', 'Đã thanh toán Full'].includes(booking.trangThai)) {
-      return res.status(400).json({ error: 'Chỉ xác nhận đơn ở trạng thái Đã cọc hoặc Đã thanh toán Full' });
-    }
-    await pool.query("UPDATE bookings SET trangThai = 'Đã xác nhận', updated_at = NOW() WHERE id = $1", [req.params.id]);
-    await pool.query(
-      "INSERT INTO notifications (nguoiDungId, tieuDe, noiDung, loaiThongBao, maDonDat) VALUES ($1, $2, $3, 'booking_confirmed', $4)",
-      [booking.nguoiDungId, 'Đơn đặt sân đã được xác nhận', `Đơn #${req.params.id} đã được admin xác nhận. Vui lòng đến sân đúng giờ.`, req.params.id]
-    );
-    res.json({ message: 'Xác nhận đơn thành công' });
+    res.json({ message: 'Hủy đặt sân thành công.' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -302,8 +273,8 @@ router.post('/:id/checkin', authenticate, async (req, res) => {
     const result = await pool.query('SELECT * FROM bookings WHERE id = $1', [req.params.id]);
     if (result.rows.length === 0) return res.status(404).json({ error: 'Không tìm thấy' });
     const booking = result.rows[0];
-    if (!['Đã cọc', 'Đã thanh toán Full', 'Đã xác nhận'].includes(booking.trangThai)) {
-      return res.status(400).json({ error: 'Không thể check-in đơn này' });
+    if (booking.trangThai !== 'Đã thanh toán') {
+      return res.status(400).json({ error: 'Chỉ check-in đơn ở trạng thái Đã thanh toán' });
     }
     await pool.query("UPDATE bookings SET trangThai = 'Đang sử dụng', updated_at = NOW() WHERE id = $1", [req.params.id]);
     res.json({ message: 'Check-in thành công' });
@@ -338,11 +309,11 @@ router.post('/:id/noshow', authenticate, async (req, res) => {
     }
     const result = await pool.query('SELECT * FROM bookings WHERE id = $1', [req.params.id]);
     if (result.rows.length === 0) return res.status(404).json({ error: 'Không tìm thấy' });
-    if (result.rows[0].trangThai !== 'Đã cọc') {
-      return res.status(400).json({ error: 'Chỉ hủy vắng mặt đơn Đã cọc' });
+    if (result.rows[0].trangThai !== 'Đã thanh toán') {
+      return res.status(400).json({ error: 'Chỉ hủy vắng mặt đơn Đã thanh toán' });
     }
     await pool.query("UPDATE bookings SET trangThai = 'Đã hủy', ghiChu = 'No-show', updated_at = NOW() WHERE id = $1", [req.params.id]);
-    res.json({ message: 'Đã hủy vắng mặt, tịch thu cọc' });
+    res.json({ message: 'Đã hủy vắng mặt' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

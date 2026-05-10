@@ -12,7 +12,7 @@ async function autoCheckIn() {
     const result = await client.query(
       `SELECT b.* FROM bookings b
        JOIN timeslots t ON b.khungGioId = t.id
-       WHERE b.trangThai = 'Đã thanh toán Full'
+       WHERE b.trangThai IN ('Đã thanh toán', 'Đã xác nhận')
        AND b.ngayChoi = $1
        AND t.gioBatDau <= $2::time`,
       [today, currentTime]
@@ -54,7 +54,7 @@ async function autoCheckIn() {
     const noShowResult = await client.query(
       `SELECT b.* FROM bookings b
        JOIN timeslots t ON b.khungGioId = t.id
-       WHERE b.trangThai = 'Đã cọc'
+       WHERE b.trangThai = 'Đã thanh toán'
        AND b.ngayChoi = $1
        AND t.gioBatDau <= ($2::time - INTERVAL '15 minutes')`,
       [today, currentTime]

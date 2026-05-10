@@ -92,6 +92,13 @@ router.post('/:id/timeslots', authenticate, requireAdmin, async (req, res) => {
     if (!gioBatDau || !gioKetThuc || !mucGia) {
       return res.status(400).json({ error: 'Vui lòng nhập đầy đủ thông tin' });
     }
+    const overlap = await pool.query(
+      'SELECT id FROM timeslots WHERE sanId = $1 AND gioBatDau < $3 AND gioKetThuc > $2',
+      [req.params.id, gioBatDau, gioKetThuc]
+    );
+    if (overlap.rows.length > 0) {
+      return res.status(400).json({ error: 'Thời gian này bị trùng lặp với một khung giờ đã tồn tại, vui lòng kiểm tra lại' });
+    }
     const result = await pool.query(
       'INSERT INTO timeslots (sanId, gioBatDau, gioKetThuc, mucGia) VALUES ($1, $2, $3, $4) RETURNING *',
       [req.params.id, gioBatDau, gioKetThuc, mucGia]
@@ -132,6 +139,8 @@ router.post('/', authenticate, requireAdmin, async (req, res) => {
   try {
     const { tenSan, moTa, hinhAnh, trangThai } = req.body;
     if (!tenSan) return res.status(400).json({ error: 'Vui lòng nhập tên sân' });
+    const dup = await pool.query('SELECT id FROM courts WHERE tenSan = $1', [tenSan]);
+    if (dup.rows.length > 0) return res.status(400).json({ error: 'Tên sân này đã có trong hệ thống, vui lòng chọn tên khác' });
     const result = await pool.query(
       'INSERT INTO courts (tenSan, moTa, hinhAnh, trangThai) VALUES ($1, $2, $3, $4) RETURNING *',
       [tenSan, moTa, hinhAnh, trangThai || 'Sẵn sàng']

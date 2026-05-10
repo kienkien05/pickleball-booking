@@ -14,6 +14,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [fullName, setFullName] = useState('')
   const [phoneNumber, setPhoneNumber] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
@@ -41,7 +42,8 @@ export default function LoginPage() {
     e.preventDefault()
     setLoading(true)
     try {
-      await authService.register({ email, password, full_name: fullName, phone_number: phoneNumber })
+      if (password !== confirmPassword) { toast.error('Mật khẩu xác nhận không khớp'); setLoading(false); return }
+      await authService.register({ email, password, confirm_password: confirmPassword, full_name: fullName, phone_number: phoneNumber })
       navigate('/verify-otp', { state: { email, password, full_name: fullName, type: 'register' } })
       toast.info('Vui lòng nhập mã OTP đã gửi vào email')
     } catch (err: any) {
@@ -116,6 +118,18 @@ export default function LoginPage() {
                   </button>
                 </div>
               </div>
+
+              {step === 'register' && (
+                <div>
+                  <label className="block text-sm font-medium mb-1.5">Nhập lại mật khẩu</label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+                    <input type={showPassword ? 'text' : 'password'} value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} required minLength={6}
+                      className="w-full h-11 pl-10 pr-4 rounded-lg border border-input bg-background text-foreground focus:ring-2 focus:ring-ring focus:border-transparent outline-none transition-all"
+                      placeholder="••••••••" />
+                  </div>
+                </div>
+              )}
 
               {step === 'login' && (
                 <div className="text-right">

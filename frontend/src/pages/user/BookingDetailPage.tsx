@@ -92,7 +92,7 @@ export default function BookingDetailPage() {
         <div className="pt-4 border-t border-border space-y-2">
           <div className="flex justify-between text-sm"><span>Mã đơn</span><span className="font-mono">{booking.id}</span></div>
           <div className="flex justify-between text-sm"><span>Trạng thái</span><span className="font-medium">{booking.trangThai}</span></div>
-          <div className="flex justify-between text-sm"><span>Tiền đã cọc</span><span>{formatPrice(Number(booking.tienDaCoc || 0))}</span></div>
+          <div className="flex justify-between text-sm"><span>Đã thanh toán</span><span>{formatPrice(Number(booking.tongTien || 0))}</span></div>
         </div>
 
         {qrData?.qr && (

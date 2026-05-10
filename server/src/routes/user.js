@@ -7,7 +7,11 @@ router.get('/', authenticate, requireAdmin, async (req, res) => {
   try {
     const { page = 1, limit = 20, search, status } = req.query;
     const offset = (page - 1) * limit;
-    let query = 'SELECT id, hoTen, email, soDienThoai, vaiTro, isVIP, trangThai, created_at FROM users WHERE 1=1';
+    let query = `SELECT u.id, u.hoTen, u.email, u.soDienThoai, u.vaiTro, u.isVIP, u.trangThai, u.created_at,
+      (SELECT COUNT(*) FROM bookings WHERE nguoiDungId = u.id) as totalBookings,
+      (SELECT COUNT(*) FROM bookings WHERE nguoiDungId = u.id AND trangThai = 'Hoàn thành') as completedBookings,
+      (SELECT COUNT(*) FROM bookings WHERE nguoiDungId = u.id AND trangThai = 'Đã hủy') as cancelledBookings
+      FROM users u WHERE 1=1`;
     const params = [];
     let idx = 1;
     if (search) { query += ` AND (hoTen ILIKE $${idx} OR email ILIKE $${idx} OR soDienThoai ILIKE $${idx})`; params.push(`%${search}%`); idx++; }
@@ -22,6 +26,11 @@ router.get('/', authenticate, requireAdmin, async (req, res) => {
         phone_number: u.soDienThoai, role: u.vaiTro === 'Admin' ? 'admin' : 'user',
         is_vip: u.isVIP, is_active: u.trangThai !== 'Locked', trangThai: u.trangThai,
         vaiTro: u.vaiTro, created_at: u.created_at,
+        stats: {
+          totalBookings: parseInt(u.totalbookings) || 0,
+          completedBookings: parseInt(u.completedbookings) || 0,
+          cancelledBookings: parseInt(u.cancelledbookings) || 0,
+        }
       })),
       total: parseInt(countResult.rows[0].count),
       page: parseInt(page), limit: parseInt(limit),

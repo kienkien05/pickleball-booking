@@ -11,9 +11,7 @@ import { cn } from '@/lib/utils'
 
 const statusTabs = [
   { key: '', label: 'Tất cả' },
-  { key: 'Đã cọc', label: 'Đã cọc' },
-  { key: 'Đã thanh toán Full', label: 'Đã TT Full' },
-  { key: 'Đã xác nhận', label: 'Đã xác nhận' },
+  { key: 'Đã thanh toán', label: 'Đã thanh toán' },
   { key: 'Đang sử dụng', label: 'Đang dùng' },
   { key: 'Hoàn thành', label: 'Hoàn thành' },
   { key: 'Đã hủy', label: 'Đã hủy' },
@@ -26,7 +24,7 @@ export default function BookingsManagePage() {
   const [selectedBooking, setSelectedBooking] = useState<any>(null)
   const [showActions, setShowActions] = useState(false)
   const [showDetail, setShowDetail] = useState(false)
-  const [actionConfirm, setActionConfirm] = useState<'confirm' | 'checkin' | 'checkout' | 'noshow' | null>(null)
+  const [actionConfirm, setActionConfirm] = useState<'checkin' | 'checkout' | 'noshow' | null>(null)
   const queryClient = useQueryClient()
 
   const { data: bookingsData, isLoading } = useQuery({
@@ -38,13 +36,12 @@ export default function BookingsManagePage() {
 
   const actionMutation = useMutation({
     mutationFn: ({ id, type }: { id: string; type: string }) => {
-      if (type === 'confirm') return bookingService.confirmBooking(id)
       if (type === 'checkin') return bookingService.checkIn(id)
       if (type === 'checkout') return bookingService.checkOut(id)
       return bookingService.markNoShow(id)
     },
     onSuccess: (_, { type }) => {
-      toast.success(type === 'confirm' ? 'Xác nhận đơn thành công!' : type === 'checkin' ? 'Check-in thành công!' : type === 'checkout' ? 'Check-out thành công!' : 'Đã hủy vắng mặt!')
+      toast.success(type === 'checkin' ? 'Check-in thành công!' : type === 'checkout' ? 'Check-out thành công!' : 'Đã hủy vắng mặt!')
       queryClient.invalidateQueries({ queryKey: ['admin', 'bookings'] })
       setShowActions(false); setActionConfirm(null); setSelectedBooking(null)
     },
@@ -58,13 +55,8 @@ export default function BookingsManagePage() {
   ) : bookings
 
   const getActions = (b: any) => {
-    const actions: { type: 'confirm' | 'checkin' | 'checkout' | 'noshow'; label: string; icon: any; variant: any }[] = []
-    if (b.trangThai === 'Đã cọc') {
-      actions.push({ type: 'confirm', label: 'Xác nhận', icon: CheckCircle, variant: 'default' })
-      actions.push({ type: 'noshow', label: 'Vắng mặt', icon: UserX, variant: 'destructive' })
-    } else if (b.trangThai === 'Đã thanh toán Full') {
-      actions.push({ type: 'confirm', label: 'Xác nhận', icon: CheckCircle, variant: 'default' })
-    } else if (b.trangThai === 'Đã xác nhận') {
+    const actions: { type: 'checkin' | 'checkout' | 'noshow'; label: string; icon: any; variant: any }[] = []
+    if (b.trangThai === 'Đã thanh toán') {
       actions.push({ type: 'checkin', label: 'Check-in', icon: LogIn, variant: 'success' })
       actions.push({ type: 'noshow', label: 'Vắng mặt', icon: UserX, variant: 'destructive' })
     } else if (b.trangThai === 'Đang sử dụng') {
@@ -125,9 +117,7 @@ export default function BookingsManagePage() {
                     <td className="px-4 py-3">{formatPrice(Number(booking.tongTien || 0))}</td>
                     <td className="px-4 py-3">
                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        booking.trangThai === 'Đã cọc' ? 'bg-amber-500/10 text-amber-600' :
-                        booking.trangThai === 'Đã thanh toán Full' ? 'bg-blue-500/10 text-blue-600' :
-                        booking.trangThai === 'Đã xác nhận' ? 'bg-green-500/10 text-green-600' :
+                        booking.trangThai === 'Đã thanh toán' ? 'bg-blue-500/10 text-blue-600' :
                         booking.trangThai === 'Đang sử dụng' ? 'bg-success/10 text-success' :
                         booking.trangThai === 'Hoàn thành' ? 'bg-muted text-muted-foreground' :
                         'bg-destructive/10 text-destructive'}`}>
@@ -197,12 +187,12 @@ export default function BookingsManagePage() {
 
       {/* Action Confirm Modal */}
       <Modal isOpen={!!actionConfirm} onClose={() => setActionConfirm(null)}
-        title={actionConfirm === 'confirm' ? 'Xác nhận đơn đặt sân' : actionConfirm === 'checkin' ? 'Xác nhận Check-in' : actionConfirm === 'checkout' ? 'Xác nhận Check-out' : 'Hủy vắng mặt'}
+        title={actionConfirm === 'checkin' ? 'Xác nhận Check-in' : actionConfirm === 'checkout' ? 'Xác nhận Check-out' : 'Hủy vắng mặt'}
         size="sm">
-        <p className="text-sm">{actionConfirm === 'confirm' ? 'Xác nhận đơn đặt sân này? Đơn sẽ chuyển sang trạng thái Đã xác nhận.' : actionConfirm === 'noshow' ? 'Khách không đến? Khoản cọc 10% sẽ bị tịch thu.' : 'Xác nhận thao tác này?'}</p>
+        <p className="text-sm">{actionConfirm === 'noshow' ? 'Khách không đến? Đơn sẽ bị hủy.' : 'Xác nhận thao tác này?'}</p>
         <ModalFooter>
           <Button variant="outline" onClick={() => setActionConfirm(null)}>Hủy</Button>
-          <Button variant={actionConfirm === 'noshow' ? 'destructive' : actionConfirm === 'confirm' ? 'default' : 'default'}
+          <Button variant={actionConfirm === 'noshow' ? 'destructive' : 'default'}
             onClick={() => selectedBooking && actionConfirm && actionMutation.mutate({ id: selectedBooking.id, type: actionConfirm })}
             loading={actionMutation.isPending}>Xác nhận</Button>
         </ModalFooter>

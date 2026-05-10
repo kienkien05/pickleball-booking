@@ -12,18 +12,14 @@ import { formatPrice, formatDate, formatTime } from '@/lib/utils'
 
 const statusTabs = [
   { key: '', label: 'Tất cả' },
-  { key: 'Đã cọc', label: 'Đã cọc' },
-  { key: 'Đã thanh toán Full', label: 'Đã TT Full' },
-  { key: 'Đã xác nhận', label: 'Đã xác nhận' },
+  { key: 'Đã thanh toán', label: 'Đã thanh toán' },
   { key: 'Đang sử dụng', label: 'Đang dùng' },
   { key: 'Hoàn thành', label: 'Hoàn thành' },
   { key: 'Đã hủy', label: 'Đã hủy' },
 ]
 
 const statusColors: Record<string, string> = {
-  'Đã cọc': 'bg-amber-500/10 text-amber-600',
-  'Đã thanh toán Full': 'bg-blue-500/10 text-blue-600',
-  'Đã xác nhận': 'bg-green-500/10 text-green-600',
+  'Đã thanh toán': 'bg-blue-500/10 text-blue-600',
   'Đang sử dụng': 'bg-success/10 text-success',
   'Hoàn thành': 'bg-muted text-muted-foreground',
   'Đã hủy': 'bg-destructive/10 text-destructive',
@@ -96,8 +92,8 @@ export default function MyBookingsPage() {
                     <span className={`px-3 py-1 rounded-full text-xs font-medium ${statusColors[booking.trangThai] || 'bg-muted text-muted-foreground'}`}>
                       {booking.trangThai}
                     </span>
-                    {(booking.trangThai === 'Đã cọc' || booking.trangThai === 'Đã thanh toán Full') && (
-                      <Button variant="outline" size="sm" onClick={() => setCancelId(booking.id)} disabled={booking.trangThai === 'Đã thanh toán Full'}>
+                    {booking.trangThai === 'Đã thanh toán' && (
+                      <Button variant="outline" size="sm" onClick={() => setCancelId(booking.id)}>
                         <XCircle className="size-3 mr-1" /> Hủy
                       </Button>
                     )}
@@ -118,7 +114,7 @@ export default function MyBookingsPage() {
         <div className="space-y-3 text-sm">
           <div className="flex items-start gap-2 p-3 rounded-lg bg-destructive/10 text-destructive">
             <AlertCircle className="size-4 shrink-0 mt-0.5" />
-            <span>Khoản cọc 10% sẽ không được hoàn lại và chuyển thành phí hủy sân.</span>
+            <span>Bạn có thể hủy trước 3 tiếng. Hủy sau thời gian này sẽ không được chấp nhận.</span>
           </div>
           <p>Bạn có chắc chắn muốn hủy lịch đặt sân này?</p>
         </div>

@@ -18,13 +18,22 @@ function generateOTP() {
 // Register
 router.post('/register', async (req, res) => {
   try {
-    const { email, password, full_name, phone_number } = req.body;
+    const { email, password, confirm_password, full_name, phone_number } = req.body;
     if (!email || !password || !full_name) {
       return res.status(400).json({ error: 'Vui lòng nhập đầy đủ thông tin' });
     }
-    const existing = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
-    if (existing.rows.length > 0) {
+    if (password !== confirm_password) {
+      return res.status(400).json({ error: 'Mật khẩu xác nhận không khớp' });
+    }
+    const existingEmail = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
+    if (existingEmail.rows.length > 0) {
       return res.status(400).json({ error: 'Email đã được sử dụng' });
+    }
+    if (phone_number) {
+      const existingPhone = await pool.query('SELECT id FROM users WHERE soDienThoai = $1', [phone_number]);
+      if (existingPhone.rows.length > 0) {
+        return res.status(400).json({ error: 'Số điện thoại đã được sử dụng' });
+      }
     }
     const otp = generateOTP();
     otpStore.set(`register:${email}`, { otp, password, full_name, phone_number, expires: Date.now() + 10 * 60 * 1000 });

@@ -144,26 +144,26 @@ async function seed() {
     // Booking 1: user1, court1, slot1(5:30-7:00), ngày mai, Đã cọc 10%
     await client.query(`
       INSERT INTO bookings (nguoiDungId, sanId, khungGioId, ngayChoi, tongTien, tienDaCoc, trangThai)
-      VALUES (2, 1, 1, '${tomorrow}', 200000, 20000, 'Đã cọc')
+      VALUES (2, 1, 1, '${tomorrow}', 200000, 20000, 'Đã thanh toán')
     `);
 
     // Booking 2: user1, court1, slot2(7:00-8:30), ngày mai, Đã cọc
     await client.query(`
       INSERT INTO bookings (nguoiDungId, sanId, khungGioId, ngayChoi, tongTien, tienDaCoc, trangThai)
-      VALUES (2, 1, 2, '${tomorrow}', 240000, 24000, 'Đã cọc')
+      VALUES (2, 1, 2, '${tomorrow}', 240000, 24000, 'Đã thanh toán')
     `);
 
     // Booking 3: vip, court2, slot1, ngày mai, Đã thanh toán Full
     const b3 = await client.query(`
       INSERT INTO bookings (nguoiDungId, sanId, khungGioId, ngayChoi, tongTien, tienDaCoc, trangThai, isAutoBooking)
-      VALUES (3, 2, 10, '${tomorrow}', 180000, 180000, 'Đã thanh toán Full', TRUE)
+      VALUES (3, 2, 10, '${tomorrow}', 180000, 180000, 'Đã thanh toán', TRUE)
       RETURNING id
     `);
 
     // Booking 4: user4 (problem), court1, slot3, ngày kia, Đã cọc
     await client.query(`
       INSERT INTO bookings (nguoiDungId, sanId, khungGioId, ngayChoi, tongTien, tienDaCoc, trangThai)
-      VALUES (4, 1, 3, '${dayAfter}', 240000, 24000, 'Đã cọc')
+      VALUES (4, 1, 3, '${dayAfter}', 240000, 24000, 'Đã thanh toán')
     `);
 
     // Booking 5: user5, court3, slot1, hôm qua, Hoàn thành
@@ -196,21 +196,21 @@ async function seed() {
     // Booking 9: user6 (VIP), court4, slot2, ngày mai, Đã cọc (tự động)
     await client.query(`
       INSERT INTO bookings (nguoiDungId, sanId, khungGioId, ngayChoi, tongTien, tienDaCoc, trangThai, isAutoBooking)
-      VALUES (6, 4, 29, '${tomorrow}', 264000, 26400, 'Đã cọc', TRUE)
+      VALUES (6, 4, 29, '${tomorrow}', 264000, 26400, 'Đã thanh toán', TRUE)
     `);
 
     // ── Payments ────────────────────────────────────────────────────────
     await client.query(`
       INSERT INTO payments (donDatId, soTien, loaiThanhToan, trangThai) VALUES
-        (1, 20000,  'Deposit',   'Thành công'),
-        (2, 24000,  'Deposit',   'Thành công'),
+        (1, 20000,  'Full',   'Thành công'),
+        (2, 24000,  'Full',   'Thành công'),
         (3, 180000, 'Full',      'Thành công'),
-        (4, 24000,  'Deposit',   'Thành công'),
+        (4, 24000,  'Full',   'Thành công'),
         (5, 150000, 'Full',      'Thành công'),
         (6, 180000, 'Full',      'Thành công'),
         (7, 220000, 'Full',      'Thành công'),
-        (8, 15000,  'Deposit',   'Thành công'),
-        (9, 26400,  'Deposit',   'Thành công')
+        (8, 15000,  'Full',   'Thành công'),
+        (9, 26400,  'Full',   'Thành công')
     `);
 
     // ── Booking Services ────────────────────────────────────────────────

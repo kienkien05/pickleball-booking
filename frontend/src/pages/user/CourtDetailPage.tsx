@@ -22,7 +22,6 @@ export default function CourtDetailPage() {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().slice(0, 10))
   const [selectedSlots, setSelectedSlots] = useState<string[]>([])
   const [selectedServices, setSelectedServices] = useState<Record<string, number>>({})
-  const [paymentType, setPaymentType] = useState<'deposit' | 'full'>('deposit')
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'transfer' | 'momo' | 'visa'>('cash')
   const [autoBooking, setAutoBooking] = useState(false)
   const [confirmOpen, setConfirmOpen] = useState(false)
@@ -80,7 +79,6 @@ export default function CourtDetailPage() {
     return sum + (svc ? (Number(svc.donGia) || 0) * qty : 0)
   }, 0)
   const totalPrice = courtPrice + servicesPrice
-  const depositAmount = Math.round(totalPrice * 0.1) || 0
 
   const handleSlotToggle = (slotId: string) => {
     setSelectedSlots(prev => prev.includes(slotId) ? prev.filter(s => s !== slotId) : [...prev, slotId])
@@ -95,7 +93,6 @@ export default function CourtDetailPage() {
         ngayChoi: selectedDate,
         khungGioIds: selectedSlots,
         dichVu: Object.entries(selectedServices).map(([id, qty]) => ({ dichVuId: id, soLuong: qty })),
-        loaiThanhToan: paymentType,
         phuongThuc: paymentMethod,
         isAutoBooking: autoBooking,
       })
@@ -345,16 +342,6 @@ export default function CourtDetailPage() {
                       </button>
                     </div>
                   )}
-                  <div className="flex gap-3">
-                    <button onClick={() => setPaymentType('deposit')}
-                      className={`flex-1 p-3 rounded-lg border text-sm font-medium transition-all ${paymentType === 'deposit' ? 'border-primary bg-primary/10 text-primary' : 'border-border hover:bg-accent'}`}>
-                      Cọc 10%<br /><span className="text-xs text-muted-foreground">{formatPrice(depositAmount)}</span>
-                    </button>
-                    <button onClick={() => setPaymentType('full')}
-                      className={`flex-1 p-3 rounded-lg border text-sm font-medium transition-all ${paymentType === 'full' ? 'border-primary bg-primary/10 text-primary' : 'border-border hover:bg-accent'}`}>
-                      Thanh toán 100%<br /><span className="text-xs text-muted-foreground">{formatPrice(totalPrice)}</span>
-                    </button>
-                  </div>
                   <Button className="w-full" size="lg" onClick={() => setConfirmOpen(true)}>
                     <ShoppingCart className="size-4 mr-2" /> Đặt sân
                   </Button>
@@ -371,14 +358,12 @@ export default function CourtDetailPage() {
           <p><strong>Sân:</strong> {court.tenSan}</p>
           <p><strong>Ngày:</strong> {formatDate(selectedDate)}</p>
           <p><strong>Khung giờ:</strong> {selectedSlotObjects.map((s: any) => `${s.gioBatDau?.substring(0, 5)}-${s.gioKetThuc?.substring(0, 5)}`).join(', ')}</p>
-          <p><strong>Hình thức:</strong> {paymentType === 'deposit' ? `Cọc 10% (${formatPrice(depositAmount)})` : `Thanh toán 100% (${formatPrice(totalPrice)})`}</p>
+          <p><strong>Tổng tiền:</strong> {formatPrice(totalPrice)}</p>
           <p><strong>Thanh toán:</strong> {paymentMethod === 'cash' ? 'Tiền mặt tại sân' : paymentMethod === 'transfer' ? 'Chuyển khoản ngân hàng' : paymentMethod === 'momo' ? 'Ví MoMo' : 'Visa/Mastercard'}</p>
-          {paymentType === 'deposit' && (
-            <div className="flex items-start gap-2 p-3 rounded-lg bg-warning/10 text-warning text-xs">
-              <AlertCircle className="size-4 shrink-0 mt-0.5" />
-              <span>Bạn có thể hủy trước 3 tiếng. Khoản cọc 10% sẽ không được hoàn lại nếu hủy.</span>
-            </div>
-          )}
+          <div className="flex items-start gap-2 p-3 rounded-lg bg-warning/10 text-warning text-xs">
+            <AlertCircle className="size-4 shrink-0 mt-0.5" />
+            <span>Bạn có thể hủy trước 3 tiếng. Hủy sau thời gian này sẽ không được chấp nhận.</span>
+          </div>
           {autoBooking && (
             <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-500/10 text-amber-600 text-xs">
               <RefreshCw className="size-4 shrink-0 mt-0.5" />

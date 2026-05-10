@@ -1,7 +1,7 @@
 import api from './api'
 
 export const authService = {
-  register: (data: { email: string; password: string; full_name: string; phone_number?: string }) =>
+  register: (data: { email: string; password: string; confirm_password: string; full_name: string; phone_number?: string }) =>
     api.post('/auth/register', data),
 
   verifyRegister: (data: { email: string; otp: string; password: string; full_name: string }) =>
@@ -64,8 +64,6 @@ export const bookingService = {
   getBookingQR: (id: string) => api.get(`/bookings/${id}/qr`),
 
   cancelBooking: (id: string) => api.post(`/bookings/${id}/cancel`),
-
-  confirmBooking: (id: string) => api.post(`/bookings/${id}/confirm`),
 
   checkIn: (id: string, data?: Record<string, any>) => api.post(`/bookings/${id}/checkin`, data),
 

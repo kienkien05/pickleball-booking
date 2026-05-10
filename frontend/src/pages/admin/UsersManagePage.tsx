@@ -51,6 +51,13 @@ export default function UsersManagePage() {
                 <p className="font-semibold">{u.full_name || u.hoTen}</p>
                 <p className="text-sm text-muted-foreground">{u.email} • {u.phone_number || u.soDienThoai}</p>
                 <div className="flex items-center gap-2 mt-1">
+                  {u.stats && (
+                    <span className="text-xs text-muted-foreground">
+                      Đặt: {u.stats.totalBookings} • HT: {u.stats.completedBookings} • Hủy: {u.stats.cancelledBookings}
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 mt-1">
                   <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${u.vaiTro === 'Admin' ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'}`}>
                     {u.vaiTro || u.role}
                   </span>
