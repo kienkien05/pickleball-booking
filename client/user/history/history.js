@@ -71,6 +71,8 @@ function renderBookings() {
         return;
     }
 
+    // 1. Lấy mốc thời gian hiện tại (Now)
+    const now = new Date();
     let html = '';
     let currentGroup = null;
 
@@ -96,9 +98,25 @@ function renderBookings() {
                </p>`
             : '';
 
-        // Doc Table 6 - Luồng phụ 1: Đơn thanh toán 100% không hỗ trợ hủy
+        // 2. Xử lý thời gian của Đơn (Múi giờ Việt Nam +07:00)
+        // Kết hợp booking_date (YYYY-MM-DD) và start/end time (HH:mm)
+        // Lưu ý: booking_date từ API có thể chứa T00:00:00, ta chỉ lấy phần ngày.
+        const datePart = booking.booking_date.split('T')[0]; 
+        const startTime = new Date(`${datePart}T${booking.start_time}:00+07:00`);
+        const endTime   = new Date(`${datePart}T${booking.end_time}:00+07:00`);
+
+        // 3. Logic nút "Hủy đặt" (Cancel):
+        // - CHỈ hiển thị khi trạng thái là 'pending' hoặc 'confirmed'.
+        // - VÀ thời gian hiện tại phải NHỎ HƠN (trước) start_time của ca chơi.
+        // - (Giữ nguyên luật: đơn thanh toán Toàn phần 'full' không cho hủy online)
         const canCancel = (booking.status === 'pending' || booking.status === 'confirmed')
+            && (now < startTime)
             && booking.payment_type !== 'full';
+
+        // 4. Logic nút "Mã QR Check-in":
+        // - CHỈ hiển thị khi trạng thái là 'confirmed' (Đã xác nhận).
+        // - VÀ thời gian hiện tại CHƯA VƯỢT QUÁ end_time của ca chơi.
+        const canCheckIn = (booking.status === 'confirmed') && (now <= endTime);
 
         const isUpcoming = booking.sort_group === 'upcoming';
 
@@ -141,7 +159,7 @@ function renderBookings() {
                     ? `<button class="btn btn-primary btn-sm mt-1"
                                onclick="openAutoPayModal(${booking.id})">Thanh toán online</button>`
                     : ''}
-                ${booking.status === 'confirmed' || booking.status === 'in_progress'
+                ${canCheckIn
                     ? `<button class="btn btn-info btn-sm mt-1"
                                 onclick="openQrModal(${booking.id})">Mã QR Check-in</button>`
                     : ''}

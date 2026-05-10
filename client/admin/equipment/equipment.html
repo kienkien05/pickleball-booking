@@ -24,10 +24,20 @@
                 <p class="text-muted text-sm mb-2">
                     Quản lý các dịch vụ khách có thể chọn khi đặt sân như thuê vợt, bóng, khăn, nước uống.
                 </p>
+
+                <div class="flex-between mb-2" style="gap: 1rem; align-items: flex-end;">
+                    <div class="form-group mb-0" style="flex: 1; max-width: 300px;">
+                        <label class="form-label" for="court-filter">Lọc theo sân:</label>
+                        <select id="court-filter" class="form-control">
+                            <option value="">-- Tất cả các sân --</option>
+                        </select>
+                    </div>
+                </div>
                 <table class="table">
                     <thead>
                         <tr>
                             <th>ID</th>
+                            <th>Sân</th>
                             <th>Tên dịch vụ</th>
                             <th>Mô tả</th>
                             <th>Giá/lượt</th>
@@ -53,6 +63,13 @@
             <div class="modal-body">
                 <form id="equipment-form">
                     <input type="hidden" id="equipment-id">
+
+                    <div class="form-group">
+                        <label class="form-label" for="equipment-court-id">Sân sở hữu *</label>
+                        <select id="equipment-court-id" class="form-control" required>
+                            <option value="">-- Chọn sân --</option>
+                        </select>
+                    </div>
 
                     <div class="form-group">
                         <label class="form-label" for="equipment-name">Tên dịch vụ *</label>

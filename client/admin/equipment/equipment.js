@@ -3,31 +3,53 @@
  */
 
 let equipmentItems = [];
+let courts = [];
 let editingEquipmentId = null;
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     if (!requireAuth()) return;
     if (!requireAdmin()) return;
 
+    await loadCourts();
     loadEquipment();
+
     document.getElementById('save-equipment-btn').addEventListener('click', saveEquipment);
+    document.getElementById('court-filter').addEventListener('change', loadEquipment);
 });
+
+async function loadCourts() {
+    try {
+        courts = await api.get('/admin/courts');
+        const filterSelect = document.getElementById('court-filter');
+        const modalSelect = document.getElementById('equipment-court-id');
+
+        const options = courts.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+        
+        filterSelect.innerHTML += options;
+        modalSelect.innerHTML += options;
+    } catch (error) {
+        console.error('Không thể tải danh sách sân:', error);
+    }
+}
 
 async function loadEquipment() {
     const tbody = document.getElementById('equipment-list');
-    tbody.innerHTML = '<tr><td colspan="7" class="text-center">Đang tải...</td></tr>';
+    const courtId = document.getElementById('court-filter').value;
+    tbody.innerHTML = '<tr><td colspan="8" class="text-center">Đang tải...</td></tr>';
 
     try {
-        equipmentItems = await api.get('/admin/equipment');
+        const url = courtId ? `/admin/equipment?court_id=${courtId}` : '/admin/equipment';
+        equipmentItems = await api.get(url);
 
         if (equipmentItems.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">Chưa có dịch vụ đi kèm nào</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted">Chưa có dịch vụ đi kèm nào</td></tr>';
             return;
         }
 
         tbody.innerHTML = equipmentItems.map(item => `
             <tr>
                 <td>#${item.id}</td>
+                <td><span class="text-primary font-bold">${item.court_name || 'N/A'}</span></td>
                 <td><strong>${item.name}</strong></td>
                 <td>${item.description || '<span class="text-muted">Không có mô tả</span>'}</td>
                 <td>${formatPrice(item.price_per_booking)}</td>
@@ -47,7 +69,7 @@ async function loadEquipment() {
             </tr>
         `).join('');
     } catch (error) {
-        tbody.innerHTML = '<tr><td colspan="7" class="text-center text-danger">Có lỗi xảy ra</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" class="text-center text-danger">Có lỗi xảy ra</td></tr>';
         showAlert('Không thể tải danh sách dịch vụ đi kèm', 'error');
     }
 }
@@ -71,6 +93,7 @@ function editEquipment(equipmentId) {
     editingEquipmentId = equipmentId;
     document.getElementById('equipment-modal-title').textContent = 'Sửa dịch vụ';
     document.getElementById('equipment-id').value = item.id;
+    document.getElementById('equipment-court-id').value = item.court_id || '';
     document.getElementById('equipment-name').value = item.name;
     document.getElementById('equipment-description').value = item.description || '';
     document.getElementById('equipment-price').value = item.price_per_booking;
@@ -82,6 +105,7 @@ function editEquipment(equipmentId) {
 async function saveEquipment() {
     const btn = document.getElementById('save-equipment-btn');
     const payload = {
+        court_id: parseInt(document.getElementById('equipment-court-id').value, 10),
         name: document.getElementById('equipment-name').value.trim(),
         description: document.getElementById('equipment-description').value.trim() || null,
         price_per_booking: parseFloat(document.getElementById('equipment-price').value),
@@ -89,9 +113,9 @@ async function saveEquipment() {
         is_active: document.getElementById('equipment-active').value === 'true'
     };
 
-    if (!payload.name || Number.isNaN(payload.price_per_booking) || payload.price_per_booking < 0 ||
+    if (!payload.court_id || !payload.name || Number.isNaN(payload.price_per_booking) || payload.price_per_booking < 0 ||
         Number.isNaN(payload.available_quantity) || payload.available_quantity < 0) {
-        showAlert('Vui lòng nhập đầy đủ tên, giá và số lượng hợp lệ', 'warning');
+        showAlert('Vui lòng chọn sân và nhập đầy đủ thông tin hợp lệ', 'warning');
         return;
     }
 
@@ -121,6 +145,7 @@ async function toggleEquipment(equipmentId) {
     if (!item) return;
 
     const payload = {
+        court_id: item.court_id,
         name: item.name,
         description: item.description || null,
         price_per_booking: parseFloat(item.price_per_booking),

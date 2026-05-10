@@ -32,7 +32,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Tải dữ liệu phụ trước để form render đúng payment/VIP/cancel policy.
     await Promise.all([
         loadPaymentMethods(),
-        loadEquipmentOptions(),
+        loadEquipmentOptions(courtId),
         loadUserProfile()
     ]);
     await loadCourtDetails(courtId);
@@ -56,9 +56,10 @@ async function loadPaymentMethods() {
     }
 }
 
-async function loadEquipmentOptions() {
+async function loadEquipmentOptions(courtId) {
     try {
-        equipmentOptions = await api.get('/bookings/equipment/list');
+        // BẮT BUỘC: Truyền court_id để lấy đúng kho thiết bị của sân đó
+        equipmentOptions = await api.get(`/bookings/equipment/list?court_id=${courtId}`);
     } catch (error) {
         equipmentOptions = [];
         console.error('Load equipment options error:', error);

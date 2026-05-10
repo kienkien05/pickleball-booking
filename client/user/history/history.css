@@ -21,14 +21,14 @@
 }
 
 .filter-tab:hover {
-    border-color: var(--primary);
-    color: var(--primary);
+    border-color: var(--primary-color);
+    color: var(--primary-color);
 }
 
 .filter-tab.active {
-    background: var(--primary);
+    background: var(--primary-color);
     color: #fff;
-    border-color: var(--primary);
+    border-color: var(--primary-color);
 }
 
 /* ── Section Headers ── */
@@ -48,7 +48,7 @@
 
 /* ── Upcoming highlight ── */
 .booking-upcoming {
-    border-left: 4px solid var(--primary);
+    border-left: 4px solid var(--primary-color);
 }
 
 /* ── Booking Card ── */

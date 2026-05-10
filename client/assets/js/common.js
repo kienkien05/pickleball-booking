@@ -298,19 +298,53 @@ function updateNavigation() {
     const user = getCurrentUser();
     const authNav = document.querySelector('.auth-nav');
     const userNav = document.querySelector('.user-nav');
+    const nav = document.querySelector('.nav');
+    const loggedIn = isLoggedIn();
+    const currentPath = window.location.pathname;
 
-    if (authNav && userNav) {
-        if (isLoggedIn()) {
-            authNav.classList.add('hidden');
-            userNav.classList.remove('hidden');
+    if (authNav) {
+        authNav.classList.toggle('hidden', loggedIn);
+    }
 
+    if (userNav) {
+        userNav.classList.toggle('hidden', !loggedIn);
+        if (loggedIn) {
             const userName = userNav.querySelector('.user-name');
             if (userName && user) {
                 userName.textContent = user.full_name;
             }
-        } else {
-            authNav.classList.remove('hidden');
-            userNav.classList.add('hidden');
+        }
+    }
+
+    // Dynamic Navigation Links
+    if (nav) {
+        // Remove existing dynamic links to prevent duplicates
+        const dynamicLinks = nav.querySelectorAll('.dynamic-nav');
+        dynamicLinks.forEach(link => link.remove());
+
+        if (loggedIn) {
+            // Add History link
+            const historyLink = document.createElement('a');
+            historyLink.href = '/user/history/history.html';
+            historyLink.textContent = 'Lịch sử đặt';
+            historyLink.className = 'dynamic-nav';
+            if (currentPath.includes('/user/history/')) {
+                historyLink.classList.add('active');
+            }
+            nav.appendChild(historyLink);
+        }
+
+        if (isAdmin()) {
+            // Add Admin link
+            const adminLink = document.createElement('a');
+            adminLink.href = '/admin/dashboard/dashboard.html';
+            adminLink.textContent = 'Quản trị';
+            adminLink.className = 'dynamic-nav';
+            adminLink.style.color = '#DC3545';
+            if (currentPath.includes('/admin/')) {
+                adminLink.classList.add('active');
+            }
+            nav.appendChild(adminLink);
         }
     }
 }

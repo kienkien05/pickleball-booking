@@ -155,15 +155,6 @@
     // Check for admin and show admin link
     document.addEventListener('DOMContentLoaded', () => {
       loadFeaturedCourts();
-
-      if (isAdmin()) {
-        const nav = document.querySelector('.nav');
-        const adminLink = document.createElement('a');
-        adminLink.href = '/admin/dashboard/dashboard.html';
-        adminLink.textContent = 'Quản trị';
-        adminLink.style.color = '#DC3545';
-        nav.appendChild(adminLink);
-      }
     });
   </script>
 </body>
