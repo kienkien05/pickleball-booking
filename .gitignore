@@ -25,3 +25,5 @@ postgres_data/
 pickleball-rework
 .claude/
 package-lock.json
+
+CLAUDE.md
