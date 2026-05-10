@@ -19,7 +19,7 @@ const statusTabs = [
 
 export default function BookingsManagePage() {
   const [statusFilter, setStatusFilter] = useState('')
-  const [dateFilter, setDateFilter] = useState(new Date().toISOString().slice(0, 10))
+  const [dateFilter, setDateFilter] = useState('')
   const [search, setSearch] = useState('')
   const [selectedBooking, setSelectedBooking] = useState<any>(null)
   const [showActions, setShowActions] = useState(false)
@@ -75,8 +75,13 @@ export default function BookingsManagePage() {
           <input type="text" value={search} onChange={e => setSearch(e.target.value)}
             placeholder="Tìm theo tên sân, khách hàng..." className="w-full h-11 pl-10 pr-4 rounded-lg border border-input bg-background focus:ring-2 focus:ring-ring outline-none" />
         </div>
-        <input type="date" value={dateFilter} onChange={e => setDateFilter(e.target.value)}
-          className="h-11 px-4 rounded-lg border border-input bg-background focus:ring-2 focus:ring-ring outline-none" />
+        <div className="flex gap-2">
+          <Button variant={dateFilter === '' ? 'primary' : 'outline'} onClick={() => setDateFilter('')} className="h-11 px-4">
+            Tất cả các ngày
+          </Button>
+          <input type="date" value={dateFilter} onChange={e => setDateFilter(e.target.value)}
+            className="h-11 px-4 rounded-lg border border-input bg-background focus:ring-2 focus:ring-ring outline-none" />
+        </div>
       </div>
 
       <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-thin">
