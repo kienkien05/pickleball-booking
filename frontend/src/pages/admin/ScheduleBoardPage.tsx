@@ -81,7 +81,8 @@ export default function ScheduleBoardPage() {
     const map = new Map<string, any[]>()
     bookings.forEach((b: any) => {
       const dateKey = b.booking_date.split('T')[0]
-      const key = `${dateKey}_${b.slot_id}`
+      const timeKey = b.start_time.slice(0, 5) // Use HH:mm as key
+      const key = `${dateKey}_${timeKey}`
       if (!map.has(key)) map.set(key, [])
       map.get(key)!.push(b)
     })
@@ -177,7 +178,8 @@ export default function ScheduleBoardPage() {
 
                   {weekDays.map((d, ci) => {
                     const dateStr = formatDateStr(d)
-                    const cellKey = `${dateStr}_${slotId}`
+                    const timeKey = startTime.slice(0, 5)
+                    const cellKey = `${dateStr}_${timeKey}`
                     const cellBookings = bookingMap.get(cellKey) || []
 
                     return (

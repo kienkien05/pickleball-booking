@@ -372,7 +372,7 @@ router.get('/schedule-board', authenticate, requireAdmin, async (req, res) => {
        JOIN users u ON b.nguoiDungId = u.id
        JOIN courts c ON b.sanId = c.id
        WHERE b.ngayChoi BETWEEN $1 AND $2
-         AND b.trangThai != 'Da huy'
+         AND b.trangThai != 'Đã hủy'
          ${courtFilter}
        ORDER BY b.ngayChoi, t.gioBatDau, c.tenSan`,
       params
