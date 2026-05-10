@@ -13,11 +13,36 @@ router.get('/dashboard', authenticate, requireAdmin, async (req, res) => {
       "SELECT COALESCE(SUM(soTien), 0) as total FROM payments WHERE ngayGiaoDich >= date_trunc('month', CURRENT_DATE)"
     );
     // Revenue by day (last 7 days)
-    const revenueByDay = await pool.query(
-      `SELECT TO_CHAR(ngayGiaoDich, 'DD/MM') as date, SUM(soTien) as revenue
-       FROM payments WHERE ngayGiaoDich >= CURRENT_DATE - INTERVAL '7 days'
-       GROUP BY TO_CHAR(ngayGiaoDich, 'DD/MM'), ngayGiaoDich ORDER BY ngayGiaoDich`
+    // 1. Get raw revenue from DB grouped by date string (Converted to VN Timezone)
+    const dbRevenue = await pool.query(
+      `SELECT TO_CHAR(ngayGiaoDich AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh', 'DD/MM') as date, SUM(soTien) as revenue
+       FROM payments 
+       WHERE (ngayGiaoDich AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh')::date >= (CURRENT_DATE AT TIME ZONE 'Asia/Ho_Chi_Minh') - INTERVAL '7 days'
+       GROUP BY 1`
     );
+
+    // Create a lookup map for DB results
+    const revenueLookup = {};
+    dbRevenue.rows.forEach(row => {
+      revenueLookup[row.date] = parseFloat(row.revenue);
+    });
+
+    // 2. Generate exactly 7 days in Node.js (Using Local Time)
+    const revenueByDay = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(); // Local server time
+      d.setDate(d.getDate() - i);
+      
+      const day = String(d.getDate()).padStart(2, '0');
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const dateStr = `${day}/${month}`;
+      
+      revenueByDay.push({
+        date: dateStr,
+        revenue: revenueLookup[dateStr] || 0
+      });
+    }
+
     res.json({
       data: {
         stats: {
@@ -26,7 +51,7 @@ router.get('/dashboard', authenticate, requireAdmin, async (req, res) => {
           todayBookings: parseInt(todayBookings.rows[0].count) || 0,
           monthlyRevenue: parseFloat(monthlyRevenue.rows[0].total) || 0,
         },
-        revenueByDay: revenueByDay.rows || [],
+        revenueByDay
       }
     });
   } catch (err) {
@@ -38,8 +63,12 @@ router.get('/dashboard', authenticate, requireAdmin, async (req, res) => {
 router.get('/reports', authenticate, requireAdmin, async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
-    const start = startDate || new Date().toISOString().slice(0, 10);
-    const end = endDate || new Date().toISOString().slice(0, 10);
+    // Use local date strings if not provided
+    const now = new Date();
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    
+    const start = startDate || todayStr;
+    const end = endDate || todayStr;
 
     const summary = await pool.query(
       `SELECT
@@ -47,21 +76,37 @@ router.get('/reports', authenticate, requireAdmin, async (req, res) => {
         COUNT(DISTINCT b.id) as totalBookings,
         COALESCE(SUM(CASE WHEN b.trangThai = 'Đã hủy' AND b.ghiChu != 'No-show' THEN p.soTien ELSE 0 END), 0) as cancelRevenue
        FROM payments p JOIN bookings b ON p.donDatId = b.id
-       WHERE p.ngayGiaoDich::date BETWEEN $1 AND $2`,
+       WHERE (p.ngayGiaoDich AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh')::date BETWEEN $1 AND $2`,
       [start, end]
     );
 
-    const revenueByDay = await pool.query(
-      `SELECT TO_CHAR(p.ngayGiaoDich, 'DD/MM') as date, SUM(p.soTien) as revenue
-       FROM payments p WHERE p.ngayGiaoDich::date BETWEEN $1 AND $2
-       GROUP BY TO_CHAR(p.ngayGiaoDich, 'DD/MM'), p.ngayGiaoDich::date ORDER BY p.ngayGiaoDich::date`,
+    // 1. Get detailed daily revenue per court (Pivoted for Stacked Chart)
+    const dailyRevenueRaw = await pool.query(
+      `SELECT 
+        TO_CHAR(p.ngayGiaoDich AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh', 'DD/MM') as date,
+        c.tenSan as court_name,
+        SUM(p.soTien) as revenue
+       FROM payments p
+       JOIN bookings b ON p.donDatId = b.id
+       JOIN courts c ON b.sanId = c.id
+       WHERE (p.ngayGiaoDich AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh')::date BETWEEN $1 AND $2
+       GROUP BY 1, 2, (p.ngayGiaoDich AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
+       ORDER BY (p.ngayGiaoDich AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh')::date`,
       [start, end]
     );
 
+    const dailyMap = {};
+    dailyRevenueRaw.rows.forEach(row => {
+      if (!dailyMap[row.date]) dailyMap[row.date] = { date: row.date };
+      dailyMap[row.date][row.court_name] = parseFloat(row.revenue);
+    });
+    const revenueByDay = Object.values(dailyMap);
+
+    // 2. Get total revenue per court (Summary)
     const revenueByCourt = await pool.query(
       `SELECT c.tenSan as name, COALESCE(SUM(p.soTien), 0) as revenue
        FROM courts c LEFT JOIN bookings b ON c.id = b.sanId
-       LEFT JOIN payments p ON b.id = p.donDatId AND p.ngayGiaoDich::date BETWEEN $1 AND $2
+       LEFT JOIN payments p ON b.id = p.donDatId AND (p.ngayGiaoDich AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh')::date BETWEEN $1 AND $2
        GROUP BY c.id, c.tenSan ORDER BY revenue DESC`,
       [start, end]
     );
@@ -69,7 +114,7 @@ router.get('/reports', authenticate, requireAdmin, async (req, res) => {
     res.json({
       data: {
         summary: summary.rows[0] || { totalRevenue: 0, totalBookings: 0, cancelRevenue: 0 },
-        revenueByDay: revenueByDay.rows || [],
+        revenueByDay,
         revenueByCourt: revenueByCourt.rows || [],
       }
     });

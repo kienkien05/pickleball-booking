@@ -44,8 +44,9 @@ export default function UserLayout() {
           <div className="flex items-center gap-2">
             {user?.role === 'admin' && (
               <Link to="/admin">
-                <Button variant="ghost" size="icon" title="Quản trị">
+                <Button variant="ghost" className="gap-2 text-primary hover:text-primary hover:bg-primary/10">
                   <Shield className="size-4" />
+                  <span className="hidden md:inline font-bold text-xs uppercase tracking-wider">Quản trị</span>
                 </Button>
               </Link>
             )}

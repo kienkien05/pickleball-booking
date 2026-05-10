@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
-import { MapPin, Users, ClipboardList, DollarSign, TrendingUp } from 'lucide-react'
+import { MapPin, Users, ClipboardList, DollarSign } from 'lucide-react'
 import { adminService } from '@/services'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { formatPrice } from '@/lib/utils'
@@ -19,7 +19,7 @@ export default function DashboardPage() {
     { label: 'Tổng sân', value: stats.totalCourts ?? 0, icon: MapPin, color: 'text-primary' },
     { label: 'Khách hàng', value: stats.totalUsers ?? 0, icon: Users, color: 'text-blue-500' },
     { label: 'Đơn hôm nay', value: stats.todayBookings ?? 0, icon: ClipboardList, color: 'text-amber-500' },
-    { label: 'Doanh thu tháng', value: formatPrice(Number(stats.monthlyRevenue ?? 0)), icon: DollarSign, color: 'text-success' },
+    { label: 'Doanh thu tháng', value: formatPrice(Number(stats.monthlyRevenue ?? 0)), icon: DollarSign, color: 'text-green-500' },
   ]
 
   return (
@@ -40,13 +40,18 @@ export default function DashboardPage() {
 
       <div className="rounded-xl border border-border bg-card p-5">
         <h2 className="font-semibold mb-4">Doanh thu 7 ngày qua</h2>
-        {chartData.length > 0 ? (
+        {isLoading ? (
+          <div className="h-[300px] flex items-center justify-center"><Skeleton className="h-full w-full" /></div>
+        ) : chartData.length > 0 ? (
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
               <XAxis dataKey="date" tick={{ fontSize: 12 }} stroke="hsl(var(--muted-foreground))" />
-              <YAxis tick={{ fontSize: 12 }} stroke="hsl(var(--muted-foreground))" />
-              <Tooltip contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px' }} />
+              <YAxis tick={{ fontSize: 12 }} stroke="hsl(var(--muted-foreground))" tickFormatter={(v) => `${v/1000}k`} />
+              <Tooltip 
+                contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px' }}
+                formatter={(val: any) => [formatPrice(val), 'Doanh thu']}
+              />
               <Bar dataKey="revenue" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
