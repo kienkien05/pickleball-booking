@@ -38,9 +38,9 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      {chartData.length > 0 && (
-        <div className="rounded-xl border border-border bg-card p-5">
-          <h2 className="font-semibold mb-4">Doanh thu 7 ngày qua</h2>
+      <div className="rounded-xl border border-border bg-card p-5">
+        <h2 className="font-semibold mb-4">Doanh thu 7 ngày qua</h2>
+        {chartData.length > 0 ? (
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={chartData}>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
@@ -50,8 +50,12 @@ export default function DashboardPage() {
               <Bar dataKey="revenue" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
-        </div>
-      )}
+        ) : (
+          <div className="flex items-center justify-center h-[300px] text-muted-foreground">
+            <p>Chưa có dữ liệu doanh thu trong 7 ngày qua</p>
+          </div>
+        )}
+      </div>
     </div>
   )
 }

@@ -61,7 +61,11 @@ export const bookingService = {
 
   getBookingById: (id: string) => api.get(`/bookings/${id}`),
 
+  getBookingQR: (id: string) => api.get(`/bookings/${id}/qr`),
+
   cancelBooking: (id: string) => api.post(`/bookings/${id}/cancel`),
+
+  confirmBooking: (id: string) => api.post(`/bookings/${id}/confirm`),
 
   checkIn: (id: string, data?: Record<string, any>) => api.post(`/bookings/${id}/checkin`, data),
 
@@ -84,7 +88,7 @@ export const reviewService = {
   getByCourt: (courtId: string, params?: { page?: number; limit?: number }) =>
     api.get(`/reviews/court/${courtId}`, { params }),
 
-  create: (data: { booking_id: string; rating: number; comment?: string }) =>
+  create: (data: { booking_id: string; rating: number; comment?: string; courtId?: string }) =>
     api.post('/reviews', data),
 }
 

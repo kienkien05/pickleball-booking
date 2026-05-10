@@ -123,15 +123,15 @@ async function seed() {
 
     // ── Services ────────────────────────────────────────────────────────
     await client.query(`
-      INSERT INTO services (tenDichVu, donGia, loaiDichVu, trangThai) VALUES
-        ('Vợt Pickleball',        50000,  'Dụng cụ',   'Còn hàng'),
-        ('Bóng Pickleball (3 quả)', 20000,  'Dụng cụ',   'Còn hàng'),
-        ('Giày thể thao',         30000,  'Dụng cụ',   'Còn hàng'),
-        ('Khăn tắm',              10000,  'Dụng cụ',   'Còn hàng'),
-        ('Nước suối',             10000,  'Đồ uống',   'Còn hàng'),
-        ('Nước tăng lực',         20000,  'Đồ uống',   'Còn hàng'),
-        ('Cà phê',                25000,  'Đồ uống',   'Còn hàng'),
-        ('Trà đá',                15000,  'Đồ uống',   'Hết hàng')
+      INSERT INTO services (tenDichVu, donGia, loaiDichVu, soLuongTon, trangThai) VALUES
+        ('Vợt Pickleball',        50000,  'Dụng cụ',   20, 'Còn hàng'),
+        ('Bóng Pickleball (3 quả)', 20000,  'Dụng cụ',   50, 'Còn hàng'),
+        ('Giày thể thao',         30000,  'Dụng cụ',   15, 'Còn hàng'),
+        ('Khăn tắm',              10000,  'Dụng cụ',   30, 'Còn hàng'),
+        ('Nước suối',             10000,  'Đồ uống',   100,'Còn hàng'),
+        ('Nước tăng lực',         20000,  'Đồ uống',   80, 'Còn hàng'),
+        ('Cà phê',                25000,  'Đồ uống',   60, 'Còn hàng'),
+        ('Trà đá',                15000,  'Đồ uống',   0,  'Hết hàng')
     `);
 
     // ── Bookings ────────────────────────────────────────────────────────

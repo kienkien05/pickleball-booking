@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Outlet, NavLink, Link, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Home, MapPin, User, ClipboardList, Menu, X, Sun, Moon, LogOut, LogIn, Search } from 'lucide-react'
+import { Home, MapPin, User, ClipboardList, Menu, X, Sun, Moon, LogOut, LogIn, Shield } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
 import { useThemeStore } from '@/stores/themeStore'
 import { Button } from '@/components/ui/Button'
@@ -12,7 +12,6 @@ const navLinks = [
   { to: '/', icon: Home, label: 'Trang chủ', end: true },
   { to: '/courts', icon: MapPin, label: 'Sân', end: false },
   { to: '/my-bookings', icon: ClipboardList, label: 'Lịch sử', auth: true },
-  { to: '/profile', icon: User, label: 'Tài khoản', auth: true },
 ]
 
 export default function UserLayout() {
@@ -43,6 +42,13 @@ export default function UserLayout() {
           </nav>
 
           <div className="flex items-center gap-2">
+            {user?.role === 'admin' && (
+              <Link to="/admin">
+                <Button variant="ghost" size="icon" title="Quản trị">
+                  <Shield className="size-4" />
+                </Button>
+              </Link>
+            )}
             <Button variant="ghost" size="icon" onClick={toggleTheme}>
               {theme === 'dark' ? <Sun className="size-4" /> : <Moon className="size-4" />}
             </Button>
@@ -85,6 +91,13 @@ export default function UserLayout() {
               <span className="text-[10px] font-medium">{link.label}</span>
             </NavLink>
           ))}
+          {user?.role === 'admin' && (
+            <NavLink to="/admin" className={({ isActive }) => cn('flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg transition-colors touch-target',
+              isActive ? 'text-primary' : 'text-muted-foreground')}>
+              <Shield className="size-5" />
+              <span className="text-[10px] font-medium">Admin</span>
+            </NavLink>
+          )}
           {!isAuthenticated && (
             <NavLink to="/login" className={({ isActive }) => cn('flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg transition-colors touch-target',
               isActive ? 'text-primary' : 'text-muted-foreground')}>

@@ -11,7 +11,7 @@ import { formatPrice } from '@/lib/utils'
 export default function ServicesManagePage() {
   const [editService, setEditService] = useState<any>(null)
   const [showForm, setShowForm] = useState(false)
-  const [form, setForm] = useState({ tenDichVu: '', donGia: '', loaiDichVu: 'Đồ uống', trangThai: 'Còn hàng' })
+  const [form, setForm] = useState({ tenDichVu: '', donGia: '', loaiDichVu: 'Đồ uống', soLuongTon: '0', trangThai: 'Còn hàng' })
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const queryClient = useQueryClient()
 
@@ -27,7 +27,7 @@ export default function ServicesManagePage() {
       toast.success(editService ? 'Cập nhật thành công!' : 'Thêm dịch vụ thành công!')
       queryClient.invalidateQueries({ queryKey: ['admin', 'services'] })
       setShowForm(false); setEditService(null)
-      setForm({ tenDichVu: '', donGia: '', loaiDichVu: 'Đồ uống', trangThai: 'Còn hàng' })
+      setForm({ tenDichVu: '', donGia: '', loaiDichVu: 'Đồ uống', soLuongTon: '0', trangThai: 'Còn hàng' })
     },
     onError: (err: any) => toast.error(err.response?.data?.message || 'Thao tác thất bại'),
   })
@@ -42,7 +42,7 @@ export default function ServicesManagePage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Quản lý dịch vụ</h1>
-        <Button onClick={() => { setEditService(null); setForm({ tenDichVu: '', donGia: '', loaiDichVu: 'Đồ uống', trangThai: 'Còn hàng' }); setShowForm(true) }}>
+        <Button onClick={() => { setEditService(null); setForm({ tenDichVu: '', donGia: '', loaiDichVu: 'Đồ uống', soLuongTon: '0', trangThai: 'Còn hàng' }); setShowForm(true) }}>
           <Plus className="size-4 mr-2" />Thêm dịch vụ
         </Button>
       </div>
@@ -56,6 +56,7 @@ export default function ServicesManagePage() {
               <tr>
                 <th className="text-left px-4 py-3 font-medium">Tên dịch vụ</th>
                 <th className="text-left px-4 py-3 font-medium">Loại</th>
+                <th className="text-left px-4 py-3 font-medium">Số lượng</th>
                 <th className="text-left px-4 py-3 font-medium">Đơn giá</th>
                 <th className="text-left px-4 py-3 font-medium">Trạng thái</th>
                 <th className="text-right px-4 py-3 font-medium">Thao tác</th>
@@ -66,6 +67,7 @@ export default function ServicesManagePage() {
                 <tr key={svc.id} className="hover:bg-muted/30">
                   <td className="px-4 py-3 font-medium">{svc.tenDichVu}</td>
                   <td className="px-4 py-3">{svc.loaiDichVu}</td>
+                  <td className="px-4 py-3">{svc.soLuongTon ?? 0}</td>
                   <td className="px-4 py-3">{formatPrice(Number(svc.donGia || 0))}</td>
                   <td className="px-4 py-3">
                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${svc.trangThai === 'Còn hàng' ? 'bg-success/10 text-success' : 'bg-destructive/10 text-destructive'}`}>
@@ -73,14 +75,14 @@ export default function ServicesManagePage() {
                     </span>
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <Button variant="ghost" size="icon" onClick={() => { setEditService(svc); setForm({ tenDichVu: svc.tenDichVu, donGia: String(svc.donGia), loaiDichVu: svc.loaiDichVu, trangThai: svc.trangThai }); setShowForm(true) }}>
+                    <Button variant="ghost" size="icon" onClick={() => { setEditService(svc); setForm({ tenDichVu: svc.tenDichVu, donGia: String(svc.donGia), loaiDichVu: svc.loaiDichVu, soLuongTon: String(svc.soLuongTon ?? 0), trangThai: svc.trangThai }); setShowForm(true) }}>
                       <Pencil className="size-4" /></Button>
                     <Button variant="ghost" size="icon" onClick={() => setDeleteId(svc.id)}><Trash2 className="size-4 text-destructive" /></Button>
                   </td>
                 </tr>
               ))}
               {list.length === 0 && (
-                <tr><td colSpan={5} className="px-4 py-12 text-center text-muted-foreground"><Package className="size-10 mx-auto mb-2 opacity-30" />Chưa có dịch vụ nào</td></tr>
+                <tr><td colSpan={6} className="px-4 py-12 text-center text-muted-foreground"><Package className="size-10 mx-auto mb-2 opacity-30" />Chưa có dịch vụ nào</td></tr>
               )}
             </tbody>
           </table>
@@ -104,10 +106,15 @@ export default function ServicesManagePage() {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1.5">Đơn giá (VNĐ)</label>
-              <input type="number" value={form.donGia} onChange={e => setForm(p => ({ ...p, donGia: e.target.value }))}
+              <label className="block text-sm font-medium mb-1.5">Số lượng tồn</label>
+              <input type="number" value={form.soLuongTon} onChange={e => setForm(p => ({ ...p, soLuongTon: e.target.value }))}
                 className="w-full h-11 px-4 rounded-lg border border-input bg-background focus:ring-2 focus:ring-ring outline-none" />
             </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1.5">Đơn giá (VNĐ)</label>
+            <input type="number" value={form.donGia} onChange={e => setForm(p => ({ ...p, donGia: e.target.value }))}
+              className="w-full h-11 px-4 rounded-lg border border-input bg-background focus:ring-2 focus:ring-ring outline-none" />
           </div>
           <div>
             <label className="block text-sm font-medium mb-1.5">Trạng thái</label>

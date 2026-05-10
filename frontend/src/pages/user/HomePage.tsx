@@ -101,7 +101,7 @@ export default function HomePage() {
                   <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{court.moTa || 'Sân Pickleball tiêu chuẩn'}</p>
                   <div className="flex items-center gap-3 mt-3 text-sm text-muted-foreground">
                     <span className="flex items-center gap-1"><Clock className="size-3" /> {court.slotCount ?? 0} khung giờ</span>
-                    <span className="flex items-center gap-1"><Star className="size-3" /> {court.avgRating ?? '--'}</span>
+                    <span className="flex items-center gap-1"><Star className="size-3" /> {court.avgRating != null && court.avgRating > 0 ? Number(court.avgRating).toFixed(1) : '--'}</span>
                   </div>
                 </div>
               </Link>

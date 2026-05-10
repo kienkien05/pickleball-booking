@@ -111,6 +111,7 @@ async function initDatabase() {
         tenDichVu VARCHAR(100) NOT NULL,
         donGia DECIMAL(15,2) NOT NULL,
         loaiDichVu VARCHAR(50),
+        soLuongTon INTEGER DEFAULT 0,
         trangThai VARCHAR(50) DEFAULT 'Còn hàng',
         created_at TIMESTAMP DEFAULT NOW()
       );
@@ -190,6 +191,12 @@ async function initDatabase() {
         created_at TIMESTAMP DEFAULT NOW()
       );
     `);
+
+    // Add soLuongTon column for existing databases
+    await client.query("ALTER TABLE services ADD COLUMN IF NOT EXISTS soLuongTon INTEGER DEFAULT 0").catch(() => {});
+    // Allow reviews without booking reference (court-level reviews)
+    await client.query("ALTER TABLE reviews ALTER COLUMN donDatId DROP NOT NULL").catch(() => {});
+    await client.query("ALTER TABLE reviews ADD COLUMN IF NOT EXISTS sanId INTEGER REFERENCES courts(id)").catch(() => {});
 
     // Create default admin if not exists
     const bcrypt = require('bcryptjs');

@@ -14,6 +14,7 @@ const statusTabs = [
   { key: '', label: 'Tất cả' },
   { key: 'Đã cọc', label: 'Đã cọc' },
   { key: 'Đã thanh toán Full', label: 'Đã TT Full' },
+  { key: 'Đã xác nhận', label: 'Đã xác nhận' },
   { key: 'Đang sử dụng', label: 'Đang dùng' },
   { key: 'Hoàn thành', label: 'Hoàn thành' },
   { key: 'Đã hủy', label: 'Đã hủy' },
@@ -22,6 +23,7 @@ const statusTabs = [
 const statusColors: Record<string, string> = {
   'Đã cọc': 'bg-amber-500/10 text-amber-600',
   'Đã thanh toán Full': 'bg-blue-500/10 text-blue-600',
+  'Đã xác nhận': 'bg-green-500/10 text-green-600',
   'Đang sử dụng': 'bg-success/10 text-success',
   'Hoàn thành': 'bg-muted text-muted-foreground',
   'Đã hủy': 'bg-destructive/10 text-destructive',

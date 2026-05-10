@@ -99,22 +99,22 @@ export default function NotificationBell() {
               </div>
             ) : (
               notifications.map((n: any) => {
-                const Icon = typeIcons[n.type] || Info
+                const Icon = typeIcons[n.loaiThongBao || n.type] || Info
                 return (
-                  <div key={n.id} onClick={() => { if (!n.is_read) markReadMutation.mutate(n.id) }}
+                  <div key={n.id} onClick={() => { if (!(n.daDoc !== undefined ? n.daDoc : n.is_read)) markReadMutation.mutate(n.id) }}
                     className={cn('flex gap-3 px-4 py-3 border-b border-border last:border-0 cursor-pointer hover:bg-muted/50 transition-colors',
-                      !n.is_read && 'bg-primary/5')}>
+                      !(n.daDoc !== undefined ? n.daDoc : n.is_read) && 'bg-primary/5')}>
                     <div className={cn('shrink-0 size-9 rounded-full flex items-center justify-center',
-                      !n.is_read ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground')}>
+                      !(n.daDoc !== undefined ? n.daDoc : n.is_read) ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground')}>
                       <Icon className="size-4" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <p className={cn('text-sm', !n.is_read && 'font-medium')}>{n.title}</p>
-                        {!n.is_read && <div className="size-2 bg-primary rounded-full shrink-0" />}
+                        <p className={cn('text-sm', !(n.daDoc !== undefined ? n.daDoc : n.is_read) && 'font-medium')}>{(n.tieuDe || n.title)}</p>
+                        {!(n.daDoc !== undefined ? n.daDoc : n.is_read) && <div className="size-2 bg-primary rounded-full shrink-0" />}
                       </div>
-                      <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">{n.message}</p>
-                      <p className="text-[10px] text-muted-foreground mt-1">{timeAgo(n.created_at)}</p>
+                      <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">{(n.noiDung || n.message)}</p>
+                      <p className="text-[10px] text-muted-foreground mt-1">{timeAgo((n.thoiGianTao || n.created_at))}</p>
                     </div>
                   </div>
                 )

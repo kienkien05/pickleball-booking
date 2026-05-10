@@ -9,7 +9,7 @@ router.get('/', async (req, res) => {
     const { page = 1, limit = 20, search, status } = req.query;
     const offset = (page - 1) * limit;
     let query = `SELECT c.*,
-      (SELECT COALESCE(AVG(diemSao), 0) FROM reviews WHERE donDatId IN (SELECT id FROM bookings WHERE sanId = c.id)) as avgRating,
+      (SELECT ROUND(COALESCE(AVG(diemSao), 0), 1) FROM reviews WHERE donDatId IN (SELECT id FROM bookings WHERE sanId = c.id)) as avgRating,
       (SELECT COUNT(*) FROM timeslots WHERE sanId = c.id) as slotCount
       FROM courts c WHERE c.trangThai != 'Ẩn'`;
     const params = [];
@@ -38,7 +38,7 @@ router.get('/:id', async (req, res) => {
     if (result.rows.length === 0) return res.status(404).json({ error: 'Không tìm thấy sân' });
     const images = await pool.query('SELECT * FROM court_images WHERE sanId = $1 ORDER BY isMain DESC, created_at ASC', [req.params.id]);
     const avgRating = await pool.query(
-      'SELECT COALESCE(AVG(diemSao), 0) as avg FROM reviews r JOIN bookings b ON r.donDatId = b.id WHERE b.sanId = $1',
+      'SELECT ROUND(COALESCE(AVG(diemSao), 0), 1) as avg FROM reviews r JOIN bookings b ON r.donDatId = b.id WHERE b.sanId = $1',
       [req.params.id]
     );
     res.json({ data: { ...result.rows[0], images: images.rows, avgRating: parseFloat(avgRating.rows[0].avg) } });
@@ -57,6 +57,7 @@ router.get('/:id/timeslots', async (req, res) => {
       [courtId]
     );
     let bookedSlotIds = new Set();
+    const todayStr = new Date().toISOString().slice(0, 10);
     if (date) {
       const bookings = await pool.query(
         "SELECT khungGioId FROM bookings WHERE sanId = $1 AND ngayChoi = $2 AND trangThai NOT IN ('Đã hủy')",
@@ -64,10 +65,10 @@ router.get('/:id/timeslots', async (req, res) => {
       );
       bookings.rows.forEach(b => bookedSlotIds.add(b.khungGioId));
     }
-    const data = slots.rows.map(s => ({
-      ...s,
-      isBooked: bookedSlotIds.has(s.id),
-    }));
+    const data = slots.rows.map(s => {
+      const isPast = date === todayStr && s.gioKetThuc <= new Date().toTimeString().slice(0, 5);
+      return { ...s, isBooked: bookedSlotIds.has(s.id) || isPast };
+    });
     res.json({ data });
   } catch (err) {
     res.status(500).json({ error: err.message });

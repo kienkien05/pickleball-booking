@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { MapPin, Search, SlidersHorizontal } from 'lucide-react'
+import { MapPin, Search, Clock, Star } from 'lucide-react'
 import { courtService } from '@/services'
 import { CardSkeleton } from '@/components/ui/Skeleton'
 
@@ -59,6 +59,10 @@ export default function CourtListPage() {
               <div className="p-4">
                 <h3 className="font-semibold group-hover:text-primary transition-colors">{court.tenSan}</h3>
                 <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{court.moTa || 'Sân Pickleball tiêu chuẩn'}</p>
+                <div className="flex items-center gap-3 mt-3 text-sm text-muted-foreground">
+                  <span className="flex items-center gap-1"><Clock className="size-3" /> {court.slotCount ?? 0} khung giờ</span>
+                  <span className="flex items-center gap-1"><Star className="size-3" /> {court.avgRating != null && court.avgRating > 0 ? Number(court.avgRating).toFixed(1) : '--'}</span>
+                </div>
               </div>
             </Link>
           ))}

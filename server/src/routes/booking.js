@@ -7,7 +7,7 @@ const router = express.Router();
 router.post('/', authenticate, async (req, res) => {
   const client = await pool.connect();
   try {
-    const { sanId, ngayChoi, khungGioIds, dichVu, loaiThanhToan, isAutoBooking } = req.body;
+    const { sanId, ngayChoi, khungGioIds, dichVu, loaiThanhToan, isAutoBooking, phuongThuc } = req.body;
     if (!sanId || !ngayChoi || !khungGioIds || khungGioIds.length === 0) {
       return res.status(400).json({ error: 'Vui lòng chọn sân và khung giờ' });
     }
@@ -27,14 +27,14 @@ router.post('/', authenticate, async (req, res) => {
     let courtPrice = 0;
     for (const slotId of khungGioIds) {
       const slot = await client.query('SELECT mucGia FROM timeslots WHERE id = $1', [slotId]);
-      if (slot.rows.length > 0) courtPrice += parseFloat(slot.rows[0].mucGia);
+      if (slot.rows.length > 0) courtPrice += parseFloat(slot.rows[0].mucGia) || 0;
     }
 
     let servicesPrice = 0;
     if (dichVu && dichVu.length > 0) {
       for (const d of dichVu) {
         const svc = await client.query('SELECT donGia FROM services WHERE id = $1', [d.dichVuId]);
-        if (svc.rows.length > 0) servicesPrice += parseFloat(svc.rows[0].donGia) * (d.soLuong || 1);
+        if (svc.rows.length > 0) servicesPrice += (parseFloat(svc.rows[0].donGia) || 0) * (d.soLuong || 1);
       }
     }
 
@@ -46,7 +46,7 @@ router.post('/', authenticate, async (req, res) => {
     const bookingIds = [];
     for (const slotId of khungGioIds) {
       const slot = await client.query('SELECT mucGia FROM timeslots WHERE id = $1', [slotId]);
-      const slotPrice = parseFloat(slot.rows[0].mucGia);
+      const slotPrice = parseFloat(slot.rows[0].mucGia) || 0;
       const autoBook = isAutoBooking === true;
       const booking = await client.query(
         `INSERT INTO bookings (nguoiDungId, sanId, khungGioId, ngayChoi, tongTien, tienDaCoc, trangThai, isAutoBooking)
@@ -58,20 +58,27 @@ router.post('/', authenticate, async (req, res) => {
 
       // Create payment record
       await client.query(
-        'INSERT INTO payments (donDatId, soTien, loaiThanhToan) VALUES ($1, $2, $3)',
+        'INSERT INTO payments (donDatId, soTien, loaiThanhToan, trangThai) VALUES ($1, $2, $3, $4)',
         [booking.rows[0].id, isFullPayment ? slotPrice : Math.round(slotPrice * 0.1),
-         isFullPayment ? 'Full' : 'Deposit']
+         `${isFullPayment ? 'Full' : 'Deposit'} - ${phuongThuc === 'transfer' ? 'Chuyển khoản' : phuongThuc === 'momo' ? 'MoMo' : phuongThuc === 'visa' ? 'Visa/MC' : 'Tiền mặt'}`,
+         phuongThuc === 'cash' ? 'Thành công' : 'Chờ xác nhận']
       );
     }
 
     // Add services to the first booking
     if (dichVu && dichVu.length > 0 && bookingIds.length > 0) {
       for (const d of dichVu) {
-        const svc = await client.query('SELECT donGia FROM services WHERE id = $1', [d.dichVuId]);
+        const svc = await client.query('SELECT donGia, soLuongTon FROM services WHERE id = $1', [d.dichVuId]);
         if (svc.rows.length > 0) {
+          const qty = d.soLuong || 1;
+          const currentStock = parseInt(svc.rows[0].soLuongTon) || 0;
+          if (currentStock > 0) {
+            const newStock = Math.max(0, currentStock - qty);
+            await client.query('UPDATE services SET soLuongTon = $1 WHERE id = $2', [newStock, d.dichVuId]);
+          }
           await client.query(
             'INSERT INTO booking_services (donDatId, dichVuId, soLuong, tongTien) VALUES ($1, $2, $3, $4)',
-            [bookingIds[0], d.dichVuId, d.soLuong || 1, parseFloat(svc.rows[0].donGia) * (d.soLuong || 1)]
+            [bookingIds[0], d.dichVuId, qty, (parseFloat(svc.rows[0].donGia) || 0) * qty]
           );
         }
       }
@@ -263,6 +270,29 @@ router.post('/:id/cancel', authenticate, async (req, res) => {
   }
 });
 
+// Confirm booking (admin) - required step before check-in per thesis doc
+router.post('/:id/confirm', authenticate, async (req, res) => {
+  try {
+    if (req.user.role !== 'admin' && req.user.role !== 'Admin' && req.user.vaiTro !== 'Admin') {
+      return res.status(403).json({ error: 'Không có quyền' });
+    }
+    const result = await pool.query('SELECT * FROM bookings WHERE id = $1', [req.params.id]);
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Không tìm thấy' });
+    const booking = result.rows[0];
+    if (!['Đã cọc', 'Đã thanh toán Full'].includes(booking.trangThai)) {
+      return res.status(400).json({ error: 'Chỉ xác nhận đơn ở trạng thái Đã cọc hoặc Đã thanh toán Full' });
+    }
+    await pool.query("UPDATE bookings SET trangThai = 'Đã xác nhận', updated_at = NOW() WHERE id = $1", [req.params.id]);
+    await pool.query(
+      "INSERT INTO notifications (nguoiDungId, tieuDe, noiDung, loaiThongBao, maDonDat) VALUES ($1, $2, $3, 'booking_confirmed', $4)",
+      [booking.nguoiDungId, 'Đơn đặt sân đã được xác nhận', `Đơn #${req.params.id} đã được admin xác nhận. Vui lòng đến sân đúng giờ.`, req.params.id]
+    );
+    res.json({ message: 'Xác nhận đơn thành công' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Check-in (admin)
 router.post('/:id/checkin', authenticate, async (req, res) => {
   try {
@@ -272,7 +302,7 @@ router.post('/:id/checkin', authenticate, async (req, res) => {
     const result = await pool.query('SELECT * FROM bookings WHERE id = $1', [req.params.id]);
     if (result.rows.length === 0) return res.status(404).json({ error: 'Không tìm thấy' });
     const booking = result.rows[0];
-    if (!['Đã cọc', 'Đã thanh toán Full'].includes(booking.trangThai)) {
+    if (!['Đã cọc', 'Đã thanh toán Full', 'Đã xác nhận'].includes(booking.trangThai)) {
       return res.status(400).json({ error: 'Không thể check-in đơn này' });
     }
     await pool.query("UPDATE bookings SET trangThai = 'Đang sử dụng', updated_at = NOW() WHERE id = $1", [req.params.id]);
@@ -313,6 +343,20 @@ router.post('/:id/noshow', authenticate, async (req, res) => {
     }
     await pool.query("UPDATE bookings SET trangThai = 'Đã hủy', ghiChu = 'No-show', updated_at = NOW() WHERE id = $1", [req.params.id]);
     res.json({ message: 'Đã hủy vắng mặt, tịch thu cọc' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Generate QR code for a booking
+router.get('/:id/qr', authenticate, async (req, res) => {
+  try {
+    const QRCode = require('qrcode');
+    const result = await pool.query('SELECT id, sanId, ngayChoi FROM bookings WHERE id = $1', [req.params.id]);
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Không tìm thấy' });
+    const qrData = String(result.rows[0].id);
+    const qrImage = await QRCode.toDataURL(qrData, { width: 300, margin: 2 });
+    res.json({ data: { qr: qrImage, bookingId: result.rows[0].id } });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

@@ -1,18 +1,50 @@
+import { useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { ArrowLeft, MapPin, Clock, CreditCard } from 'lucide-react'
-import { bookingService } from '@/services'
+import { ArrowLeft, MapPin, Clock, CreditCard, Star, QrCode } from 'lucide-react'
+import { toast } from 'sonner'
+import { bookingService, reviewService } from '@/services'
+import { Button } from '@/components/ui/Button'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { formatPrice, formatDate, formatTime } from '@/lib/utils'
 
 export default function BookingDetailPage() {
   const { id } = useParams<{ id: string }>()
 
+  const [rating, setRating] = useState(0)
+  const [comment, setComment] = useState('')
+  const queryClient = useQueryClient()
+
   const { data: booking, isLoading } = useQuery({
     queryKey: ['bookings', id],
     queryFn: () => bookingService.getBookingById(id!).then(r => r.data.data ?? r.data),
     enabled: !!id,
+  })
+
+  const { data: qrData } = useQuery({
+    queryKey: ['bookings', id, 'qr'],
+    queryFn: () => bookingService.getBookingQR(id!).then(r => r.data.data ?? r.data),
+    enabled: !!id && booking?.trangThai !== 'Đã hủy' && booking?.trangThai !== 'Hoàn thành',
+  })
+
+  const { data: existingReview } = useQuery({
+    queryKey: ['reviews', 'booking', id],
+    queryFn: () => reviewService.getByCourt(booking?.sanId, { limit: 100 }).then(r => {
+      const reviews = r.data.data ?? r.data ?? []
+      return reviews.find((rev: any) => rev.donDatId === parseInt(id!)) ?? null
+    }),
+    enabled: !!id && !!booking?.sanId,
+  })
+
+  const reviewMutation = useMutation({
+    mutationFn: () => reviewService.create({ booking_id: id!, rating, comment: comment || undefined }),
+    onSuccess: () => {
+      toast.success('Cảm ơn bạn đã đánh giá!')
+      queryClient.invalidateQueries({ queryKey: ['reviews', 'booking', id] })
+      setRating(0); setComment('')
+    },
+    onError: (err: any) => toast.error(err.response?.data?.error || 'Gửi đánh giá thất bại'),
   })
 
   if (isLoading) {
@@ -63,6 +95,15 @@ export default function BookingDetailPage() {
           <div className="flex justify-between text-sm"><span>Tiền đã cọc</span><span>{formatPrice(Number(booking.tienDaCoc || 0))}</span></div>
         </div>
 
+        {qrData?.qr && (
+          <div className="pt-4 border-t border-border text-center">
+            <p className="text-sm font-medium mb-2">Mã QR Check-in</p>
+            <img src={qrData.qr} alt="QR Code" className="mx-auto w-40 h-40" />
+            <p className="text-xs text-muted-foreground mt-2">Đưa mã này cho nhân viên khi đến sân</p>
+            <p className="text-xs text-muted-foreground mt-1">Hoặc đọc mã đơn: <span className="font-mono font-bold text-foreground select-all">{booking.id}</span></p>
+          </div>
+        )}
+
         {booking.dichVu && booking.dichVu.length > 0 && (
           <div className="pt-4 border-t border-border">
             <p className="text-sm font-medium mb-2">Dịch vụ đi kèm</p>
@@ -72,6 +113,38 @@ export default function BookingDetailPage() {
                 <span>{formatPrice(Number(d.tongTien || 0))}</span>
               </div>
             ))}
+          </div>
+        )}
+
+        {/* Review Section */}
+        {booking.trangThai === 'Hoàn thành' && (
+          <div className="pt-4 border-t border-border">
+            <p className="text-sm font-medium mb-3">Đánh giá trải nghiệm</p>
+            {existingReview ? (
+              <div className="p-3 rounded-lg bg-muted/50">
+                <div className="flex items-center gap-1 mb-1">
+                  {[1, 2, 3, 4, 5].map(s => (
+                    <Star key={s} className={`size-4 ${s <= existingReview.diemSao ? 'fill-amber-500 text-amber-500' : 'text-muted-foreground'}`} />
+                  ))}
+                </div>
+                {existingReview.binhLuan && <p className="text-sm text-muted-foreground">{existingReview.binhLuan}</p>}
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="flex items-center gap-1">
+                  {[1, 2, 3, 4, 5].map(s => (
+                    <button key={s} onClick={() => setRating(s)} className="p-0.5">
+                      <Star className={`size-6 ${s <= rating ? 'fill-amber-500 text-amber-500' : 'text-muted-foreground'}`} />
+                    </button>
+                  ))}
+                </div>
+                <textarea value={comment} onChange={e => setComment(e.target.value)} placeholder="Chia sẻ trải nghiệm của bạn..."
+                  className="w-full h-20 px-4 py-3 rounded-lg border border-input bg-background focus:ring-2 focus:ring-ring outline-none resize-none text-sm" />
+                <Button onClick={() => reviewMutation.mutate()} disabled={rating === 0} loading={reviewMutation.isPending}>
+                  Gửi đánh giá
+                </Button>
+              </div>
+            )}
           </div>
         )}
       </div>

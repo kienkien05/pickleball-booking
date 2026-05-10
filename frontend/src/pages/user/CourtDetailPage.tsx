@@ -1,28 +1,35 @@
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { useQuery, useMutation } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
-import { MapPin, Clock, Star, ShoppingCart, AlertCircle, RefreshCw } from 'lucide-react'
+import { MapPin, Clock, Star, ShoppingCart, AlertCircle, RefreshCw, ChevronLeft, ChevronRight, MessageSquareText } from 'lucide-react'
 import { toast } from 'sonner'
-import { courtService, bookingService, serviceService } from '@/services'
+import { courtService, bookingService, serviceService, reviewService } from '@/services'
 import { useAuthStore } from '@/stores/authStore'
 import { Button } from '@/components/ui/Button'
 import { Modal, ModalFooter } from '@/components/ui/Modal'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { formatPrice, formatDate } from '@/lib/utils'
 
+const REVIEW_PAGE_SIZE = 5
+
 export default function CourtDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { isAuthenticated, user } = useAuthStore()
+  const queryClient = useQueryClient()
   const isVIP = user?.is_vip === true
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().slice(0, 10))
   const [selectedSlots, setSelectedSlots] = useState<string[]>([])
   const [selectedServices, setSelectedServices] = useState<Record<string, number>>({})
   const [paymentType, setPaymentType] = useState<'deposit' | 'full'>('deposit')
+  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'transfer' | 'momo' | 'visa'>('cash')
   const [autoBooking, setAutoBooking] = useState(false)
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [bookingLoading, setBookingLoading] = useState(false)
+  const [reviewPage, setReviewPage] = useState(1)
+  const [reviewRating, setReviewRating] = useState(0)
+  const [reviewComment, setReviewComment] = useState('')
 
   const { data: court, isLoading: courtLoading } = useQuery({
     queryKey: ['courts', id],
@@ -41,17 +48,39 @@ export default function CourtDetailPage() {
     queryFn: () => serviceService.getAll().then(r => r.data.data ?? r.data ?? []),
   })
 
+  const { data: reviewsData } = useQuery({
+    queryKey: ['reviews', 'court', id],
+    queryFn: () => reviewService.getByCourt(id!, { limit: 100 }).then(r => {
+      const list = r.data.data ?? r.data ?? []
+      return Array.isArray(list) ? list : list.reviews ?? []
+    }),
+    enabled: !!id,
+  })
+  const reviews = reviewsData || []
+  const totalPages = Math.max(1, Math.ceil(reviews.length / REVIEW_PAGE_SIZE))
+  const pagedReviews = reviews.slice((reviewPage - 1) * REVIEW_PAGE_SIZE, reviewPage * REVIEW_PAGE_SIZE)
+
+  const reviewMutation = useMutation({
+    mutationFn: () => reviewService.create({ booking_id: '0', rating: reviewRating, comment: reviewComment || undefined, courtId: id }),
+    onSuccess: () => {
+      toast.success('Cảm ơn bạn đã đánh giá!')
+      queryClient.invalidateQueries({ queryKey: ['reviews', 'court', id] })
+      setReviewRating(0); setReviewComment('')
+    },
+    onError: (err: any) => toast.error(err.response?.data?.error || 'Gửi đánh giá thất bại'),
+  })
+
   const timeSlots = Array.isArray(slotsData) ? slotsData : slotsData?.slots ?? []
   const services = Array.isArray(servicesData) ? servicesData : servicesData?.services ?? []
 
   const selectedSlotObjects = timeSlots.filter((s: any) => selectedSlots.includes(String(s.id)))
-  const courtPrice = selectedSlotObjects.reduce((sum: number, s: any) => sum + Number(s.mucGia || 0), 0)
+  const courtPrice = selectedSlotObjects.reduce((sum: number, s: any) => sum + (Number(s.mucGia) || 0), 0)
   const servicesPrice = Object.entries(selectedServices).reduce((sum, [svcId, qty]) => {
     const svc = services.find((s: any) => String(s.id) === svcId)
-    return sum + (svc ? Number(svc.donGia) * qty : 0)
+    return sum + (svc ? (Number(svc.donGia) || 0) * qty : 0)
   }, 0)
   const totalPrice = courtPrice + servicesPrice
-  const depositAmount = Math.round(totalPrice * 0.1)
+  const depositAmount = Math.round(totalPrice * 0.1) || 0
 
   const handleSlotToggle = (slotId: string) => {
     setSelectedSlots(prev => prev.includes(slotId) ? prev.filter(s => s !== slotId) : [...prev, slotId])
@@ -67,6 +96,7 @@ export default function CourtDetailPage() {
         khungGioIds: selectedSlots,
         dichVu: Object.entries(selectedServices).map(([id, qty]) => ({ dichVuId: id, soLuong: qty })),
         loaiThanhToan: paymentType,
+        phuongThuc: paymentMethod,
         isAutoBooking: autoBooking,
       })
       toast.success(autoBooking ? 'Đặt sân thành công! Hệ thống sẽ tự động đặt lịch cho tuần sau.' : 'Đặt sân thành công!')
@@ -79,10 +109,13 @@ export default function CourtDetailPage() {
 
   if (courtLoading) {
     return (
-      <div className="max-w-4xl mx-auto px-4 py-8 space-y-6">
+      <div className="max-w-6xl mx-auto px-4 py-8 space-y-6">
         <Skeleton className="h-8 w-64" />
         <Skeleton className="h-64 w-full rounded-xl" />
-        <Skeleton className="h-48 w-full rounded-xl" />
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Skeleton className="h-96 w-full rounded-xl" />
+          <Skeleton className="h-96 w-full rounded-xl" />
+        </div>
       </div>
     )
   }
@@ -99,9 +132,9 @@ export default function CourtDetailPage() {
   const today = new Date().toISOString().slice(0, 10)
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8">
+    <div className="max-w-6xl mx-auto px-4 py-8">
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
-        {/* Court Info */}
+        {/* Court Info Header */}
         <div className="rounded-xl border border-border bg-card overflow-hidden">
           {court.hinhAnh && (
             <div className="aspect-video bg-muted">
@@ -111,125 +144,225 @@ export default function CourtDetailPage() {
           <div className="p-6">
             <h1 className="text-2xl font-bold">{court.tenSan}</h1>
             <p className="mt-2 text-muted-foreground">{court.moTa}</p>
-            <div className={`inline-block mt-3 px-3 py-1 rounded-full text-sm font-medium ${court.trangThai === 'Sẵn sàng' ? 'bg-success/10 text-success' : 'bg-warning/10 text-warning'}`}>
-              {court.trangThai || 'Sẵn sàng'}
-            </div>
-          </div>
-        </div>
-
-        {/* Date Picker */}
-        <div className="rounded-xl border border-border bg-card p-6">
-          <h2 className="font-semibold mb-4">Chọn ngày</h2>
-          <input type="date" value={selectedDate} min={today}
-            onChange={e => { setSelectedDate(e.target.value); setSelectedSlots([]) }}
-            className="w-full sm:w-auto" />
-        </div>
-
-        {/* Time Slots Grid */}
-        <div className="rounded-xl border border-border bg-card p-6">
-          <h2 className="font-semibold mb-4">Khung giờ trống</h2>
-          {timeSlots.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              <Clock className="size-10 mx-auto mb-2 opacity-30" />
-              <p>Chưa có khung giờ nào cho ngày này</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              {timeSlots.map((slot: any) => {
-                const isSelected = selectedSlots.includes(String(slot.id))
-                const isBooked = slot.isBooked
-                return (
-                  <button key={slot.id} disabled={isBooked} onClick={() => handleSlotToggle(String(slot.id))}
-                    className={`p-3 rounded-lg border text-sm font-medium transition-all ${isBooked ? 'border-border bg-muted/50 text-muted-foreground cursor-not-allowed' :
-                        isSelected ? 'border-primary bg-primary/10 text-primary' : 'border-border hover:border-primary/50 hover:bg-accent'}`}>
-                    <div>{slot.gioBatDau?.substring(0, 5)} - {slot.gioKetThuc?.substring(0, 5)}</div>
-                    <div className="text-xs text-muted-foreground mt-1">{formatPrice(Number(slot.mucGia || 0))}</div>
-                    {isBooked && <div className="text-xs text-destructive mt-1">Đã đặt</div>}
-                  </button>
-                )
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* Services */}
-        {services.length > 0 && (
-          <div className="rounded-xl border border-border bg-card p-6">
-            <h2 className="font-semibold mb-4">Dịch vụ đi kèm</h2>
-            <div className="space-y-3">
-              {services.filter((s: any) => s.trangThai === 'Còn hàng').map((svc: any) => (
-                <div key={svc.id} className="flex items-center justify-between p-3 rounded-lg border border-border">
-                  <div>
-                    <p className="font-medium text-sm">{svc.tenDichVu}</p>
-                    <p className="text-xs text-muted-foreground">{formatPrice(Number(svc.donGia))}</p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button onClick={() => setSelectedServices(prev => {
-                      const cur = prev[String(svc.id)] || 0
-                      if (cur <= 1) { const { [String(svc.id)]: _, ...rest } = prev; return rest }
-                      return { ...prev, [String(svc.id)]: cur - 1 }
-                    })} className="size-8 rounded-md border border-input flex items-center justify-center hover:bg-muted">-</button>
-                    <span className="w-8 text-center text-sm">{selectedServices[String(svc.id)] || 0}</span>
-                    <button onClick={() => setSelectedServices(prev => ({
-                      ...prev, [String(svc.id)]: (prev[String(svc.id)] || 0) + 1
-                    }))} className="size-8 rounded-md border border-input flex items-center justify-center hover:bg-muted">+</button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Booking Summary */}
-        {selectedSlots.length > 0 && (
-          <div className="rounded-xl border border-border bg-card p-6 sticky bottom-20 sm:bottom-0">
-            <h2 className="font-semibold mb-4">Tóm tắt đặt sân</h2>
-            <div className="space-y-2 text-sm">
-              <div className="flex justify-between"><span>Tiền sân</span><span>{formatPrice(courtPrice)}</span></div>
-              {servicesPrice > 0 && <div className="flex justify-between"><span>Dịch vụ</span><span>{formatPrice(servicesPrice)}</span></div>}
-              <div className="flex justify-between font-semibold text-base border-t border-border pt-2">
-                <span>Tổng tiền</span><span>{formatPrice(totalPrice)}</span>
+            <div className="flex items-center gap-3 mt-3">
+              <div className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${court.trangThai === 'Sẵn sàng' ? 'bg-success/10 text-success' : 'bg-warning/10 text-warning'}`}>
+                {court.trangThai || 'Sẵn sàng'}
               </div>
-            </div>
-            <div className="mt-4 space-y-3">
-              {/* VIP Auto-Booking Toggle */}
-              {isVIP && (
-                <div className="flex items-center justify-between p-3 rounded-lg border border-amber-500/30 bg-amber-500/5">
-                  <div className="flex items-center gap-2">
-                    <RefreshCw className="size-4 text-amber-500" />
-                    <div>
-                      <p className="text-sm font-medium">Tự động đặt lịch tuần sau</p>
-                      <p className="text-xs text-muted-foreground">Tự động đặt lại khung giờ này cho cùng ngày trong tuần kế tiếp</p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => setAutoBooking(!autoBooking)}
-                    className={`relative w-11 h-6 rounded-full transition-colors duration-200 flex items-center px-0.5 ${
-                      autoBooking ? 'bg-amber-500' : 'bg-muted-foreground/30'
-                    }`}
-                  >
-                    <span className={`size-5 rounded-full bg-white shadow transition-transform duration-200 ${
-                      autoBooking ? 'translate-x-5' : 'translate-x-0'
-                    }`} />
-                  </button>
+              {court.avgRating != null && court.avgRating > 0 && (
+                <div className="flex items-center gap-1 text-sm text-amber-500">
+                  <Star className="size-4 fill-amber-500" />
+                  <span className="font-medium">{Number(court.avgRating).toFixed(1)}</span>
                 </div>
               )}
-              <div className="flex gap-3">
-                <button onClick={() => setPaymentType('deposit')}
-                  className={`flex-1 p-3 rounded-lg border text-sm font-medium transition-all ${paymentType === 'deposit' ? 'border-primary bg-primary/10 text-primary' : 'border-border hover:bg-accent'}`}>
-                  Cọc 10%<br /><span className="text-xs text-muted-foreground">{formatPrice(depositAmount)}</span>
-                </button>
-                <button onClick={() => setPaymentType('full')}
-                  className={`flex-1 p-3 rounded-lg border text-sm font-medium transition-all ${paymentType === 'full' ? 'border-primary bg-primary/10 text-primary' : 'border-border hover:bg-accent'}`}>
-                  Thanh toán 100%<br /><span className="text-xs text-muted-foreground">{formatPrice(totalPrice)}</span>
-                </button>
-              </div>
-              <Button className="w-full" size="lg" onClick={() => setConfirmOpen(true)}>
-                <ShoppingCart className="size-4 mr-2" /> Đặt sân
-              </Button>
             </div>
           </div>
-        )}
+        </div>
+
+        {/* Two-column layout */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* LEFT TAB: Reviews */}
+          <div className="space-y-6">
+            <div className="rounded-xl border border-border bg-card p-6">
+              <h2 className="font-semibold mb-4 flex items-center gap-2">
+                <MessageSquareText className="size-5" /> Đánh giá ({reviews.length})
+              </h2>
+
+              {/* Review Form */}
+              {isAuthenticated ? (
+                <div className="mb-6 p-4 rounded-lg border border-border bg-muted/30">
+                  <p className="text-sm font-medium mb-3">Viết đánh giá của bạn</p>
+                  <div className="flex items-center gap-1 mb-3">
+                    {[1, 2, 3, 4, 5].map(s => (
+                      <button key={s} onClick={() => setReviewRating(s)} className="p-0.5">
+                        <Star className={`size-6 ${s <= reviewRating ? 'fill-amber-500 text-amber-500' : 'text-muted-foreground'}`} />
+                      </button>
+                    ))}
+                    {reviewRating > 0 && <span className="text-xs text-muted-foreground ml-2">{reviewRating}/5</span>}
+                  </div>
+                  <textarea value={reviewComment} onChange={e => setReviewComment(e.target.value)}
+                    placeholder="Chia sẻ trải nghiệm của bạn về sân này..."
+                    className="w-full h-20 px-4 py-3 rounded-lg border border-input bg-background focus:ring-2 focus:ring-ring outline-none resize-none text-sm mb-3" />
+                  <Button onClick={() => reviewMutation.mutate()} disabled={reviewRating === 0} loading={reviewMutation.isPending} size="sm">
+                    Gửi đánh giá
+                  </Button>
+                </div>
+              ) : (
+                <div className="mb-6 p-4 rounded-lg border border-border bg-muted/30 text-center">
+                  <p className="text-sm text-muted-foreground">
+                    <button onClick={() => navigate('/login')} className="text-primary hover:underline">Đăng nhập</button> để viết đánh giá
+                  </p>
+                </div>
+              )}
+
+              {/* Review List */}
+              {pagedReviews.length > 0 ? (
+                <div className="space-y-4">
+                  {pagedReviews.map((r: any) => (
+                    <div key={r.id} className="pb-4 border-b border-border last:border-0 last:pb-0">
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium text-sm">{r.full_name || 'Khách hàng'}</span>
+                        <span className="text-xs text-muted-foreground">{r.ngayTao ? new Date(r.ngayTao).toLocaleDateString('vi-VN') : ''}</span>
+                      </div>
+                      <div className="flex items-center gap-0.5 mt-1">
+                        {[1, 2, 3, 4, 5].map(s => (
+                          <Star key={s} className={`size-3.5 ${s <= (r.diemSao || 0) ? 'fill-amber-500 text-amber-500' : 'text-muted-foreground/30'}`} />
+                        ))}
+                      </div>
+                      {r.binhLuan && <p className="text-sm text-muted-foreground mt-1">{r.binhLuan}</p>}
+                    </div>
+                  ))}
+
+                  {/* Pagination */}
+                  {totalPages > 1 && (
+                    <div className="flex items-center justify-center gap-2 pt-2">
+                      <Button variant="outline" size="sm" disabled={reviewPage <= 1}
+                        onClick={() => setReviewPage(p => p - 1)}>
+                        <ChevronLeft className="size-4" />
+                      </Button>
+                      <span className="text-sm text-muted-foreground">{reviewPage} / {totalPages}</span>
+                      <Button variant="outline" size="sm" disabled={reviewPage >= totalPages}
+                        onClick={() => setReviewPage(p => p + 1)}>
+                        <ChevronRight className="size-4" />
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground text-center py-4">Chưa có đánh giá nào cho sân này</p>
+              )}
+            </div>
+          </div>
+
+          {/* RIGHT TAB: Booking */}
+          <div className="space-y-6">
+            {/* Date Picker */}
+            <div className="rounded-xl border border-border bg-card p-6">
+              <h2 className="font-semibold mb-4">Chọn ngày</h2>
+              <input type="date" value={selectedDate} min={today}
+                onChange={e => { setSelectedDate(e.target.value); setSelectedSlots([]) }}
+                className="w-full sm:w-auto h-11 px-4 rounded-lg border border-input bg-background focus:ring-2 focus:ring-ring outline-none" />
+            </div>
+
+            {/* Time Slots Grid */}
+            <div className="rounded-xl border border-border bg-card p-6">
+              <h2 className="font-semibold mb-4">Khung giờ trống</h2>
+              {timeSlots.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Clock className="size-10 mx-auto mb-2 opacity-30" />
+                  <p>Chưa có khung giờ nào cho ngày này</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {timeSlots.map((slot: any) => {
+                    const isSelected = selectedSlots.includes(String(slot.id))
+                    const isBooked = slot.isBooked
+                    return (
+                      <button key={slot.id} disabled={isBooked} onClick={() => handleSlotToggle(String(slot.id))}
+                        className={`p-3 rounded-lg border text-sm font-medium transition-all ${isBooked ? 'border-border bg-muted/50 text-muted-foreground cursor-not-allowed' :
+                            isSelected ? 'border-primary bg-primary/10 text-primary' : 'border-border hover:border-primary/50 hover:bg-accent'}`}>
+                        <div>{slot.gioBatDau?.substring(0, 5)} - {slot.gioKetThuc?.substring(0, 5)}</div>
+                        <div className="text-xs text-muted-foreground mt-1">{formatPrice(Number(slot.mucGia || 0))}</div>
+                        {isBooked && <div className="text-xs text-destructive mt-1">Đã đặt</div>}
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Services */}
+            {services.length > 0 && (
+              <div className="rounded-xl border border-border bg-card p-6">
+                <h2 className="font-semibold mb-4">Dịch vụ đi kèm</h2>
+                <div className="space-y-3">
+                  {services.filter((s: any) => s.trangThai === 'Còn hàng').map((svc: any) => (
+                    <div key={svc.id} className="flex items-center justify-between p-3 rounded-lg border border-border">
+                      <div>
+                        <p className="font-medium text-sm">{svc.tenDichVu}</p>
+                        <p className="text-xs text-muted-foreground">{formatPrice(Number(svc.donGia))}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button onClick={() => setSelectedServices(prev => {
+                          const cur = prev[String(svc.id)] || 0
+                          if (cur <= 1) { const { [String(svc.id)]: _, ...rest } = prev; return rest }
+                          return { ...prev, [String(svc.id)]: cur - 1 }
+                        })} className="size-8 rounded-md border border-input flex items-center justify-center hover:bg-muted">-</button>
+                        <span className="w-8 text-center text-sm">{selectedServices[String(svc.id)] || 0}</span>
+                        <button onClick={() => setSelectedServices(prev => ({
+                          ...prev, [String(svc.id)]: (prev[String(svc.id)] || 0) + 1
+                        }))} className="size-8 rounded-md border border-input flex items-center justify-center hover:bg-muted">+</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Payment Method */}
+            <div className="rounded-xl border border-border bg-card p-6">
+              <h2 className="font-semibold mb-4">Phương thức thanh toán</h2>
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  { key: 'cash' as const, label: 'Tiền mặt tại sân', desc: 'Thanh toán khi đến chơi', icon: '💵' },
+                  { key: 'transfer' as const, label: 'Chuyển khoản NH', desc: 'MB Bank, Vietcombank...', icon: '🏦' },
+                  { key: 'momo' as const, label: 'Ví MoMo', desc: 'Quét mã QR qua MoMo', icon: '📱' },
+                  { key: 'visa' as const, label: 'Visa/Mastercard', desc: 'Thẻ tín dụng quốc tế', icon: '💳' },
+                ].map(pm => (
+                  <button key={pm.key} onClick={() => setPaymentMethod(pm.key)}
+                    className={`p-3 rounded-lg border text-sm text-left transition-all ${paymentMethod === pm.key ? 'border-primary bg-primary/10 text-primary' : 'border-border hover:bg-accent'}`}>
+                    <span className="text-lg">{pm.icon}</span>
+                    <p className="font-medium mt-1">{pm.label}</p>
+                    <p className="text-xs text-muted-foreground">{pm.desc}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Booking Summary */}
+            {selectedSlots.length > 0 && (
+              <div className="rounded-xl border border-border bg-card p-6 sticky bottom-20 sm:bottom-0 z-10">
+                <h2 className="font-semibold mb-4">Tóm tắt đặt sân</h2>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between"><span>Tiền sân</span><span>{formatPrice(courtPrice)}</span></div>
+                  {servicesPrice > 0 && <div className="flex justify-between"><span>Dịch vụ</span><span>{formatPrice(servicesPrice)}</span></div>}
+                  <div className="flex justify-between font-semibold text-base border-t border-border pt-2">
+                    <span>Tổng tiền</span><span>{formatPrice(totalPrice)}</span>
+                  </div>
+                </div>
+                <div className="mt-4 space-y-3">
+                  {isVIP && (
+                    <div className="flex items-center justify-between p-3 rounded-lg border border-amber-500/30 bg-amber-500/5">
+                      <div className="flex items-center gap-2">
+                        <RefreshCw className="size-4 text-amber-500" />
+                        <div>
+                          <p className="text-sm font-medium">Tự động đặt lịch tuần sau</p>
+                          <p className="text-xs text-muted-foreground">Tự động đặt lại khung giờ này cho tuần kế tiếp</p>
+                        </div>
+                      </div>
+                      <button onClick={() => setAutoBooking(!autoBooking)}
+                        className={`relative w-11 h-6 rounded-full transition-colors duration-200 flex items-center px-0.5 ${autoBooking ? 'bg-amber-500' : 'bg-muted-foreground/30'}`}>
+                        <span className={`size-5 rounded-full bg-white shadow transition-transform duration-200 ${autoBooking ? 'translate-x-5' : 'translate-x-0'}`} />
+                      </button>
+                    </div>
+                  )}
+                  <div className="flex gap-3">
+                    <button onClick={() => setPaymentType('deposit')}
+                      className={`flex-1 p-3 rounded-lg border text-sm font-medium transition-all ${paymentType === 'deposit' ? 'border-primary bg-primary/10 text-primary' : 'border-border hover:bg-accent'}`}>
+                      Cọc 10%<br /><span className="text-xs text-muted-foreground">{formatPrice(depositAmount)}</span>
+                    </button>
+                    <button onClick={() => setPaymentType('full')}
+                      className={`flex-1 p-3 rounded-lg border text-sm font-medium transition-all ${paymentType === 'full' ? 'border-primary bg-primary/10 text-primary' : 'border-border hover:bg-accent'}`}>
+                      Thanh toán 100%<br /><span className="text-xs text-muted-foreground">{formatPrice(totalPrice)}</span>
+                    </button>
+                  </div>
+                  <Button className="w-full" size="lg" onClick={() => setConfirmOpen(true)}>
+                    <ShoppingCart className="size-4 mr-2" /> Đặt sân
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
       </motion.div>
 
       {/* Confirm Modal */}
@@ -239,6 +372,7 @@ export default function CourtDetailPage() {
           <p><strong>Ngày:</strong> {formatDate(selectedDate)}</p>
           <p><strong>Khung giờ:</strong> {selectedSlotObjects.map((s: any) => `${s.gioBatDau?.substring(0, 5)}-${s.gioKetThuc?.substring(0, 5)}`).join(', ')}</p>
           <p><strong>Hình thức:</strong> {paymentType === 'deposit' ? `Cọc 10% (${formatPrice(depositAmount)})` : `Thanh toán 100% (${formatPrice(totalPrice)})`}</p>
+          <p><strong>Thanh toán:</strong> {paymentMethod === 'cash' ? 'Tiền mặt tại sân' : paymentMethod === 'transfer' ? 'Chuyển khoản ngân hàng' : paymentMethod === 'momo' ? 'Ví MoMo' : 'Visa/Mastercard'}</p>
           {paymentType === 'deposit' && (
             <div className="flex items-start gap-2 p-3 rounded-lg bg-warning/10 text-warning text-xs">
               <AlertCircle className="size-4 shrink-0 mt-0.5" />
@@ -248,7 +382,7 @@ export default function CourtDetailPage() {
           {autoBooking && (
             <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-500/10 text-amber-600 text-xs">
               <RefreshCw className="size-4 shrink-0 mt-0.5" />
-              <span>Hệ thống sẽ tự động đặt lịch khung giờ này cho cùng ngày tuần sau. Nếu có người khác đặt trước khi hệ thống xử lý, bạn sẽ nhận được thông báo.</span>
+              <span>Hệ thống sẽ tự động đặt lịch khung giờ này cho cùng ngày tuần sau.</span>
             </div>
           )}
         </div>

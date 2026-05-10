@@ -21,12 +21,12 @@ router.get('/dashboard', authenticate, requireAdmin, async (req, res) => {
     res.json({
       data: {
         stats: {
-          totalCourts: parseInt(totalCourts.rows[0].count),
-          totalUsers: parseInt(totalUsers.rows[0].count),
-          todayBookings: parseInt(todayBookings.rows[0].count),
-          monthlyRevenue: parseFloat(monthlyRevenue.rows[0].total),
+          totalCourts: parseInt(totalCourts.rows[0].count) || 0,
+          totalUsers: parseInt(totalUsers.rows[0].count) || 0,
+          todayBookings: parseInt(todayBookings.rows[0].count) || 0,
+          monthlyRevenue: parseFloat(monthlyRevenue.rows[0].total) || 0,
         },
-        revenueByDay: revenueByDay.rows,
+        revenueByDay: revenueByDay.rows || [],
       }
     });
   } catch (err) {
@@ -68,9 +68,9 @@ router.get('/reports', authenticate, requireAdmin, async (req, res) => {
 
     res.json({
       data: {
-        summary: summary.rows[0],
-        revenueByDay: revenueByDay.rows,
-        revenueByCourt: revenueByCourt.rows,
+        summary: summary.rows[0] || { totalRevenue: 0, totalBookings: 0, cancelRevenue: 0 },
+        revenueByDay: revenueByDay.rows || [],
+        revenueByCourt: revenueByCourt.rows || [],
       }
     });
   } catch (err) {
@@ -90,11 +90,11 @@ router.get('/services', authenticate, async (req, res) => {
 
 router.post('/services', authenticate, requireAdmin, async (req, res) => {
   try {
-    const { tenDichVu, donGia, loaiDichVu, trangThai } = req.body;
+    const { tenDichVu, donGia, loaiDichVu, soLuongTon, trangThai } = req.body;
     if (!tenDichVu || !donGia) return res.status(400).json({ error: 'Vui lòng nhập đầy đủ thông tin' });
     const result = await pool.query(
-      'INSERT INTO services (tenDichVu, donGia, loaiDichVu, trangThai) VALUES ($1, $2, $3, $4) RETURNING *',
-      [tenDichVu, donGia, loaiDichVu, trangThai || 'Còn hàng']
+      'INSERT INTO services (tenDichVu, donGia, loaiDichVu, soLuongTon, trangThai) VALUES ($1, $2, $3, $4, $5) RETURNING *',
+      [tenDichVu, donGia, loaiDichVu, soLuongTon || 0, trangThai || 'Còn hàng']
     );
     res.status(201).json({ data: result.rows[0] });
   } catch (err) {
@@ -104,10 +104,10 @@ router.post('/services', authenticate, requireAdmin, async (req, res) => {
 
 router.put('/services/:id', authenticate, requireAdmin, async (req, res) => {
   try {
-    const { tenDichVu, donGia, loaiDichVu, trangThai } = req.body;
+    const { tenDichVu, donGia, loaiDichVu, soLuongTon, trangThai } = req.body;
     const result = await pool.query(
-      'UPDATE services SET tenDichVu = COALESCE($1, tenDichVu), donGia = COALESCE($2, donGia), loaiDichVu = COALESCE($3, loaiDichVu), trangThai = COALESCE($4, trangThai) WHERE id = $5 RETURNING *',
-      [tenDichVu, donGia ? parseFloat(donGia) : null, loaiDichVu, trangThai, req.params.id]
+      'UPDATE services SET tenDichVu = COALESCE($1, tenDichVu), donGia = COALESCE($2, donGia), loaiDichVu = COALESCE($3, loaiDichVu), soLuongTon = COALESCE($4, soLuongTon), trangThai = COALESCE($5, trangThai) WHERE id = $6 RETURNING *',
+      [tenDichVu, donGia, loaiDichVu, soLuongTon !== undefined ? parseInt(soLuongTon) : null, trangThai, req.params.id]
     );
     if (result.rows.length === 0) return res.status(404).json({ error: 'Không tìm thấy' });
     res.json({ data: result.rows[0] });

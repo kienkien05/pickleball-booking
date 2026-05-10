@@ -63,6 +63,29 @@ export default function TimeSlotsManagePage() {
         </select>
       </div>
 
+      {!selectedCourt && courtList.length > 0 && (
+        <div className="rounded-xl border border-border overflow-hidden">
+          <table className="w-full text-sm">
+            <thead className="bg-muted/50">
+              <tr>
+                <th className="text-left px-4 py-3 font-medium">Sân</th>
+                <th className="text-left px-4 py-3 font-medium">Trạng thái</th>
+                <th className="text-right px-4 py-3 font-medium">Số khung giờ</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {courtList.map((c: any) => (
+                <tr key={c.id} className="hover:bg-muted/30 cursor-pointer" onClick={() => setSelectedCourt(String(c.id))}>
+                  <td className="px-4 py-3 font-medium">{c.tenSan}</td>
+                  <td className="px-4 py-3">{c.trangThai || 'Sẵn sàng'}</td>
+                  <td className="px-4 py-3 text-right">{c.slotCount ?? 0} khung giờ</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
       {selectedCourt && (
         <>
           <div className="flex justify-end">

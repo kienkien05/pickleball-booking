@@ -19,9 +19,10 @@ export function getImageUrl(url: string | undefined, options?: {
 }
 
 export function formatPrice(amount: number): string {
+  const safeAmount = isNaN(amount) ? 0 : amount
   return new Intl.NumberFormat('vi-VN', {
     style: 'currency', currency: 'VND', maximumFractionDigits: 0,
-  }).format(amount)
+  }).format(safeAmount)
 }
 
 export function formatDate(date: string | Date): string {

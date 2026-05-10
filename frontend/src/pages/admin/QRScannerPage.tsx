@@ -29,7 +29,9 @@ export default function QRScannerPage() {
         (decodedText: string) => {
           scanner.stop()
           setScanning(false)
-          checkMutation.mutate(decodedText)
+          let code = decodedText
+          try { const parsed = JSON.parse(decodedText); code = parsed.bookingId || parsed.id || decodedText } catch (_) {}
+          checkMutation.mutate(code)
         },
         () => {}
       )
