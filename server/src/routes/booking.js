@@ -67,7 +67,7 @@ router.post('/', authenticate, async (req, res) => {
 
     let subTotal = courtPrice + servicesPrice;
     let discountAmount = 0;
-    let discountId = null;
+    let appliedCode = null;
 
     // Handle Discount Code
     if (maGiamGia) {
@@ -80,14 +80,18 @@ router.post('/', authenticate, async (req, res) => {
       );
       if (discResult.rows.length > 0) {
         const disc = discResult.rows[0];
-        discountId = disc.id;
-        if (disc.loaigiamgia === 'percentage') {
-          discountAmount = Math.round(subTotal * disc.mucgiamgia / 100);
+        appliedCode = disc.code || disc.CODE;
+        const loai = disc.loaiGiamGia || disc.loaigiamgia;
+        const muc = Number(disc.mucGiamGia || disc.mucgiamgia || 0);
+
+        if (loai === 'percentage') {
+          discountAmount = Math.round(subTotal * muc / 100);
         } else {
-          discountAmount = Math.min(Number(disc.mucgiamgia), subTotal);
+          discountAmount = Math.min(muc, subTotal);
         }
+        const discId = disc.id || disc.ID;
         // Update usage count
-        await client.query('UPDATE discounts SET soLuongDaDung = soLuongDaDung + 1 WHERE id = $1', [disc.id]);
+        await client.query('UPDATE discounts SET soLuongDaDung = soLuongDaDung + 1 WHERE id = $1', [discId]);
       }
     }
 
@@ -111,9 +115,9 @@ router.post('/', authenticate, async (req, res) => {
 
       const autoBook = isAutoBooking === true;
       const booking = await client.query(
-        `INSERT INTO bookings (nguoiDungId, sanId, khungGioId, ngayChoi, tongTien, tienDaCoc, giaGoc, tienGiam, trangThai, isAutoBooking)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'Đã thanh toán', $9) RETURNING id`,
-        [req.user.id, sanId, slotId, ngayChoi, finalPriceForThisSlot, finalPriceForThisSlot, originalPriceForThisSlot, discountForThisSlot, autoBook]
+        `INSERT INTO bookings (nguoiDungId, sanId, khungGioId, ngayChoi, tongTien, tienDaCoc, giaGoc, tienGiam, trangThai, isAutoBooking, maGiamGia)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'Đã thanh toán', $9, $10) RETURNING id`,
+        [req.user.id, sanId, slotId, ngayChoi, finalPriceForThisSlot, finalPriceForThisSlot, originalPriceForThisSlot, discountForThisSlot, autoBook, appliedCode]
       );
       bookingIds.push(booking.rows[0].id);
 
@@ -203,22 +207,30 @@ router.post('/', authenticate, async (req, res) => {
       );
     }
 
-    // Loyalty Reward Logic: Every 3 bookings (including this one)
-    const countRes = await client.query("SELECT COUNT(*) as count FROM bookings WHERE nguoiDungId = $1 AND trangThai != 'Đã hủy'", [req.user.id]);
-    const totalBookings = parseInt(countRes.rows[0].count || 0);
+    // Loyalty Reward Logic: Every 3 bookings
+    const prevCountRes = await client.query("SELECT COUNT(*) as count FROM bookings WHERE nguoiDungId = $1 AND trangThai != 'Đã hủy' AND id NOT IN (" + bookingIds.join(',') + ")", [req.user.id]);
+    const prevTotal = parseInt(prevCountRes.rows[0].count || 0);
+    const newTotal = prevTotal + bookingIds.length;
     
-    if (totalBookings > 0 && totalBookings % 3 === 0) {
-      const rewardCode = `LOYAL${totalBookings}-${req.user.id}-${Math.floor(Math.random() * 1000)}`;
-      await client.query(
-        `INSERT INTO discounts (code, noiDung, moTa, loaiGiamGia, mucGiamGia, ngayBatDau, ngayKetThuc, soLuongBanDau, soLuongDaDung, trangThai, nguoiDungId)
-         VALUES ($1, 'Quà tặng đặt sân', 'Mã giảm giá 10% tri ân mỗi 3 đơn đặt sân', 'percentage', 10, NOW(), '2026-12-31', 1, 0, 'Active', $2)`,
-        [rewardCode, req.user.id]
-      );
-      
-      await client.query(
-        "INSERT INTO notifications (nguoiDungId, tieuDe, noiDung, loaiThongBao) VALUES ($1, $2, $3, 'promotion')",
-        [req.user.id, 'Quà tặng tri ân!', `Bạn vừa đặt đơn thứ ${totalBookings}! Hệ thống tặng bạn mã giảm giá 10% tri ân: ${rewardCode}`]
-      );
+    const prevRewards = Math.floor(prevTotal / 3);
+    const newRewards = Math.floor(newTotal / 3);
+
+    if (newRewards > prevRewards) {
+      // Issue as many vouchers as there are new groups of 3
+      for (let i = 0; i < (newRewards - prevRewards); i++) {
+        const randomStr = Math.random().toString(36).substring(2, 6).toUpperCase();
+        const rewardCode = `LTY10-${randomStr}`;
+        await client.query(
+          `INSERT INTO discounts (code, noiDung, moTa, loaiGiamGia, mucGiamGia, ngayBatDau, ngayKetThuc, soLuongBanDau, soLuongDaDung, trangThai, nguoiDungId)
+           VALUES ($1, 'Quà tặng đặt sân', 'Mã giảm giá 10% tri ân mỗi 3 đơn đặt sân', 'percentage', 10, NOW(), '2026-12-31', 1, 0, 'Active', $2)`,
+          [rewardCode, req.user.id]
+        );
+        
+        await client.query(
+          "INSERT INTO notifications (nguoiDungId, tieuDe, noiDung, loaiThongBao) VALUES ($1, $2, $3, 'promotion')",
+          [req.user.id, 'Quà tặng tri ân!', `Bạn vừa đạt mốc ${newRewards * 3} đơn đặt sân! Hệ thống tặng bạn mã giảm giá 10% tri ân: ${rewardCode}`]
+        );
+      }
     }
 
     await client.query('COMMIT');
@@ -309,7 +321,7 @@ router.get('/:id', authenticate, async (req, res) => {
       'SELECT bs.*, s.tenDichVu FROM booking_services bs JOIN services s ON bs.dichVuId = s.id WHERE bs.donDatId = $1',
       [booking.id]
     );
-    res.json({ data: { ...booking, dichVu: svcs.rows } });
+    res.json({ data: { ...booking, maGiamGia: booking.maGiamGia || booking.magiamgia, dichVu: svcs.rows } });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -377,7 +389,8 @@ router.post('/:id/checkout', authenticate, async (req, res) => {
     }
     const result = await pool.query('SELECT * FROM bookings WHERE id = $1', [req.params.id]);
     if (result.rows.length === 0) return res.status(404).json({ error: 'Không tìm thấy' });
-    if (result.rows[0].trangThai !== 'Đang sử dụng') {
+    const booking = result.rows[0];
+    if (booking.trangThai !== 'Đang sử dụng') {
       return res.status(400).json({ error: 'Chỉ check-out đơn đang sử dụng' });
     }
     await pool.query("UPDATE bookings SET trangThai = 'Hoàn thành', updated_at = NOW() WHERE id = $1", [req.params.id]);

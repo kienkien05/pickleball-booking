@@ -194,7 +194,7 @@ export default function BookingsManagePage() {
                 )}
                 {(fullDetail?.tienGiam || selectedBooking.tienGiam) > 0 && (
                   <div className="flex justify-between text-success">
-                    <span>Giảm giá (Voucher):</span>
+                    <span>Giảm giá (Voucher {selectedBooking.maGiamGia}):</span>
                     <span>-{formatPrice(Number(fullDetail?.tienGiam || selectedBooking.tienGiam))}</span>
                   </div>
                 )}

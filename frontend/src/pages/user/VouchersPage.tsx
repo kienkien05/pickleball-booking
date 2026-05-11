@@ -1,143 +1,141 @@
-import { useQuery } from '@tanstack/react-query'
-import { motion } from 'framer-motion'
-import { Ticket, Clock, Info, Copy, CheckCircle2 } from 'lucide-react'
-import { discountService } from '@/services'
-import { formatPrice, formatDate } from '@/lib/utils'
+import { useState } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { Ticket, Copy, Check, Info, Search } from 'lucide-react'
 import { toast } from 'sonner'
+import { discountService } from '@/services'
+import { Button } from '@/components/ui/Button'
 import { Skeleton } from '@/components/ui/Skeleton'
+import { formatPrice, formatDate } from '@/lib/utils'
 
 export default function VouchersPage() {
+  const [copiedCode, setCopiedCode] = useState<string | null>(null)
+  const [inputCode, setInputCode] = useState('')
+  const [checkingCode, setCheckingCode] = useState(false)
+  const queryClient = useQueryClient()
+
   const { data: vouchers, isLoading } = useQuery({
-    queryKey: ['my-discounts-page'],
-    queryFn: () => discountService.getMyDiscounts().then(r => r.data.data ?? []),
+    queryKey: ['my-vouchers'],
+    queryFn: () => discountService.getMyDiscounts().then(r => r.data.data ?? r.data ?? []),
+    staleTime: 0,
   })
+
+  const list = Array.isArray(vouchers) ? vouchers : vouchers?.vouchers ?? []
 
   const handleCopy = (code: string) => {
     navigator.clipboard.writeText(code)
-    toast.success('Đã sao chép mã: ' + code)
+    setCopiedCode(code)
+    toast.success('Đã sao chép mã giảm giá!')
+    setTimeout(() => setCopiedCode(null), 2000)
   }
 
-  if (isLoading) {
-    return (
-      <div className="container py-10">
-        <h1 className="text-3xl font-bold mb-8">Kho Voucher của bạn</h1>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {[1, 2, 3].map(i => <Skeleton key={i} className="h-40 rounded-2xl" />)}
-        </div>
-      </div>
-    )
+  const handleCheckCode = async () => {
+    if (!inputCode.trim()) return
+    setCheckingCode(true)
+    try {
+      const res = await discountService.validate(inputCode.trim(), 1000000, undefined, true)
+      const data = res.data.data
+      toast.success(`Mã "${data.code}" hợp lệ! Giảm ${data.loaiGiamGia === 'percentage' ? data.mucGiamGia + '%' : formatPrice(Number(data.mucGiamGia))}.`)
+      setInputCode('')
+      queryClient.invalidateQueries({ queryKey: ['my-vouchers'] })
+      queryClient.invalidateQueries({ queryKey: ['notifications'] })
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || 'Mã giảm giá không hợp lệ')
+    } finally {
+      setCheckingCode(false)
+    }
   }
 
   return (
-    <div className="container py-10 min-h-[70vh]">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-10">
+    <div className="max-w-4xl mx-auto px-4 py-8 space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">Kho Voucher</h1>
-          <p className="text-muted-foreground mt-2">Danh sách các mã giảm giá dành riêng cho bạn</p>
+          <h1 className="text-2xl font-bold">Kho Voucher</h1>
+          <p className="text-sm text-muted-foreground">Danh sách các mã giảm giá dành riêng cho bạn</p>
         </div>
-        <div className="bg-primary/10 px-4 py-2 rounded-full border border-primary/20 flex items-center gap-2 text-primary text-sm font-medium">
-          <Ticket className="size-4" />
-          {vouchers?.length || 0} Voucher khả dụng
+        <div className="flex items-center gap-2">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+            <input 
+              type="text" 
+              value={inputCode}
+              onChange={(e) => setInputCode(e.target.value.toUpperCase())}
+              placeholder="Nhập mã khuyến mãi..." 
+              className="h-10 pl-9 pr-4 rounded-lg border border-input bg-background focus:ring-2 focus:ring-primary outline-none text-sm font-mono"
+            />
+          </div>
+          <Button size="sm" onClick={handleCheckCode} loading={checkingCode} disabled={!inputCode.trim()}>
+            Kiểm tra
+          </Button>
         </div>
       </div>
 
-      {!vouchers || vouchers.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 text-center bg-card rounded-3xl border border-dashed border-border">
-          <div className="bg-muted p-6 rounded-full mb-4">
-            <Ticket className="size-12 text-muted-foreground opacity-20" />
-          </div>
-          <h3 className="text-xl font-semibold">Chưa có mã giảm giá nào</h3>
-          <p className="text-muted-foreground max-w-xs mt-2">
-            Hãy tích cực đặt sân để nhận được những ưu đãi hấp dẫn từ hệ thống nhé!
-          </p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {vouchers.map((voucher: any, index: number) => (
-            <motion.div
-              key={voucher.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.05 }}
-              className="group relative bg-card rounded-2xl border border-border overflow-hidden hover:shadow-xl hover:shadow-primary/5 transition-all duration-300"
-            >
-              {/* Left Side Decor */}
-              <div className="absolute left-0 top-0 bottom-0 w-2 bg-primary/20 group-hover:bg-primary transition-colors" />
-              
-              <div className="p-6">
-                <div className="flex justify-between items-start mb-4">
-                  <div className="bg-primary/10 p-2.5 rounded-xl text-primary group-hover:scale-110 transition-transform">
-                    <Ticket className="size-6" />
-                  </div>
-                  {voucher.soLuongBanDau > 0 && (
-                    <span className="text-[10px] font-bold uppercase tracking-wider bg-secondary text-secondary-foreground px-2 py-1 rounded-md">
-                      Còn {voucher.soLuongBanDau - voucher.soLuongDaDung} lượt
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {isLoading ? (
+          Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="h-32 w-full rounded-xl" />
+          ))
+        ) : list.length > 0 ? (
+          list.map((v: any) => (
+            <div key={v.id} className="bg-card border border-border rounded-xl p-5 relative overflow-hidden group transition-all hover:border-primary/50">
+              <div className="flex items-start gap-4">
+                <div className="p-3 bg-primary/10 rounded-lg text-primary">
+                  <Ticket className="size-6" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-2 mb-1">
+                    <h3 className="font-bold text-base truncate">{v.noiDung || 'Ưu đãi đặt sân'}</h3>
+                    <span className="shrink-0 px-2 py-0.5 bg-muted rounded text-[10px] font-bold text-muted-foreground uppercase">
+                      CÒN 1 LƯỢT
                     </span>
-                  )}
-                </div>
-
-                <h3 className="text-lg font-bold line-clamp-1">{voucher.noiDung}</h3>
-                <p className="text-sm text-muted-foreground mt-1 line-clamp-2 min-h-[40px]">
-                  {voucher.moTa}
-                </p>
-
-                <div className="mt-6 flex items-center justify-between gap-4">
-                  <div className="flex-1">
-                    <div className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest mb-1 flex items-center gap-1">
-                      <Clock className="size-3" /> Hạn dùng: {voucher.ngayKetThuc ? formatDate(voucher.ngayKetThuc) : 'Vô thời hạn'}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <code className="bg-muted px-3 py-1.5 rounded-lg font-mono font-bold text-primary text-sm flex-1 text-center border border-border">
-                        {voucher.code}
-                      </code>
-                      <button 
-                        onClick={() => handleCopy(voucher.code)}
-                        className="p-2 hover:bg-primary hover:text-primary-foreground rounded-lg transition-colors border border-border"
-                        title="Sao chép mã"
-                      >
-                        <Copy className="size-4" />
-                      </button>
-                    </div>
                   </div>
-                </div>
-
-                {/* Applied Badge if applicable */}
-                <div className="mt-4 pt-4 border-t border-dashed border-border flex items-center gap-2 text-xs text-muted-foreground">
-                  <Info className="size-3.5" />
-                  <span>Giảm {voucher.loaiGiamGia === 'percentage' ? `${voucher.mucGiamGia}%` : formatPrice(voucher.mucGiamGia)}</span>
+                  <p className="text-xs text-muted-foreground line-clamp-2 mb-4">{v.moTa || 'Mã giảm giá tri ân khách hàng'}</p>
+                  
+                  <div className="flex items-center justify-between pt-4 border-t border-dashed border-border">
+                    <div className="space-y-1">
+                      <div className="text-sm text-muted-foreground flex items-center gap-1 uppercase font-bold tracking-tighter">
+                        <Info className="size-3" /> Hạn dùng: {v.ngayKetThuc ? formatDate(v.ngayKetThuc) : 'Không giới hạn'}
+                      </div>
+                      <div className="text-sm font-bold text-primary italic">
+                         Giảm {v.loaiGiamGia === 'percentage' ? `${v.mucGiamGia}%` : formatPrice(Number(v.mucGiamGia))}
+                      </div>
+                    </div>
+                    <button 
+                      onClick={() => handleCopy(v.code)}
+                      className="flex items-center gap-2 px-3 py-2 bg-muted hover:bg-muted-foreground/10 rounded-lg transition-colors"
+                    >
+                      <span className="font-mono text-sm font-bold">{v.code}</span>
+                      {copiedCode === v.code ? <Check className="size-4 text-success" /> : <Copy className="size-4 opacity-40" />}
+                    </button>
+                  </div>
                 </div>
               </div>
+            </div>
+          ))
+        ) : (
+          <div className="col-span-full py-20 text-center text-muted-foreground bg-muted/20 rounded-2xl border border-dashed border-border">
+            <Ticket className="size-12 mx-auto mb-3 opacity-20" />
+            <p className="text-lg font-medium">Chưa có mã giảm giá nào</p>
+            <p className="text-sm">Hãy tích cực đặt sân để nhận được những ưu đãi nhé!</p>
+          </div>
+        )}
+      </div>
 
-              {/* Ticket Cut-outs */}
-              <div className="absolute left-[-8px] top-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-background border border-border" />
-              <div className="absolute right-[-8px] top-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-background border border-border" />
-            </motion.div>
-          ))}
-        </div>
-      )}
-
-      {/* Promotion Banner */}
-      <div className="mt-16 bg-gradient-to-br from-primary/10 to-transparent p-8 rounded-3xl border border-primary/20 flex flex-col md:flex-row items-center gap-8">
-        <div className="size-20 bg-primary/20 rounded-2xl flex items-center justify-center">
-          <CheckCircle2 className="size-10 text-primary" />
-        </div>
-        <div>
-          <h2 className="text-2xl font-bold mb-2">Làm sao để nhận thêm mã?</h2>
-          <ul className="space-y-2 text-muted-foreground">
-            <li className="flex items-center gap-2">
-              <div className="size-1.5 rounded-full bg-primary" />
-              Tích cực đặt sân: Cứ mỗi 3 lần đặt sân thành công bạn sẽ nhận ngay 1 mã giảm giá 10%.
-            </li>
-            <li className="flex items-center gap-2">
-              <div className="size-1.5 rounded-full bg-primary" />
-              Theo dõi fanpage để săn các mã khuyến mãi theo mùa (Mùa hè, Tết...).
-            </li>
-            <li className="flex items-center gap-2">
-              <div className="size-1.5 rounded-full bg-primary" />
-              Nâng cấp lên tài khoản VIP để hưởng các đặc quyền giảm giá cố định.
-            </li>
-          </ul>
-        </div>
+      <div className="bg-muted/30 border border-border rounded-xl p-6 space-y-4 mt-8">
+        <h2 className="text-lg font-bold">Làm sao để nhận thêm mã?</h2>
+        <ul className="space-y-3 text-sm text-muted-foreground">
+          <li className="flex items-start gap-2">
+            <div className="size-1.5 rounded-full bg-primary mt-1.5 shrink-0" />
+            <span><strong className="text-foreground">Tích cực đặt sân:</strong> Cứ mỗi 3 lần đặt sân thành công bạn sẽ nhận ngay 1 mã giảm giá 10%.</span>
+          </li>
+          <li className="flex items-start gap-2">
+            <div className="size-1.5 rounded-full bg-primary mt-1.5 shrink-0" />
+            <span><strong className="text-foreground">Theo dõi fanpage:</strong> Để săn các mã khuyến mãi theo mùa (Mùa hè, Tết...).</span>
+          </li>
+          <li className="flex items-start gap-2">
+            <div className="size-1.5 rounded-full bg-primary mt-1.5 shrink-0" />
+            <span><strong className="text-foreground">Nâng cấp lên tài khoản VIP:</strong> Để hưởng các đặc quyền giảm giá cố định.</span>
+          </li>
+        </ul>
       </div>
     </div>
   )

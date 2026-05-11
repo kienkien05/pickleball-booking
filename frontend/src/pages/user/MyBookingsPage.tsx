@@ -34,6 +34,7 @@ export default function MyBookingsPage() {
     queryKey: ['bookings', 'my', statusFilter],
     queryFn: () => bookingService.getMyBookings({ status: statusFilter || undefined, limit: 50 })
       .then(r => r.data.data ?? r.data ?? []),
+    staleTime: 0,
   })
 
   const bookings = Array.isArray(bookingsData) ? bookingsData : bookingsData?.bookings ?? []

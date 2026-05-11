@@ -62,9 +62,10 @@ export default function CourtDetailPage() {
   })
 
   const { data: myDiscounts } = useQuery({
-    queryKey: ['my-discounts'],
+    queryKey: ['my-vouchers'],
     queryFn: () => discountService.getMyDiscounts().then(r => r.data.data ?? []),
     enabled: isAuthenticated,
+    staleTime: 0,
   })
 
 
@@ -92,7 +93,22 @@ export default function CourtDetailPage() {
     return sum + (svc ? (Number(svc.donGia) || 0) * qty : 0)
   }, 0)
   const subTotal = courtPrice + servicesPrice
-  const discountAmount = appliedDiscount?.discountAmount || 0
+  
+  // Calculate discount dynamically
+  let discountAmount = 0
+  if (appliedDiscount) {
+    const muc = Number(appliedDiscount.mucGiamGia || appliedDiscount.mucgiamgia || 0)
+    const loai = appliedDiscount.loaiGiamGia || appliedDiscount.loaigiamgia
+    const maxGiam = Number(appliedDiscount.giamToiDa || appliedDiscount.giamtoida || 0)
+
+    if (loai === 'percentage') {
+      discountAmount = Math.round(subTotal * muc / 100)
+      if (maxGiam > 0) discountAmount = Math.min(discountAmount, maxGiam)
+    } else {
+      discountAmount = Math.min(muc, subTotal)
+    }
+  }
+
   const totalPrice = subTotal - discountAmount
 
   const handleSlotToggle = (slotId: string) => {
@@ -106,7 +122,7 @@ export default function CourtDetailPage() {
     
     setValidatingDiscount(true)
     try {
-      const res = await discountService.validate(codeToUse, subTotal)
+      const res = await discountService.validate(codeToUse, subTotal, id)
       setAppliedDiscount(res.data.data)
       if (!overrideCode) toast.success('Áp dụng mã giảm giá thành công!')
     } catch (err: any) {
@@ -115,22 +131,19 @@ export default function CourtDetailPage() {
     } finally {
       setValidatingDiscount(false)
     }
-  }, [discountCode, subTotal, validatingDiscount])
+  }, [discountCode, subTotal, validatingDiscount, id])
 
   useEffect(() => {
-    const canAutoApply = isAuthenticated && subTotal > 0 && myDiscounts && myDiscounts.length > 0 && !appliedDiscount
-    const canReApply = isAuthenticated && subTotal > 0 && appliedDiscount && !validatingDiscount
-    const currentStateKey = `${subTotal}-${appliedDiscount?.code || myDiscounts?.[0]?.code}`
-    
-    if ((canAutoApply || canReApply) && hasAutoApplied !== currentStateKey) {
-      const codeToApply = appliedDiscount?.code || myDiscounts?.[0]?.code
+    // Only auto-select the first voucher ONCE when the user enters the page and has no discount selected
+    if (isAuthenticated && subTotal > 0 && myDiscounts && myDiscounts.length > 0 && !appliedDiscount && !hasAutoApplied) {
+      const codeToApply = myDiscounts[0].code
       if (codeToApply) {
         setDiscountCode(codeToApply)
-        setHasAutoApplied(currentStateKey)
+        setHasAutoApplied(codeToApply) // Store the code that was auto-applied
         handleApplyDiscount(codeToApply)
       }
     }
-  }, [isAuthenticated, subTotal, myDiscounts, appliedDiscount, hasAutoApplied, handleApplyDiscount, validatingDiscount])
+  }, [isAuthenticated, subTotal, myDiscounts, appliedDiscount, hasAutoApplied, handleApplyDiscount])
 
   const handleBooking = async () => {
     if (!isAuthenticated) { navigate('/login'); return }
@@ -147,6 +160,8 @@ export default function CourtDetailPage() {
       })
       toast.success(autoBooking ? 'Đặt sân thành công! Hệ thống sẽ tự động đặt lịch cho tuần sau.' : 'Đặt sân thành công!')
       queryClient.invalidateQueries({ queryKey: ['notifications'] })
+      queryClient.invalidateQueries({ queryKey: ['my-vouchers'] })
+      queryClient.invalidateQueries({ queryKey: ['bookings'] })
       setConfirmOpen(false)
       navigate('/my-bookings')
     } catch (err: any) {
@@ -438,11 +453,7 @@ export default function CourtDetailPage() {
                                 <p className="text-xs font-bold truncate">{disc.code}</p>
                                 <p className="text-[10px] text-muted-foreground truncate">{disc.noiDung}</p>
                               </div>
-                              {disc.soLuongBanDau > 0 && (
-                                <span className="absolute top-1 right-1 bg-primary/20 text-primary px-1.5 rounded text-[10px] font-bold">
-                                  x{disc.soLuongBanDau - disc.soLuongDaDung}
-                                </span>
-                              )}
+                              {/* Removed confusing quantity badge */}
                             </button>
                           ))}
                         </div>

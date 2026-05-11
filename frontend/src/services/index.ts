@@ -96,8 +96,8 @@ export const discountService = {
   create: (data: Record<string, any>) => api.post('/discounts', data),
   update: (id: string, data: Record<string, any>) => api.put(`/discounts/${id}`, data),
   delete: (id: string) => api.delete(`/discounts/${id}`),
-  validate: (code: string, totalAmount: number) =>
-    api.post('/discounts/validate', { code, totalAmount }),
+  validate: (code: string, totalAmount: number, courtId?: string, isClaiming?: boolean) =>
+    api.post('/discounts/validate', { code, totalAmount, courtId, isClaiming }),
 }
 
 export const adminService = {

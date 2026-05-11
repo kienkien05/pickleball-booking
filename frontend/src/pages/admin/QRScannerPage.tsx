@@ -22,8 +22,12 @@ export default function QRScannerPage() {
     mutationFn: (id: string) => bookingService.checkIn(id),
     onSuccess: () => {
       toast.success('Check-in thành công!')
-      setResult((prev: any) => prev ? { ...prev, trangThai: 'Đang sử dụng' } : prev)
-      queryClient.invalidateQueries({ queryKey: ['admin', 'bookings'] })
+      setResult((prev: any) => {
+        if (!prev) return prev;
+        return { ...prev, trangThai: 'Đang sử dụng' };
+      });
+      queryClient.invalidateQueries({ queryKey: ['admin', 'bookings'] });
+      queryClient.invalidateQueries({ queryKey: ['bookings'] });
     },
     onError: (err: any) => toast.error(err.response?.data?.error || 'Check-in thất bại'),
   })
@@ -118,7 +122,7 @@ export default function QRScannerPage() {
               )}
               {result.tienGiam > 0 && (
                 <div className="flex justify-between text-xs text-success">
-                  <span>Voucher giảm:</span>
+                  <span>Voucher giảm ({result.maGiamGia}):</span>
                   <span>-{Number(result.tienGiam).toLocaleString('vi-VN')}đ</span>
                 </div>
               )}

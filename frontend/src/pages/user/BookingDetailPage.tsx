@@ -123,7 +123,7 @@ export default function BookingDetailPage() {
             )}
             {Number(booking.tienGiam || 0) > 0 && (
               <div className="flex justify-between text-success">
-                <span>Giảm giá (Voucher):</span>
+                <span>Giảm giá (Voucher {booking.maGiamGia}):</span>
                 <span>-{formatPrice(Number(booking.tienGiam))}</span>
               </div>
             )}

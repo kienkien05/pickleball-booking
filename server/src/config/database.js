@@ -35,6 +35,7 @@ const FIELD_MAP = {
   // discounts
   loaigiamgia: 'loaiGiamGia', mucgiamgia: 'mucGiamGia', ngaybatdau: 'ngayBatDau',
   ngayketthuc: 'ngayKetThuc', soluongbandau: 'soLuongBanDau', soluongdadung: 'soLuongDaDung',
+  usage_limit_per_user: 'usageLimitPerUser', giamtoida: 'giamToiDa',
   // common
   trangthai: 'trangThai', created_at: 'created_at', updated_at: 'updated_at',
   // aliases from queries
@@ -45,6 +46,7 @@ const FIELD_MAP = {
   customer: 'customer', court: 'court', timeslot: 'timeslot', status: 'status',
   deposit: 'deposit', full_name: 'full_name', phone_number: 'phone_number',
   is_active: 'is_active', role: 'role', email: 'email',
+  magiamgia: 'maGiamGia',
 };
 
 function fixRowKeys(row) {
@@ -189,6 +191,9 @@ async function initDatabase() {
         ngayKetThuc TIMESTAMP,
         soLuongBanDau INTEGER DEFAULT 0,
         soLuongDaDung INTEGER DEFAULT 0,
+        usage_limit_per_user INTEGER DEFAULT 1,
+        giamToiDa DECIMAL(15,2),
+        conditions JSONB DEFAULT '{}',
         nguoiDungId INTEGER REFERENCES users(id) ON DELETE CASCADE,
         trangThai VARCHAR(50) DEFAULT 'Active',
         created_at TIMESTAMP DEFAULT NOW()
@@ -201,6 +206,17 @@ async function initDatabase() {
     // Add billing columns to bookings for existing databases
     await client.query("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS giaGoc DECIMAL(15,2)").catch(() => {});
     await client.query("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS tienGiam DECIMAL(15,2) DEFAULT 0").catch(() => {});
+
+    // Add rule-based columns to discounts for existing databases
+    await client.query("ALTER TABLE discounts ADD COLUMN IF NOT EXISTS usage_limit_per_user INTEGER DEFAULT 1").catch(() => {});
+    await client.query("ALTER TABLE discounts ADD COLUMN IF NOT EXISTS giamToiDa DECIMAL(15,2)").catch(() => {});
+    await client.query("ALTER TABLE discounts ADD COLUMN IF NOT EXISTS conditions JSONB DEFAULT '{}'").catch(() => {});
+    
+    // Add maGiamGia to bookings to track usage
+    await client.query("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS maGiamGia VARCHAR(50)").catch(() => {});
+
+    // Add is_hidden to discounts for secret/fanpage codes
+    await client.query("ALTER TABLE discounts ADD COLUMN IF NOT EXISTS is_hidden BOOLEAN DEFAULT FALSE").catch(() => {});
 
     // Add soLuongTon column for existing databases
     await client.query("ALTER TABLE services ADD COLUMN IF NOT EXISTS soLuongTon INTEGER DEFAULT 0").catch(() => {});

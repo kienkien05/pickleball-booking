@@ -234,13 +234,27 @@ router.get('/discounts/my', authenticate, async (req, res) => {
   try {
     // Lấy mã chung (nguoiDungId IS NULL) và mã riêng của user
     const result = await pool.query(
-      `SELECT * FROM discounts 
-       WHERE (nguoiDungId IS NULL OR nguoiDungId = $1)
-       AND trangThai = 'Active'
-       AND (ngayBatDau IS NULL OR ngayBatDau <= NOW())
-       AND (ngayKetThuc IS NULL OR ngayKetThuc >= NOW())
-       AND (soLuongBanDau = 0 OR soLuongDaDung < soLuongBanDau)
-       ORDER BY created_at DESC`,
+      `SELECT d.* FROM discounts d
+       LEFT JOIN (
+         SELECT maGiamGia, COUNT(*) as used_count 
+         FROM bookings 
+         WHERE nguoiDungId = $1 AND trangThai != 'Đã hủy'
+         GROUP BY maGiamGia
+       ) u ON d.code = u.maGiamGia
+       WHERE (d.nguoiDungId IS NULL OR d.nguoiDungId = $1)
+       AND d.trangThai = 'Active'
+       AND (d.ngayBatDau IS NULL OR d.ngayBatDau <= NOW())
+       AND (d.ngayKetThuc IS NULL OR d.ngayKetThuc >= NOW())
+       AND (d.soLuongBanDau = 0 OR d.soLuongDaDung < d.soLuongBanDau)
+       AND (u.used_count IS NULL OR u.used_count < COALESCE(d.usage_limit_per_user, 1))
+       AND d.is_hidden = FALSE
+       AND (
+         d.conditions->>'target_audience' IS NULL 
+         OR d.conditions->>'target_audience' = 'all'
+         OR (d.conditions->>'target_audience' = 'new_user' AND (SELECT COUNT(*) FROM bookings WHERE nguoiDungId = $1 AND trangThai != 'Đã hủy') = 0)
+         OR (d.conditions->>'target_audience' = 'vip' AND (SELECT isVIP FROM users WHERE id = $1) = TRUE)
+       )
+       ORDER BY d.created_at DESC`,
       [req.user.id]
     );
     res.json({ data: result.rows });
@@ -347,35 +361,123 @@ router.get('/reports/export', authenticate, requireAdmin, async (req, res) => {
 // Validate discount code
 router.post('/discounts/validate', authenticate, async (req, res) => {
   try {
-    const { code, totalAmount } = req.body;
+    const { code, totalAmount, courtId } = req.body;
     const userId = req.user.id;
 
     const result = await pool.query(
-      `SELECT * FROM discounts 
-       WHERE code = $1 
-       AND (trangThai = 'Active' OR trangThai = 'active')
-       AND (nguoiDungId IS NULL OR nguoiDungId = $2)
-       AND (ngayBatDau IS NULL OR ngayBatDau <= NOW() + INTERVAL '1 minute')
-       AND (ngayKetThuc IS NULL OR ngayKetThuc >= NOW())
-       AND (soLuongBanDau = 0 OR soLuongDaDung < soLuongBanDau)`,
+      "SELECT * FROM discounts WHERE code = $1 AND (nguoiDungId IS NULL OR nguoiDungId = $2) ORDER BY nguoiDungId DESC LIMIT 1",
       [code, userId]
     );
 
     if (result.rows.length === 0) {
-      return res.status(400).json({ error: 'Mã giảm giá không tồn tại, đã hết hạn hoặc không dành cho bạn' });
+      return res.status(400).json({ error: 'Mã giảm giá không tồn tại' });
     }
 
     const discount = result.rows[0];
+
+    // Check Status
+    if (discount.trangThai?.toLowerCase() !== 'active') {
+      return res.status(400).json({ error: 'Mã giảm giá hiện đang bị vô hiệu hóa' });
+    }
+
+    // Check ownership
+    if (discount.nguoiDungId && discount.nguoiDungId !== userId) {
+      return res.status(400).json({ error: 'Mã giảm giá này không thuộc sở hữu của bạn' });
+    }
+
+    // Check Dates
+    const now = new Date();
+    if (discount.ngayBatDau && new Date(discount.ngayBatDau) > now) {
+      return res.status(400).json({ error: `Mã giảm giá chưa đến ngày hiệu lực (Bắt đầu từ ${formatDate(discount.ngayBatDau)})` });
+    }
+    if (discount.ngayKetThuc && new Date(discount.ngayKetThuc) < now) {
+      return res.status(400).json({ error: 'Mã giảm giá đã hết hạn sử dụng' });
+    }
+
+    // Check Quantity
+    if (discount.soLuongBanDau > 0 && discount.soLuongDaDung >= discount.soLuongBanDau) {
+      return res.status(400).json({ error: 'Mã giảm giá đã được sử dụng hết số lượng' });
+    }
+
+    // 1. Check usage limit per user
+    const usageLimit = parseInt(discount.usageLimitPerUser || discount.usage_limit_per_user || 1);
+    const userUsageRes = await pool.query(
+      "SELECT COUNT(*) FROM bookings WHERE nguoiDungId = $1 AND maGiamGia = $2 AND trangThai != 'Đã hủy'",
+      [userId, code]
+    );
+    
+    if (parseInt(userUsageRes.rows[0].count) >= usageLimit) {
+      return res.status(400).json({ error: `Bạn đã sử dụng mã này rồi. Giới hạn là ${usageLimit} lần/khách.` });
+    }
+
+    // 2. Parse Conditions
+    const conditions = typeof discount.conditions === 'string' ? JSON.parse(discount.conditions) : (discount.conditions || {});
+
+    // Check Min Order Value
+    if (conditions.min_order_value && totalAmount < Number(conditions.min_order_value)) {
+      return res.status(400).json({ error: `Đơn hàng tối thiểu phải từ ${Number(conditions.min_order_value).toLocaleString('vi-VN')}đ để dùng mã này` });
+    }
+
+    // Check Applicable Courts
+    if (conditions.applicable_court_ids && Array.isArray(conditions.applicable_court_ids) && conditions.applicable_court_ids.length > 0) {
+      if (!courtId || !conditions.applicable_court_ids.includes(parseInt(courtId))) {
+        return res.status(400).json({ error: 'Mã này không áp dụng cho sân bạn chọn' });
+      }
+    }
+
+    // Check Target Audience
+    if (conditions.target_audience === 'new_user') {
+      const bookingCountRes = await pool.query("SELECT COUNT(*) FROM bookings WHERE nguoiDungId = $1 AND trangThai != 'Đã hủy'", [userId]);
+      if (parseInt(bookingCountRes.rows[0].count) > 0) {
+        return res.status(400).json({ error: 'Mã này chỉ dành cho khách hàng mới đặt lần đầu' });
+      }
+    } else if (conditions.target_audience === 'vip') {
+      const userRes = await pool.query("SELECT isVIP FROM users WHERE id = $1", [userId]);
+      if (!userRes.rows[0]?.isVIP) {
+        return res.status(400).json({ error: 'Mã này chỉ dành cho thành viên VIP' });
+      }
+    }
+
+    // 3. Calculate Discount Amount
     let discountAmount = 0;
     const mucGiamGia = Number(discount.mucGiamGia || discount.mucgiamgia);
     const loaiGiamGia = discount.loaiGiamGia || discount.loaigiamgia;
+    const giamToiDa = Number(discount.giamToiDa || discount.giamtoida || 0);
 
     if (loaiGiamGia === 'percentage') {
       discountAmount = Math.round(totalAmount * mucGiamGia / 100);
+      if (giamToiDa > 0) {
+        discountAmount = Math.min(discountAmount, giamToiDa);
+      }
     } else {
       discountAmount = Math.min(mucGiamGia, totalAmount);
     }
-    res.json({ data: { ...discount, discountAmount } });
+
+    // 3. Handle Claiming (only if isClaiming flag is present)
+    if (req.body.isClaiming) {
+      const existingNoti = await pool.query(
+        "SELECT id FROM notifications WHERE nguoiDungId = $1 AND loaiThongBao = 'promotion' AND noiDung LIKE $2",
+        [userId, `%mã giảm giá: ${code}%`]
+      );
+
+      if (existingNoti.rows.length > 0) {
+        return res.status(400).json({ error: 'Bạn đã sở hữu mã giảm giá này trong kho voucher rồi!' });
+      }
+
+      // Create a private copy for the user
+      await pool.query(
+        `INSERT INTO discounts (code, noiDung, moTa, loaiGiamGia, mucGiamGia, ngayBatDau, ngayKetThuc, soLuongBanDau, usage_limit_per_user, giamToiDa, conditions, nguoiDungId, is_hidden, trangThai)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, FALSE, 'Active')`,
+        [discount.code, discount.noiDung, discount.moTa, discount.loaiGiamGia, discount.mucGiamGia, discount.ngayBatDau, discount.ngayKetThuc, 1, discount.usage_limit_per_user, discount.giamToiDa, discount.conditions, userId]
+      );
+
+      await pool.query(
+        "INSERT INTO notifications (nguoiDungId, tieuDe, noiDung, loaiThongBao) VALUES ($1, $2, $3, 'promotion')",
+        [userId, 'Săn mã thành công!', `Chúc mừng! Bạn đã săn thành công mã giảm giá: ${code}. Mã đã được thêm vào kho của bạn.`]
+      );
+    }
+
+    res.json({ data: { ...discount, discountAmount, conditions } });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
