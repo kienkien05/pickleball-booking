@@ -17,7 +17,7 @@ export default function CourtsManagePage() {
 
   const { data: courts, isLoading } = useQuery({
     queryKey: ['admin', 'courts'],
-    queryFn: () => courtService.getCourts({ limit: 100 }).then(r => r.data.data ?? r.data ?? []),
+    queryFn: () => courtService.getCourts({ limit: 100, isAdmin: true }).then(r => r.data.data ?? r.data ?? []),
   })
 
   const courtList = Array.isArray(courts) ? courts : courts?.courts ?? []
@@ -81,7 +81,11 @@ export default function CourtsManagePage() {
                   <td className="px-4 py-3 font-medium">{court.tenSan}</td>
                   <td className="px-4 py-3 text-muted-foreground hidden sm:table-cell max-w-xs truncate">{court.moTa}</td>
                   <td className="px-4 py-3">
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${court.trangThai === 'Sẵn sàng' ? 'bg-success/10 text-success' : 'bg-warning/10 text-warning'}`}>
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      court.trangThai === 'Sẵn sàng' ? 'bg-success/10 text-success' : 
+                      court.trangThai === 'Bảo trì' ? 'bg-orange-500/10 text-orange-600' : 
+                      'bg-muted text-muted-foreground'
+                    }`}>
                       {court.trangThai}
                     </span>
                   </td>

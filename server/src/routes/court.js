@@ -6,16 +6,25 @@ const router = express.Router();
 // Get all courts
 router.get('/', async (req, res) => {
   try {
-    const { page = 1, limit = 20, search, status } = req.query;
+    const { page = 1, limit = 20, search, status, isAdmin } = req.query;
     const offset = (page - 1) * limit;
+    
     let query = `SELECT c.*,
       (SELECT ROUND(COALESCE(AVG(diemSao), 0), 1) FROM reviews WHERE donDatId IN (SELECT id FROM bookings WHERE sanId = c.id)) as avgRating,
       (SELECT COUNT(*) FROM timeslots WHERE sanId = c.id) as slotCount
-      FROM courts c WHERE c.trangThai NOT IN ('Ẩn', 'Bảo trì')`;
+      FROM courts c WHERE 1=1`;
+    
     const params = [];
     let idx = 1;
+    
+    // Nếu không phải admin thì mặc định ẩn các sân có trạng thái 'Ẩn'
+    if (isAdmin !== 'true') {
+      query += ` AND c.trangThai != 'Ẩn'`;
+    }
+
     if (search) { query += ` AND c.tenSan ILIKE $${idx}`; params.push(`%${search}%`); idx++; }
     if (status) { query += ` AND c.trangThai = $${idx}`; params.push(status); idx++; }
+    
     query += ' ORDER BY c.created_at DESC';
     query += ` LIMIT $${idx} OFFSET $${idx + 1}`; params.push(limit, offset);
 
@@ -56,7 +65,7 @@ router.get('/:id/timeslots', async (req, res) => {
     // Block timelots for courts that are not ready
     const courtCheck = await pool.query('SELECT trangThai FROM courts WHERE id = $1', [courtId]);
     if (courtCheck.rows.length === 0) return res.status(404).json({ error: 'Không tìm thấy sân' });
-    if (courtCheck.rows[0].trangThai !== 'Sẵn sàng') {
+    if (courtCheck.rows[0].trangThai === 'Ẩn') {
       return res.json({ data: [] });
     }
 

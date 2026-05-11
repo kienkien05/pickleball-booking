@@ -143,7 +143,11 @@ export default function CourtDetailPage() {
             <h1 className="text-2xl font-bold">{court.tenSan}</h1>
             <p className="mt-2 text-muted-foreground">{court.moTa}</p>
             <div className="flex items-center gap-3 mt-3">
-              <div className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${court.trangThai === 'Sẵn sàng' ? 'bg-success/10 text-success' : 'bg-warning/10 text-warning'}`}>
+              <div className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${
+                court.trangThai === 'Sẵn sàng' ? 'bg-success/10 text-success' : 
+                court.trangThai === 'Bảo trì' ? 'bg-orange-500/10 text-orange-600' : 
+                'bg-muted text-muted-foreground'
+              }`}>
                 {court.trangThai || 'Sẵn sàng'}
               </div>
               {court.avgRating != null && court.avgRating > 0 && (
@@ -233,11 +237,19 @@ export default function CourtDetailPage() {
 
           {/* RIGHT TAB: Booking */}
           <div className="space-y-6">
-            {court.trangThai !== 'Sẵn sàng' ? (
+            {court.trangThai === 'Bảo trì' ? (
+              <div className="rounded-xl border border-orange-500/50 bg-orange-500/5 p-8 text-center">
+                <AlertCircle className="size-12 mx-auto mb-4 text-orange-500" />
+                <h3 className="text-lg font-bold text-orange-600">Sân hiện đang được bảo trì</h3>
+                <p className="text-muted-foreground mt-2 max-w-sm mx-auto">
+                  Vui lòng quay lại sau! Chúng tôi đang nỗ lực để sân sớm hoạt động trở lại.
+                </p>
+              </div>
+            ) : court.trangThai !== 'Sẵn sàng' ? (
               <div className="rounded-xl border border-warning/50 bg-warning/5 p-6 text-center">
                 <AlertCircle className="size-10 mx-auto mb-3 text-warning" />
-                <p className="font-semibold text-warning">Sân đang bảo trì</p>
-                <p className="text-sm text-muted-foreground mt-1">Sân này hiện không khả dụng để đặt lịch. Vui lòng chọn sân khác.</p>
+                <p className="font-semibold text-warning">Sân không khả dụng</p>
+                <p className="text-sm text-muted-foreground mt-1">Sân này hiện không thể đặt lịch vào lúc này.</p>
               </div>
             ) : (<>
               {/* Date Picker */}

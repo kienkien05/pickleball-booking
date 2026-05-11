@@ -52,7 +52,11 @@ export default function CourtListPage() {
                 ) : (
                   <div className="w-full h-full flex items-center justify-center"><MapPin className="size-12 text-muted-foreground/30" /></div>
                 )}
-                <div className={`absolute top-3 right-3 px-2 py-1 rounded-full text-xs font-medium ${court.trangThai === 'Sẵn sàng' ? 'bg-success/20 text-success' : 'bg-warning/20 text-warning'}`}>
+                <div className={`absolute top-3 right-3 px-2 py-1 rounded-full text-xs font-medium backdrop-blur-md ${
+                  court.trangThai === 'Sẵn sàng' ? 'bg-success/20 text-success' : 
+                  court.trangThai === 'Bảo trì' ? 'bg-orange-500/20 text-orange-600' : 
+                  'bg-muted/50 text-muted-foreground'
+                }`}>
                   {court.trangThai || 'Sẵn sàng'}
                 </div>
               </div>

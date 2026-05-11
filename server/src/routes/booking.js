@@ -15,7 +15,18 @@ router.post('/', authenticate, async (req, res) => {
 
     // Check court is available for booking
     const courtCheck = await client.query('SELECT trangThai FROM courts WHERE id = $1', [sanId]);
-    if (courtCheck.rows.length === 0 || courtCheck.rows[0].trangthai !== 'Sẵn sàng') {
+    if (courtCheck.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Không tìm thấy sân' });
+    }
+    
+    const courtStatus = courtCheck.rows[0].trangThai;
+    if (courtStatus === 'Bảo trì' || courtStatus === 'maintenance' || courtStatus === 'inactive') {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Sân này hiện đang bảo trì, không thể đặt lịch.' });
+    }
+    
+    if (courtStatus !== 'Sẵn sàng') {
       await client.query('ROLLBACK');
       return res.status(400).json({ error: 'Sân này hiện không khả dụng để đặt' });
     }
