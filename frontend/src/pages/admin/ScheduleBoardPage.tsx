@@ -113,7 +113,7 @@ export default function ScheduleBoardPage() {
     <div className="space-y-6 pb-32 animate-in fade-in duration-500">
       <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-black tracking-tight text-foreground uppercase tracking-tighter">Thời khóa biểu</h1>
+          <h1 className="text-3xl font-black tracking-tight text-foreground uppercase tracking-tighter">Lịch sân</h1>
           <div className="flex items-center gap-4 mt-2">
             <div className="bg-card p-1 rounded-xl border border-border shadow-sm flex items-center">
               <div className="px-3 text-muted-foreground"><Filter className="size-3.5" /></div>
@@ -212,12 +212,18 @@ function BookingBlock({ booking: b, showCourt, isFirstRow }: { booking: any; sho
   const isVip = b.is_vip
   // Bắt mọi tên trường trạng thái mà Backend có thể trả về
   const statusRaw = String(b.booking_status || b.status || b.status_name || '').toLowerCase().trim();
-  
+
   // Bắt cả tiếng Anh và tiếng Việt (không dấu và có dấu)
   const isCompleted = statusRaw === 'hoàn thành' || statusRaw === 'completed' || statusRaw === 'hoan thanh';
   const isCancelled = statusRaw === 'đã hủy' || statusRaw === 'cancelled' || statusRaw === 'da huy';
   const isUsing = statusRaw === 'đang sử dụng' || statusRaw === 'đang dùng' || statusRaw === 'in_progress';
   const isPastState = isCompleted || isCancelled;
+
+  // Tạo văn bản hiển thị trạng thái chuẩn để dùng cho Hover Card
+  const displayStatus = isCancelled ? 'Đã hủy'
+    : isCompleted ? 'Hoàn thành'
+      : isUsing ? 'Đang sử dụng'
+        : (b.booking_status || b.status || b.status_name || 'Đã thanh toán');
 
   const statusColors = {
     cancelled: 'bg-red-500/5 text-red-600 border-red-500/50 dark:text-red-400 dark:bg-red-500/10',
@@ -262,7 +268,7 @@ function BookingBlock({ booking: b, showCourt, isFirstRow }: { booking: any; sho
               <div className="font-black text-lg text-foreground truncate">{b.user_name}</div>
               <div className={cn("text-[10px] font-black uppercase tracking-widest",
                 isCancelled ? "text-red-500" : isCompleted ? "text-muted-foreground" : isUsing ? "text-green-500" : "text-primary")}>
-                {b.booking_status || 'Đã thanh toán'}
+                {displayStatus}
               </div>
             </div>
             <div className={cn('size-10 rounded-xl flex items-center justify-center', isVip ? 'bg-amber-500/20 text-amber-500' : 'bg-indigo-500/20 text-indigo-500')}>
