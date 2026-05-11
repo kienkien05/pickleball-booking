@@ -348,20 +348,32 @@ router.get('/reports/export', authenticate, requireAdmin, async (req, res) => {
 router.post('/discounts/validate', authenticate, async (req, res) => {
   try {
     const { code, totalAmount } = req.body;
+    const userId = req.user.id;
+
     const result = await pool.query(
-      `SELECT * FROM discounts WHERE code = $1 AND trangThai = 'Active'
-       AND (ngayBatDau IS NULL OR ngayBatDau <= NOW())
+      `SELECT * FROM discounts 
+       WHERE code = $1 
+       AND (trangThai = 'Active' OR trangThai = 'active')
+       AND (nguoiDungId IS NULL OR nguoiDungId = $2)
+       AND (ngayBatDau IS NULL OR ngayBatDau <= NOW() + INTERVAL '1 minute')
        AND (ngayKetThuc IS NULL OR ngayKetThuc >= NOW())
        AND (soLuongBanDau = 0 OR soLuongDaDung < soLuongBanDau)`,
-      [code]
+      [code, userId]
     );
-    if (result.rows.length === 0) return res.status(400).json({ error: 'Mã giảm giá không hợp lệ hoặc đã hết hạn' });
+
+    if (result.rows.length === 0) {
+      return res.status(400).json({ error: 'Mã giảm giá không tồn tại, đã hết hạn hoặc không dành cho bạn' });
+    }
+
     const discount = result.rows[0];
     let discountAmount = 0;
-    if (discount.loaiGiamGia === 'percentage') {
-      discountAmount = Math.round(totalAmount * discount.mucGiamGia / 100);
+    const mucGiamGia = Number(discount.mucGiamGia || discount.mucgiamgia);
+    const loaiGiamGia = discount.loaiGiamGia || discount.loaigiamgia;
+
+    if (loaiGiamGia === 'percentage') {
+      discountAmount = Math.round(totalAmount * mucGiamGia / 100);
     } else {
-      discountAmount = Math.min(Number(discount.mucGiamGia), totalAmount);
+      discountAmount = Math.min(mucGiamGia, totalAmount);
     }
     res.json({ data: { ...discount, discountAmount } });
   } catch (err) {

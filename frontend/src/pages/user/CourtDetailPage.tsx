@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
@@ -33,6 +33,7 @@ export default function CourtDetailPage() {
   const [appliedDiscount, setAppliedDiscount] = useState<any>(null)
   const [validatingDiscount, setValidatingDiscount] = useState(false)
   const [showVoucherList, setShowVoucherList] = useState(false)
+  const [hasAutoApplied, setHasAutoApplied] = useState<string | null>(null)
 
   const { data: court, isLoading: courtLoading } = useQuery({
     queryKey: ['courts', id],
@@ -65,6 +66,8 @@ export default function CourtDetailPage() {
     queryFn: () => discountService.getMyDiscounts().then(r => r.data.data ?? []),
     enabled: isAuthenticated,
   })
+
+
   const reviews = reviewsData || []
   const totalPages = Math.max(1, Math.ceil(reviews.length / REVIEW_PAGE_SIZE))
   const pagedReviews = reviews.slice((reviewPage - 1) * REVIEW_PAGE_SIZE, reviewPage * REVIEW_PAGE_SIZE)
@@ -94,24 +97,40 @@ export default function CourtDetailPage() {
 
   const handleSlotToggle = (slotId: string) => {
     setSelectedSlots(prev => prev.includes(slotId) ? prev.filter(s => s !== slotId) : [...prev, slotId])
-    setAppliedDiscount(null) // Reset discount when slots change
+    setAppliedDiscount(null)
   }
 
-  const handleApplyDiscount = async (overrideCode?: string) => {
+  const handleApplyDiscount = useCallback(async (overrideCode?: string) => {
     const codeToUse = overrideCode || discountCode
-    if (!codeToUse.trim()) return
+    if (!codeToUse || !codeToUse.trim() || validatingDiscount) return
+    
     setValidatingDiscount(true)
     try {
       const res = await discountService.validate(codeToUse, subTotal)
       setAppliedDiscount(res.data.data)
-      toast.success('Áp dụng mã giảm giá thành công!')
+      if (!overrideCode) toast.success('Áp dụng mã giảm giá thành công!')
     } catch (err: any) {
-      toast.error(err.response?.data?.error || 'Mã giảm giá không hợp lệ')
+      if (!overrideCode) toast.error(err.response?.data?.error || 'Mã giảm giá không hợp lệ')
       setAppliedDiscount(null)
     } finally {
       setValidatingDiscount(false)
     }
-  }
+  }, [discountCode, subTotal, validatingDiscount])
+
+  useEffect(() => {
+    const canAutoApply = isAuthenticated && subTotal > 0 && myDiscounts && myDiscounts.length > 0 && !appliedDiscount
+    const canReApply = isAuthenticated && subTotal > 0 && appliedDiscount && !validatingDiscount
+    const currentStateKey = `${subTotal}-${appliedDiscount?.code || myDiscounts?.[0]?.code}`
+    
+    if ((canAutoApply || canReApply) && hasAutoApplied !== currentStateKey) {
+      const codeToApply = appliedDiscount?.code || myDiscounts?.[0]?.code
+      if (codeToApply) {
+        setDiscountCode(codeToApply)
+        setHasAutoApplied(currentStateKey)
+        handleApplyDiscount(codeToApply)
+      }
+    }
+  }, [isAuthenticated, subTotal, myDiscounts, appliedDiscount, hasAutoApplied, handleApplyDiscount, validatingDiscount])
 
   const handleBooking = async () => {
     if (!isAuthenticated) { navigate('/login'); return }
