@@ -210,35 +210,37 @@ export default function ScheduleBoardPage() {
 
 function BookingBlock({ booking: b, showCourt, isFirstRow }: { booking: any; showCourt: boolean; isFirstRow: boolean }) {
   const isVip = b.is_vip
-  const statusRaw = String(b.booking_status || '').toLowerCase().trim()
-  const isCompleted = statusRaw === 'hoàn thành'
-  const isCancelled = statusRaw === 'đã hủy'
-  const isUsing = statusRaw === 'đang sử dụng' || statusRaw === 'đang dùng'
+  // Bắt mọi tên trường trạng thái mà Backend có thể trả về
+  const statusRaw = String(b.booking_status || b.status || b.status_name || '').toLowerCase().trim();
+  
+  // Bắt cả tiếng Anh và tiếng Việt (không dấu và có dấu)
+  const isCompleted = statusRaw === 'hoàn thành' || statusRaw === 'completed' || statusRaw === 'hoan thanh';
+  const isCancelled = statusRaw === 'đã hủy' || statusRaw === 'cancelled' || statusRaw === 'da huy';
+  const isUsing = statusRaw === 'đang sử dụng' || statusRaw === 'đang dùng' || statusRaw === 'in_progress';
+  const isPastState = isCompleted || isCancelled;
 
-  const isPastState = isCompleted || isCancelled
-
-  // Cập nhật bộ màu chuẩn khớp với ghi chú
   const statusColors = {
     cancelled: 'bg-red-500/5 text-red-600 border-red-500/50 dark:text-red-400 dark:bg-red-500/10',
     completed: 'bg-muted/20 text-muted-foreground border-slate-300 dark:border-slate-700',
     vip: 'bg-amber-500/[0.04] text-amber-700 border-amber-500/80 dark:text-amber-400 dark:border-amber-500',
     regular: 'bg-indigo-500/[0.04] text-indigo-700 border-indigo-500/80 dark:text-indigo-400 dark:border-indigo-500'
-  }
+  };
 
-  // Ưu tiên hiển thị màu Hủy trước, sau đó đến Hoàn thành, rồi VIP/Thường
   const currentStyle = isCancelled ? statusColors.cancelled
     : isCompleted ? statusColors.completed
       : isVip ? statusColors.vip
-        : statusColors.regular
+        : statusColors.regular;
   return (
-    <div className={cn("group relative z-10 hover:z-[100] animate-in zoom-in-95 duration-300", isPastState && "opacity-70")}>
-      <div className={cn('px-2.5 py-2 rounded-xl text-[10px] font-black transition-all border-2 shadow-sm group-hover:shadow-md cursor-pointer', currentStyle)}>
+    <div className={cn("group relative z-10 hover:z-[100] animate-in zoom-in-95 duration-300")}>
+      <div className={cn('px-2.5 py-2 rounded-xl text-[10px] font-black transition-all border-2 shadow-sm group-hover:shadow-md cursor-pointer', currentStyle, isPastState && "opacity-70")}>
         <div className="flex items-center justify-between gap-1.5 mb-1">
           <div className="flex items-center gap-1.5 truncate">
             {isCompleted ? <CheckCircle className="size-2.5 text-muted-foreground" /> :
               isCancelled ? <XCircle className="size-2.5 text-red-500" /> :
                 <div className={cn('size-1.5 rounded-full', isUsing ? 'bg-green-500 animate-pulse' : isVip ? 'bg-amber-500' : 'bg-indigo-500')} />}
-            <span className={cn("truncate max-w-[80px] tracking-tight", isPastState && "line-through opacity-70")}>{b.user_name}</span>
+            <span className={cn("truncate max-w-[80px] tracking-tight", isCancelled && "line-through", isPastState && "opacity-70")}>
+              {b.user_name}
+            </span>
           </div>
           {b.is_auto_booking && !isPastState && <Zap className={cn('size-2.5 fill-current', isVip ? 'text-amber-500' : 'text-indigo-500')} />}
         </div>

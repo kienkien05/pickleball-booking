@@ -411,13 +411,13 @@ router.get('/schedule-board', authenticate, requireAdmin, async (req, res) => {
               b.ngayChoi AS booking_date,
               u.hoTen AS user_name,
               u.isVIP AS is_vip,
-              b.isAutoBooking AS is_auto_booking
+              b.isAutoBooking AS is_auto_booking,
+              b.trangThai AS status
        FROM bookings b
        JOIN timeslots t ON b.khungGioId = t.id
        JOIN users u ON b.nguoiDungId = u.id
        JOIN courts c ON b.sanId = c.id
        WHERE b.ngayChoi BETWEEN $1 AND $2
-         AND b.trangThai != 'Đã hủy'
          ${courtFilter}
        ORDER BY b.ngayChoi, t.gioBatDau, c.tenSan`,
       params
