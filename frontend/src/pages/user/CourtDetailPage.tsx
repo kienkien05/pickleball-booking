@@ -214,12 +214,15 @@ export default function CourtDetailPage() {
               }`}>
                 {court.trangThai || 'Sẵn sàng'}
               </div>
-              {court.avgRating != null && court.avgRating > 0 && (
-                <div className="flex items-center gap-1 text-sm text-amber-500">
-                  <Star className="size-4 fill-amber-500" />
-                  <span className="font-medium">{Number(court.avgRating).toFixed(1)}</span>
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-1 text-amber-500">
+                  <Star className="size-5 fill-current" />
+                  <span className="text-lg font-bold">{court.avgRating != null && Number(court.avgRating) > 0 ? Number(court.avgRating).toFixed(1) : '--'}</span>
                 </div>
-              )}
+                <div className="text-sm text-muted-foreground">
+                  ({court.reviewCount ?? 0} lượt đánh giá)
+                </div>
+              </div>
             </div>
           </div>
         </div>

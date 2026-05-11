@@ -10,8 +10,9 @@ router.get('/', async (req, res) => {
     const offset = (page - 1) * limit;
     
     let query = `SELECT c.*,
-      (SELECT ROUND(COALESCE(AVG(diemSao), 0), 1) FROM reviews WHERE donDatId IN (SELECT id FROM bookings WHERE sanId = c.id)) as avgRating,
-      (SELECT COUNT(*) FROM timeslots WHERE sanId = c.id) as slotCount
+      CAST((SELECT ROUND(COALESCE(AVG(diemSao), 0), 1) FROM reviews WHERE sanId = c.id OR donDatId IN (SELECT id FROM bookings WHERE sanId = c.id)) AS FLOAT) as "avgRating",
+      CAST((SELECT COUNT(*) FROM reviews WHERE sanId = c.id OR donDatId IN (SELECT id FROM bookings WHERE sanId = c.id)) AS INTEGER) as "reviewCount",
+      CAST((SELECT COUNT(*) FROM timeslots WHERE sanId = c.id) AS INTEGER) as "slotCount"
       FROM courts c WHERE 1=1`;
     
     const params = [];
@@ -47,10 +48,21 @@ router.get('/:id', async (req, res) => {
     if (result.rows.length === 0) return res.status(404).json({ error: 'Không tìm thấy sân' });
     const images = await pool.query('SELECT * FROM court_images WHERE sanId = $1 ORDER BY isMain DESC, created_at ASC', [req.params.id]);
     const avgRating = await pool.query(
-      'SELECT ROUND(COALESCE(AVG(diemSao), 0), 1) as avg FROM reviews r JOIN bookings b ON r.donDatId = b.id WHERE b.sanId = $1',
+      'SELECT ROUND(COALESCE(AVG(diemSao), 0), 1) as avg FROM reviews WHERE sanId = $1 OR donDatId IN (SELECT id FROM bookings WHERE sanId = $1)',
       [req.params.id]
     );
-    res.json({ data: { ...result.rows[0], images: images.rows, avgRating: parseFloat(avgRating.rows[0].avg) } });
+    const reviewCount = await pool.query(
+      'SELECT COUNT(*) FROM reviews WHERE sanId = $1 OR donDatId IN (SELECT id FROM bookings WHERE sanId = $1)',
+      [req.params.id]
+    );
+    res.json({ 
+      data: { 
+        ...result.rows[0], 
+        images: images.rows, 
+        avgRating: parseFloat(avgRating.rows[0].avg),
+        reviewCount: parseInt(reviewCount.rows[0].count)
+      } 
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

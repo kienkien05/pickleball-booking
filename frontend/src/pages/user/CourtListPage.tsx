@@ -65,7 +65,13 @@ export default function CourtListPage() {
                 <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{court.moTa || 'Sân Pickleball tiêu chuẩn'}</p>
                 <div className="flex items-center gap-3 mt-3 text-sm text-muted-foreground">
                   <span className="flex items-center gap-1"><Clock className="size-3" /> {court.slotCount ?? 0} khung giờ</span>
-                  <span className="flex items-center gap-1"><Star className="size-3" /> {court.avgRating != null && court.avgRating > 0 ? Number(court.avgRating).toFixed(1) : '--'}</span>
+                  <div className="flex items-center gap-1.5 ml-auto">
+                    <div className="flex items-center gap-1 text-amber-500">
+                      <Star className="size-3.5 fill-current" />
+                      <span className="font-bold">{court.avgRating != null && Number(court.avgRating) > 0 ? Number(court.avgRating).toFixed(1) : '--'}</span>
+                    </div>
+                    <span className="text-[10px] opacity-60">({court.reviewCount ?? 0} đánh giá)</span>
+                  </div>
                 </div>
               </div>
             </Link>
