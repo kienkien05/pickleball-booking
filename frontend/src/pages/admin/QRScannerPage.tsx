@@ -91,13 +91,42 @@ export default function QRScannerPage() {
           <div className="space-y-2 text-sm">
             <p><strong>Sân:</strong> {result.tenSan || `Sân #${result.sanId}`}</p>
             <p><strong>Khách:</strong> {result.full_name || `KH #${result.nguoiDungId}`}</p>
-            <p><strong>Ngày:</strong> {result.ngayChoi}</p>
+            <p><strong>Ngày:</strong> {result.ngayChoi ? new Date(result.ngayChoi).toLocaleDateString('vi-VN') : '--'}</p>
             <p><strong>Trạng thái:</strong> <span className={
               result.trangThai === 'Đã thanh toán' ? 'text-blue-600 font-medium' :
               result.trangThai === 'Đang sử dụng' ? 'text-success font-medium' :
               result.trangThai === 'Hoàn thành' ? 'text-muted-foreground' : 'text-destructive'
             }>{result.trangThai}</span></p>
-            <p><strong>Tổng tiền:</strong> {Number(result.tongTien).toLocaleString('vi-VN')}đ</p>
+
+            {result.dichVu && result.dichVu.length > 0 && (
+              <div className="mt-4 p-3 bg-muted/30 rounded-lg space-y-1">
+                <p className="font-semibold text-xs uppercase text-muted-foreground mb-1">Dịch vụ đi kèm:</p>
+                {result.dichVu.map((sv: any) => (
+                  <div key={sv.id} className="flex justify-between text-xs">
+                    <span>{sv.tenDichVu} x{sv.soLuong}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="mt-4 pt-2 border-t border-dashed border-border space-y-1">
+              {result.giaGoc && (
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>Giá trị đơn:</span>
+                  <span>{Number(result.giaGoc).toLocaleString('vi-VN')}đ</span>
+                </div>
+              )}
+              {result.tienGiam > 0 && (
+                <div className="flex justify-between text-xs text-success">
+                  <span>Voucher giảm:</span>
+                  <span>-{Number(result.tienGiam).toLocaleString('vi-VN')}đ</span>
+                </div>
+              )}
+              <div className="flex justify-between font-bold text-lg text-primary pt-1">
+                <span>Tổng tiền:</span>
+                <span>{Number(result.tongTien).toLocaleString('vi-VN')}đ</span>
+              </div>
+            </div>
           </div>
           {result.trangThai === 'Đã thanh toán' && (
             <Button className="w-full mt-4" onClick={() => checkinMutation.mutate(result.id)} loading={checkinMutation.isPending}>

@@ -25,12 +25,19 @@ export default function BookingsManagePage() {
   const [showActions, setShowActions] = useState(false)
   const [showDetail, setShowDetail] = useState(false)
   const [actionConfirm, setActionConfirm] = useState<'checkin' | 'checkout' | 'noshow' | null>(null)
+  const [selectedId, setSelectedId] = useState<string | null>(null)
   const queryClient = useQueryClient()
 
   const { data: bookingsData, isLoading } = useQuery({
     queryKey: ['admin', 'bookings', statusFilter, dateFilter],
     queryFn: () => bookingService.getAllBookings({ status: statusFilter || undefined, date: dateFilter, limit: 100 })
       .then(r => r.data.data ?? r.data ?? []),
+  })
+
+  const { data: fullDetail, isLoading: detailLoading } = useQuery({
+    queryKey: ['admin', 'booking-detail', selectedId],
+    queryFn: () => bookingService.getBookingById(selectedId!).then(r => r.data.data),
+    enabled: !!selectedId && showDetail
   })
   const bookings = Array.isArray(bookingsData) ? bookingsData : bookingsData?.bookings ?? []
 
@@ -113,7 +120,7 @@ export default function BookingsManagePage() {
                 const actions = getActions(booking)
                 return (
                   <tr key={booking.id} className="hover:bg-muted/30 cursor-pointer"
-                    onClick={() => { setSelectedBooking(booking); setShowDetail(true) }}>
+                    onClick={() => { setSelectedId(String(booking.id)); setSelectedBooking(booking); setShowDetail(true) }}>
                     <td className="px-4 py-3 font-medium">{booking.full_name || `KH #${booking.nguoiDungId}`}</td>
                     <td className="px-4 py-3 text-muted-foreground hidden sm:table-cell">{booking.tenSan || `Sân #${booking.sanId}`}</td>
                     <td className="px-4 py-3 text-muted-foreground hidden sm:table-cell">
@@ -159,11 +166,50 @@ export default function BookingsManagePage() {
               <div><p className="text-muted-foreground">Ngày</p><p className="font-medium">{selectedBooking.ngayChoi ? formatDate(selectedBooking.ngayChoi) : '--'}</p></div>
               <div><p className="text-muted-foreground">Khung giờ</p><p className="font-medium">{selectedBooking.gioBatDau ? formatTime(selectedBooking.gioBatDau) + ' - ' + formatTime(selectedBooking.gioKetThuc) : '--'}</p></div>
               <div><p className="text-muted-foreground">Trạng thái</p><p className="font-medium">{selectedBooking.trangThai}</p></div>
-              <div><p className="text-muted-foreground">Tổng tiền</p><p className="font-medium">{formatPrice(Number(selectedBooking.tongTien || 0))}</p></div>
-              <div><p className="text-muted-foreground">Đã cọc</p><p className="font-medium">{formatPrice(Number(selectedBooking.tienDaCoc || 0))}</p></div>
             </div>
+
+            <div className="border-t border-border pt-3 space-y-2">
+              <p className="font-semibold flex items-center gap-2">Dịch vụ & Thanh toán</p>
+              {detailLoading ? (
+                <Skeleton className="h-20 w-full" />
+              ) : fullDetail?.dichVu && fullDetail.dichVu.length > 0 ? (
+                <div className="bg-muted/30 rounded-lg p-3 space-y-1">
+                  {fullDetail.dichVu.map((sv: any) => (
+                    <div key={sv.id} className="flex justify-between text-xs">
+                      <span>{sv.tenDichVu} x{sv.soLuong}</span>
+                      <span>{formatPrice(Number(sv.tongTien))}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground italic">Không kèm dịch vụ</p>
+              )}
+
+              <div className="space-y-1 pt-2 border-t border-dashed border-border text-xs">
+                {(fullDetail?.giaGoc || selectedBooking.giaGoc) && (
+                  <div className="flex justify-between">
+                    <span>Giá trị đơn hàng:</span>
+                    <span>{formatPrice(Number(fullDetail?.giaGoc || selectedBooking.giaGoc))}</span>
+                  </div>
+                )}
+                {(fullDetail?.tienGiam || selectedBooking.tienGiam) > 0 && (
+                  <div className="flex justify-between text-success">
+                    <span>Giảm giá (Voucher):</span>
+                    <span>-{formatPrice(Number(fullDetail?.tienGiam || selectedBooking.tienGiam))}</span>
+                  </div>
+                )}
+                <div className="flex justify-between font-bold text-sm pt-1 text-primary">
+                  <span>Tổng thanh toán:</span>
+                  <span>{formatPrice(Number(selectedBooking.tongTien))}</span>
+                </div>
+              </div>
+            </div>
+
             {selectedBooking.ghiChu && (
-              <div><p className="text-muted-foreground">Ghi chú</p><p>{selectedBooking.ghiChu}</p></div>
+              <div className="mt-3 p-2 rounded bg-amber-500/5 border border-amber-500/20 text-xs">
+                <p className="text-amber-600 font-medium">Ghi chú:</p>
+                <p className="text-muted-foreground">{selectedBooking.ghiChu}</p>
+              </div>
             )}
           </div>
         )}

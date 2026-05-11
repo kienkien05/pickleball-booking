@@ -19,8 +19,8 @@ const FIELD_MAP = {
   tendichvu: 'tenDichVu', dongia: 'donGia', loaidichvu: 'loaiDichVu',
   // bookings
   nguoidungid: 'nguoiDungId', khunggioid: 'khungGioId', ngaychoi: 'ngayChoi',
-  tongtien: 'tongTien', tiendacoc: 'tienDaCoc', isautobooking: 'isAutoBooking',
-  ghichu: 'ghiChu',
+  tongtien: 'tongTien', tiendacoc: 'tienDaCoc', giagoc: 'giaGoc', tiengiam: 'tienGiam',
+  isautobooking: 'isAutoBooking', ghichu: 'ghiChu',
   // booking_services
   dondatid: 'donDatId', dichvuid: 'dichVuId', soluong: 'soLuong',
   // payments
@@ -124,6 +124,8 @@ async function initDatabase() {
         ngayChoi DATE NOT NULL,
         tongTien DECIMAL(15,2) NOT NULL,
         tienDaCoc DECIMAL(15,2) DEFAULT 0,
+        giaGoc DECIMAL(15,2),
+        tienGiam DECIMAL(15,2) DEFAULT 0,
         trangThai VARCHAR(50) DEFAULT 'Đã cọc',
         isAutoBooking BOOLEAN DEFAULT FALSE,
         ghiChu TEXT,
@@ -195,6 +197,10 @@ async function initDatabase() {
 
     // Add nguoiDungId to discounts for existing databases
     await client.query("ALTER TABLE discounts ADD COLUMN IF NOT EXISTS nguoiDungId INTEGER REFERENCES users(id) ON DELETE CASCADE").catch(() => {});
+
+    // Add billing columns to bookings for existing databases
+    await client.query("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS giaGoc DECIMAL(15,2)").catch(() => {});
+    await client.query("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS tienGiam DECIMAL(15,2) DEFAULT 0").catch(() => {});
 
     // Add soLuongTon column for existing databases
     await client.query("ALTER TABLE services ADD COLUMN IF NOT EXISTS soLuongTon INTEGER DEFAULT 0").catch(() => {});

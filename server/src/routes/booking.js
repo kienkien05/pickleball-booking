@@ -105,13 +105,15 @@ router.post('/', authenticate, async (req, res) => {
       
       // Calculate discounted price for this slot (including its portion of services)
       const slotShareOfServices = servicesPrice / numSlots;
-      const finalPriceForThisSlot = Math.round((slotOriginalPrice + slotShareOfServices) * discountRatio);
+      const originalPriceForThisSlot = slotOriginalPrice + slotShareOfServices;
+      const discountForThisSlot = Math.round(originalPriceForThisSlot * (1 - discountRatio));
+      const finalPriceForThisSlot = originalPriceForThisSlot - discountForThisSlot;
 
       const autoBook = isAutoBooking === true;
       const booking = await client.query(
-        `INSERT INTO bookings (nguoiDungId, sanId, khungGioId, ngayChoi, tongTien, tienDaCoc, trangThai, isAutoBooking)
-         VALUES ($1, $2, $3, $4, $5, $6, 'Đã thanh toán', $7) RETURNING id`,
-        [req.user.id, sanId, slotId, ngayChoi, finalPriceForThisSlot, finalPriceForThisSlot, autoBook]
+        `INSERT INTO bookings (nguoiDungId, sanId, khungGioId, ngayChoi, tongTien, tienDaCoc, giaGoc, tienGiam, trangThai, isAutoBooking)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'Đã thanh toán', $9) RETURNING id`,
+        [req.user.id, sanId, slotId, ngayChoi, finalPriceForThisSlot, finalPriceForThisSlot, originalPriceForThisSlot, discountForThisSlot, autoBook]
       );
       bookingIds.push(booking.rows[0].id);
 
@@ -198,6 +200,24 @@ router.post('/', authenticate, async (req, res) => {
         "INSERT INTO notifications (nguoiDungId, tieuDe, noiDung, loaiThongBao) VALUES ($1, $2, $3, 'vip_auto_enabled')",
         [req.user.id, 'Tự động đặt lịch đã bật',
          `Hệ thống sẽ tự động đặt lịch cho khung giờ này vào ngày ${nextWeekStr}. Nếu có xung đột, bạn sẽ được thông báo.`]
+      );
+    }
+
+    // Loyalty Reward Logic: Every 3 bookings (including this one)
+    const countRes = await client.query("SELECT COUNT(*) as count FROM bookings WHERE nguoiDungId = $1 AND trangThai != 'Đã hủy'", [req.user.id]);
+    const totalBookings = parseInt(countRes.rows[0].count || 0);
+    
+    if (totalBookings > 0 && totalBookings % 3 === 0) {
+      const rewardCode = `LOYAL${totalBookings}-${req.user.id}-${Math.floor(Math.random() * 1000)}`;
+      await client.query(
+        `INSERT INTO discounts (code, noiDung, moTa, loaiGiamGia, mucGiamGia, ngayBatDau, ngayKetThuc, soLuongBanDau, soLuongDaDung, trangThai, nguoiDungId)
+         VALUES ($1, 'Quà tặng đặt sân', 'Mã giảm giá 10% tri ân mỗi 3 đơn đặt sân', 'percentage', 10, NOW(), '2026-12-31', 1, 0, 'Active', $2)`,
+        [rewardCode, req.user.id]
+      );
+      
+      await client.query(
+        "INSERT INTO notifications (nguoiDungId, tieuDe, noiDung, loaiThongBao) VALUES ($1, $2, $3, 'promotion')",
+        [req.user.id, 'Quà tặng tri ân!', `Bạn vừa đặt đơn thứ ${totalBookings}! Hệ thống tặng bạn mã giảm giá 10% tri ân: ${rewardCode}`]
       );
     }
 
@@ -365,24 +385,6 @@ router.post('/:id/checkout', authenticate, async (req, res) => {
       "INSERT INTO notifications (nguoiDungId, tieuDe, noiDung, loaiThongBao, maDonDat) VALUES ($1, $2, $3, 'auto_checkout', $4)",
       [booking.nguoiDungId, 'Check-out thành công', `Đơn #${req.params.id} đã hoàn thành. Cảm ơn bạn đã sử dụng dịch vụ!`, req.params.id]
     );
-
-    // Loyalty Reward Logic: Check when user hits 3 completed bookings
-    const completedRes = await pool.query("SELECT COUNT(*) as count FROM bookings WHERE nguoiDungId = $1 AND trangThai = 'Hoàn thành'", [booking.nguoiDungId]);
-    const completedCount = parseInt(completedRes.rows[0].count || 0);
-    
-    if (completedCount === 3) {
-      const rewardCode = `LOYAL3-${booking.nguoiDungId}-${Math.floor(Math.random() * 1000)}`;
-      await pool.query(
-        `INSERT INTO discounts (code, noiDung, moTa, loaiGiamGia, mucGiamGia, ngayBatDau, ngayKetThuc, soLuongBanDau, soLuongDaDung, trangThai, nguoiDungId)
-         VALUES ($1, 'Quà tặng đặt sân lần thứ 3', 'Mã giảm giá 10% tri ân khách hàng đạt mốc 3 đơn hàng', 'percentage', 10, NOW(), '2026-12-31', 1, 0, 'Active', $2)`,
-        [rewardCode, booking.nguoiDungId]
-      );
-      
-      await pool.query(
-        "INSERT INTO notifications (nguoiDungId, tieuDe, noiDung, loaiThongBao) VALUES ($1, $2, $3, 'promotion')",
-        [booking.nguoiDungId, 'Quà tặng tri ân!', `Chúc mừng! Bạn đã hoàn thành 3 đơn đặt sân. Hệ thống tặng bạn mã giảm giá 10% cho lần sau: ${rewardCode}`]
-      );
-    }
 
     res.json({ message: 'Check-out thành công' });
   } catch (err) {

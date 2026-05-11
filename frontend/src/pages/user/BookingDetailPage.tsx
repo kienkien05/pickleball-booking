@@ -89,30 +89,62 @@ export default function BookingDetailPage() {
           </div>
         </div>
 
-        <div className="pt-4 border-t border-border space-y-2">
+        <div className="pt-4 border-t border-border space-y-3">
           <div className="flex justify-between text-sm"><span>Mã đơn</span><span className="font-mono">{booking.id}</span></div>
-          <div className="flex justify-between text-sm"><span>Trạng thái</span><span className="font-medium">{booking.trangThai}</span></div>
-          <div className="flex justify-between text-sm"><span>Đã thanh toán</span><span>{formatPrice(Number(booking.tongTien || 0))}</span></div>
+          <div className="flex justify-between text-sm"><span>Trạng thái</span><span className={`font-medium ${
+            booking.trangThai === 'Đã thanh toán' ? 'text-blue-600' :
+            booking.trangThai === 'Đang sử dụng' ? 'text-success' :
+            booking.trangThai === 'Hoàn thành' ? 'text-muted-foreground' : 'text-destructive'
+          }`}>{booking.trangThai}</span></div>
         </div>
-
-        {qrData?.qr && (
-          <div className="pt-4 border-t border-border text-center">
-            <p className="text-sm font-medium mb-2">Mã QR Check-in</p>
-            <img src={qrData.qr} alt="QR Code" className="mx-auto w-40 h-40" />
-            <p className="text-xs text-muted-foreground mt-2">Đưa mã này cho nhân viên khi đến sân</p>
-            <p className="text-xs text-muted-foreground mt-1">Hoặc đọc mã đơn: <span className="font-mono font-bold text-foreground select-all">{booking.id}</span></p>
-          </div>
-        )}
 
         {booking.dichVu && booking.dichVu.length > 0 && (
           <div className="pt-4 border-t border-border">
-            <p className="text-sm font-medium mb-2">Dịch vụ đi kèm</p>
-            {booking.dichVu.map((d: any, i: number) => (
-              <div key={i} className="flex justify-between text-sm py-1">
-                <span>{d.tenDichVu} x{d.soLuong}</span>
-                <span>{formatPrice(Number(d.tongTien || 0))}</span>
+            <p className="text-sm font-semibold mb-3">Dịch vụ đi kèm</p>
+            <div className="bg-muted/30 rounded-lg p-3 space-y-2">
+              {booking.dichVu.map((d: any, i: number) => (
+                <div key={i} className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">{d.tenDichVu} x{d.soLuong}</span>
+                  <span className="font-medium">{formatPrice(Number(d.tongTien || 0))}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="pt-4 border-t border-border space-y-2">
+          <p className="text-sm font-semibold mb-2">Chi tiết thanh toán</p>
+          <div className="space-y-1.5 text-sm">
+            {booking.giaGoc && (
+              <div className="flex justify-between text-muted-foreground">
+                <span>Tạm tính (Sân & Dịch vụ):</span>
+                <span>{formatPrice(Number(booking.giaGoc))}</span>
               </div>
-            ))}
+            )}
+            {Number(booking.tienGiam || 0) > 0 && (
+              <div className="flex justify-between text-success">
+                <span>Giảm giá (Voucher):</span>
+                <span>-{formatPrice(Number(booking.tienGiam))}</span>
+              </div>
+            )}
+            <div className="flex justify-between text-lg font-bold pt-2 border-t border-dashed border-border text-primary">
+              <span>Tổng thanh toán:</span>
+              <span>{formatPrice(Number(booking.tongTien || 0))}</span>
+            </div>
+          </div>
+        </div>
+
+        {qrData?.qr && (
+          <div className="pt-6 border-t border-border text-center bg-muted/20 rounded-xl p-4 mt-4">
+            <p className="text-sm font-bold mb-3 uppercase tracking-wider">Mã QR Check-in</p>
+            <div className="bg-white p-3 inline-block rounded-lg shadow-sm">
+              <img src={qrData.qr} alt="QR Code" className="w-44 h-44" />
+            </div>
+            <p className="text-xs text-muted-foreground mt-4">Đưa mã này cho nhân viên khi đến sân để check-in nhanh</p>
+            <div className="mt-2 inline-flex items-center gap-2 px-3 py-1 bg-background rounded-full border border-border">
+              <span className="text-[10px] text-muted-foreground uppercase font-bold">Mã đơn:</span>
+              <span className="font-mono font-bold text-sm select-all">{booking.id}</span>
+            </div>
           </div>
         )}
 
