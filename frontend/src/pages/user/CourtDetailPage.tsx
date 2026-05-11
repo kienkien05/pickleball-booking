@@ -2,9 +2,9 @@ import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
-import { MapPin, Clock, Star, ShoppingCart, AlertCircle, RefreshCw, ChevronLeft, ChevronRight, MessageSquareText } from 'lucide-react'
+import { MapPin, Clock, Star, ShoppingCart, AlertCircle, RefreshCw, ChevronLeft, ChevronRight, MessageSquareText, Ticket } from 'lucide-react'
 import { toast } from 'sonner'
-import { courtService, bookingService, serviceService, reviewService } from '@/services'
+import { courtService, bookingService, serviceService, reviewService, discountService } from '@/services'
 import { useAuthStore } from '@/stores/authStore'
 import { Button } from '@/components/ui/Button'
 import { Modal, ModalFooter } from '@/components/ui/Modal'
@@ -29,6 +29,10 @@ export default function CourtDetailPage() {
   const [reviewPage, setReviewPage] = useState(1)
   const [reviewRating, setReviewRating] = useState(0)
   const [reviewComment, setReviewComment] = useState('')
+  const [discountCode, setDiscountCode] = useState('')
+  const [appliedDiscount, setAppliedDiscount] = useState<any>(null)
+  const [validatingDiscount, setValidatingDiscount] = useState(false)
+  const [showVoucherList, setShowVoucherList] = useState(false)
 
   const { data: court, isLoading: courtLoading } = useQuery({
     queryKey: ['courts', id],
@@ -55,6 +59,12 @@ export default function CourtDetailPage() {
     }),
     enabled: !!id,
   })
+
+  const { data: myDiscounts } = useQuery({
+    queryKey: ['my-discounts'],
+    queryFn: () => discountService.getMyDiscounts().then(r => r.data.data ?? []),
+    enabled: isAuthenticated,
+  })
   const reviews = reviewsData || []
   const totalPages = Math.max(1, Math.ceil(reviews.length / REVIEW_PAGE_SIZE))
   const pagedReviews = reviews.slice((reviewPage - 1) * REVIEW_PAGE_SIZE, reviewPage * REVIEW_PAGE_SIZE)
@@ -78,10 +88,29 @@ export default function CourtDetailPage() {
     const svc = services.find((s: any) => String(s.id) === svcId)
     return sum + (svc ? (Number(svc.donGia) || 0) * qty : 0)
   }, 0)
-  const totalPrice = courtPrice + servicesPrice
+  const subTotal = courtPrice + servicesPrice
+  const discountAmount = appliedDiscount?.discountAmount || 0
+  const totalPrice = subTotal - discountAmount
 
   const handleSlotToggle = (slotId: string) => {
     setSelectedSlots(prev => prev.includes(slotId) ? prev.filter(s => s !== slotId) : [...prev, slotId])
+    setAppliedDiscount(null) // Reset discount when slots change
+  }
+
+  const handleApplyDiscount = async (overrideCode?: string) => {
+    const codeToUse = overrideCode || discountCode
+    if (!codeToUse.trim()) return
+    setValidatingDiscount(true)
+    try {
+      const res = await discountService.validate(codeToUse, subTotal)
+      setAppliedDiscount(res.data.data)
+      toast.success('Áp dụng mã giảm giá thành công!')
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || 'Mã giảm giá không hợp lệ')
+      setAppliedDiscount(null)
+    } finally {
+      setValidatingDiscount(false)
+    }
   }
 
   const handleBooking = async () => {
@@ -95,6 +124,7 @@ export default function CourtDetailPage() {
         dichVu: Object.entries(selectedServices).map(([id, qty]) => ({ dichVuId: id, soLuong: qty })),
         phuongThuc: paymentMethod,
         isAutoBooking: autoBooking,
+        maGiamGia: appliedDiscount?.code
       })
       toast.success(autoBooking ? 'Đặt sân thành công! Hệ thống sẽ tự động đặt lịch cho tuần sau.' : 'Đặt sân thành công!')
       queryClient.invalidateQueries({ queryKey: ['notifications'] })
@@ -338,10 +368,92 @@ export default function CourtDetailPage() {
             {/* Booking Summary */}
             {selectedSlots.length > 0 && (
               <div className="rounded-xl border border-border bg-card p-6 sticky bottom-20 sm:bottom-0 z-10">
+                <h2 className="font-semibold mb-4 text-primary flex items-center gap-2">
+                  <Ticket className="size-5" /> Mã giảm giá
+                </h2>
+                
+                {isAuthenticated ? (
+                  <div className="space-y-3 mb-6">
+                    <div className="flex gap-2">
+                      <input 
+                        type="text" 
+                        value={discountCode} 
+                        onChange={e => setDiscountCode(e.target.value)}
+                        placeholder="Nhập mã hoặc chọn bên dưới..."
+                        className="flex-1 h-10 px-3 rounded-lg border border-input bg-background text-sm focus:ring-2 focus:ring-ring outline-none uppercase"
+                      />
+                      <Button 
+                        type="button" 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={handleApplyDiscount}
+                        loading={validatingDiscount}
+                        disabled={!discountCode}
+                      >
+                        Áp dụng
+                      </Button>
+                    </div>
+
+                    {/* Quick Voucher List */}
+                    {myDiscounts && myDiscounts.length > 0 && (
+                      <div className="space-y-2">
+                        <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Voucher của bạn</p>
+                        <div className="flex flex-wrap gap-2">
+                          {myDiscounts.filter((d: any) => d.soLuongBanDau === 0 || d.soLuongDaDung < d.soLuongBanDau).map((disc: any) => (
+                            <button 
+                              key={disc.id}
+                              onClick={() => {
+                                setDiscountCode(disc.code)
+                                handleApplyDiscount(disc.code)
+                              }}
+                              className={`text-left p-2 rounded-lg border transition-all flex items-center gap-2 max-w-[200px] relative ${
+                                appliedDiscount?.code === disc.code 
+                                ? 'border-primary bg-primary/5 ring-1 ring-primary' 
+                                : 'border-dashed border-muted-foreground/30 hover:border-primary/50'
+                              }`}
+                            >
+                              <div className="bg-primary/10 p-1.5 rounded-md">
+                                <Ticket className="size-3.5 text-primary" />
+                              </div>
+                              <div className="min-w-0 pr-6">
+                                <p className="text-xs font-bold truncate">{disc.code}</p>
+                                <p className="text-[10px] text-muted-foreground truncate">{disc.noiDung}</p>
+                              </div>
+                              {disc.soLuongBanDau > 0 && (
+                                <span className="absolute top-1 right-1 bg-primary/20 text-primary px-1.5 rounded text-[10px] font-bold">
+                                  x{disc.soLuongBanDau - disc.soLuongDaDung}
+                                </span>
+                              )}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground mb-4 italic">Đăng nhập để xem kho voucher của bạn</p>
+                )}
+
+                {appliedDiscount && (
+                  <div className="mb-4 p-3 rounded-lg bg-success/5 border border-success/20 text-xs text-success flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="size-2 rounded-full bg-success animate-pulse" />
+                      <span>Đã giảm <strong>{appliedDiscount.loaiGiamGia === 'percentage' ? `${appliedDiscount.mucGiamGia}%` : formatPrice(appliedDiscount.mucGiamGia)}</strong> từ mã <strong>{appliedDiscount.code}</strong></span>
+                    </div>
+                    <button onClick={() => { setAppliedDiscount(null); setDiscountCode('') }} className="font-bold hover:underline">Gỡ</button>
+                  </div>
+                )}
+
                 <h2 className="font-semibold mb-4">Tóm tắt đặt sân</h2>
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between"><span>Tiền sân</span><span>{formatPrice(courtPrice)}</span></div>
                   {servicesPrice > 0 && <div className="flex justify-between"><span>Dịch vụ</span><span>{formatPrice(servicesPrice)}</span></div>}
+                  {discountAmount > 0 && (
+                    <div className="flex justify-between text-success">
+                      <span>Giảm giá</span>
+                      <span>-{formatPrice(discountAmount)}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between font-semibold text-base border-t border-border pt-2">
                     <span>Tổng tiền</span><span>{formatPrice(totalPrice)}</span>
                   </div>
@@ -379,7 +491,13 @@ export default function CourtDetailPage() {
           <p><strong>Sân:</strong> {court.tenSan}</p>
           <p><strong>Ngày:</strong> {formatDate(selectedDate)}</p>
           <p><strong>Khung giờ:</strong> {selectedSlotObjects.map((s: any) => `${s.gioBatDau?.substring(0, 5)}-${s.gioKetThuc?.substring(0, 5)}`).join(', ')}</p>
-          <p><strong>Tổng tiền:</strong> {formatPrice(totalPrice)}</p>
+          {appliedDiscount && (
+            <div className="flex justify-between text-success">
+              <span><strong>Mã giảm giá:</strong> {appliedDiscount.code}</span>
+              <span>-{formatPrice(discountAmount)}</span>
+            </div>
+          )}
+          <p><strong>Tổng tiền:</strong> <span className="text-lg font-bold text-primary">{formatPrice(totalPrice)}</span></p>
           <p><strong>Thanh toán:</strong> {paymentMethod === 'cash' ? 'Tiền mặt tại sân' : paymentMethod === 'transfer' ? 'Chuyển khoản ngân hàng' : paymentMethod === 'momo' ? 'Ví MoMo' : 'Visa/Mastercard'}</p>
           <div className="flex items-start gap-2 p-3 rounded-lg bg-warning/10 text-warning text-xs">
             <AlertCircle className="size-4 shrink-0 mt-0.5" />

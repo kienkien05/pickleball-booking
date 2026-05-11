@@ -13,6 +13,7 @@ const CourtDetailPage = lazy(() => import('@/pages/user/CourtDetailPage'))
 const MyBookingsPage = lazy(() => import('@/pages/user/MyBookingsPage'))
 const BookingDetailPage = lazy(() => import('@/pages/user/BookingDetailPage'))
 const PaymentReturnPage = lazy(() => import('@/pages/user/PaymentReturnPage'))
+const VouchersPage = lazy(() => import('@/pages/user/VouchersPage'))
 
 const LoginPage = lazy(() => import('@/pages/auth/LoginPage'))
 const OTPVerifyPage = lazy(() => import('@/pages/auth/OTPVerifyPage'))
@@ -80,6 +81,7 @@ export default function App() {
           <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
           <Route path="/my-bookings" element={<ProtectedRoute><MyBookingsPage /></ProtectedRoute>} />
           <Route path="/booking/:id" element={<ProtectedRoute><BookingDetailPage /></ProtectedRoute>} />
+          <Route path="/my-vouchers" element={<ProtectedRoute><VouchersPage /></ProtectedRoute>} />
         </Route>
 
         {/* Admin */}

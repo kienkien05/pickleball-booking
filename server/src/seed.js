@@ -247,10 +247,8 @@ async function seed() {
     // ── Discounts ───────────────────────────────────────────────────────
     await client.query(`
       INSERT INTO discounts (code, noiDung, moTa, loaiGiamGia, mucGiamGia, ngayBatDau, ngayKetThuc, soLuongBanDau, soLuongDaDung, trangThai) VALUES
-        ('WELCOME20', 'Giảm 20% cho khách mới', 'Áp dụng cho đơn đầu tiên, tối đa giảm 100K', 'percentage', 20, '2026-01-01', '2026-12-31', 100, 12, 'Active'),
-        ('SUMMER50', 'Giảm 50K mùa hè', 'Giảm thẳng 50,000đ cho đơn từ 200K', 'fixed', 50000, '2026-06-01', '2026-08-31', 50, 0, 'Active'),
-        ('VIP10', 'Ưu đãi VIP 10%', 'Dành riêng cho khách VIP', 'percentage', 10, '2026-01-01', '2026-12-31', 0, 0, 'Active'),
-        ('TET2026', 'Giảm 30% Tết', 'Ưu đãi đặc biệt dịp Tết Nguyên Đán', 'percentage', 30, '2026-01-15', '2026-02-15', 200, 45, 'Inactive')
+        ('WELCOME20', 'Giảm 20% cho khách mới', 'Áp dụng cho đơn đầu tiên, tối đa giảm 100K', 'percentage', 20, '2026-01-01', '2026-12-31', 2, 0, 'Active'),
+        ('SUMMER50', 'Giảm 50K mùa hè', 'Giảm thẳng 50,000đ cho đơn từ 200K', 'fixed', 50000, '2026-01-01', '2026-12-31', 1, 0, 'Active');
     `);
 
     // ── Set updated_at for existing rows ───────────────────────────────

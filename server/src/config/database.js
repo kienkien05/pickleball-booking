@@ -187,10 +187,14 @@ async function initDatabase() {
         ngayKetThuc TIMESTAMP,
         soLuongBanDau INTEGER DEFAULT 0,
         soLuongDaDung INTEGER DEFAULT 0,
+        nguoiDungId INTEGER REFERENCES users(id) ON DELETE CASCADE,
         trangThai VARCHAR(50) DEFAULT 'Active',
         created_at TIMESTAMP DEFAULT NOW()
       );
     `);
+
+    // Add nguoiDungId to discounts for existing databases
+    await client.query("ALTER TABLE discounts ADD COLUMN IF NOT EXISTS nguoiDungId INTEGER REFERENCES users(id) ON DELETE CASCADE").catch(() => {});
 
     // Add soLuongTon column for existing databases
     await client.query("ALTER TABLE services ADD COLUMN IF NOT EXISTS soLuongTon INTEGER DEFAULT 0").catch(() => {});

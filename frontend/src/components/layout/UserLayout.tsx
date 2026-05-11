@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Outlet, NavLink, Link, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Home, MapPin, User, ClipboardList, Menu, X, Sun, Moon, LogOut, LogIn, Shield } from 'lucide-react'
+import { Home, MapPin, User, ClipboardList, Menu, X, Sun, Moon, LogOut, LogIn, Shield, Ticket } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
 import { useThemeStore } from '@/stores/themeStore'
 import { Button } from '@/components/ui/Button'
@@ -12,6 +12,7 @@ const navLinks = [
   { to: '/', icon: Home, label: 'Trang chủ', end: true },
   { to: '/courts', icon: MapPin, label: 'Sân', end: false },
   { to: '/my-bookings', icon: ClipboardList, label: 'Lịch sử', auth: true },
+  { to: '/my-vouchers', icon: Ticket, label: 'Mã giảm giá', auth: true },
 ]
 
 export default function UserLayout() {

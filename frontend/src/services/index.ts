@@ -92,6 +92,7 @@ export const reviewService = {
 
 export const discountService = {
   getAll: () => api.get('/discounts'),
+  getMyDiscounts: () => api.get('/discounts/my'),
   create: (data: Record<string, any>) => api.post('/discounts', data),
   update: (id: string, data: Record<string, any>) => api.put(`/discounts/${id}`, data),
   delete: (id: string) => api.delete(`/discounts/${id}`),

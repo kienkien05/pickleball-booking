@@ -7,7 +7,7 @@ const router = express.Router();
 router.post('/', authenticate, async (req, res) => {
   const client = await pool.connect();
   try {
-    const { sanId, ngayChoi, khungGioIds, dichVu, loaiThanhToan, isAutoBooking, phuongThuc } = req.body;
+    const { sanId, ngayChoi, khungGioIds, dichVu, loaiThanhToan, isAutoBooking, phuongThuc, maGiamGia } = req.body;
     if (!sanId || !ngayChoi || !khungGioIds || khungGioIds.length === 0) {
       return res.status(400).json({ error: 'Vui lòng chọn sân và khung giờ' });
     }
@@ -20,13 +20,16 @@ router.post('/', authenticate, async (req, res) => {
       return res.status(404).json({ error: 'Không tìm thấy sân' });
     }
     
-    const courtStatus = courtCheck.rows[0].trangThai;
+    const courtRow = courtCheck.rows[0];
+    const courtStatus = courtRow.trangThai || courtRow.trangthai;
+    const isAvailable = courtStatus === 'Sẵn sàng' || courtStatus === 'Active' || courtStatus === 'active' || courtStatus === 'Ready';
+
     if (courtStatus === 'Bảo trì' || courtStatus === 'maintenance' || courtStatus === 'inactive') {
       await client.query('ROLLBACK');
       return res.status(400).json({ error: 'Sân này hiện đang bảo trì, không thể đặt lịch.' });
     }
     
-    if (courtStatus !== 'Sẵn sàng') {
+    if (!isAvailable) {
       await client.query('ROLLBACK');
       return res.status(400).json({ error: 'Sân này hiện không khả dụng để đặt' });
     }
@@ -41,22 +44,54 @@ router.post('/', authenticate, async (req, res) => {
       return res.status(409).json({ error: 'Khung giờ này vừa có người đặt. Vui lòng chọn giờ khác' });
     }
 
-    // Calculate total price
+    // Calculate prices
     let courtPrice = 0;
     for (const slotId of khungGioIds) {
-      const slot = await client.query('SELECT mucGia FROM timeslots WHERE id = $1', [slotId]);
-      if (slot.rows.length > 0) courtPrice += parseFloat(slot.rows[0].mucgia) || 0;
+      const slotResult = await client.query('SELECT mucGia, mucgia FROM timeslots WHERE id = $1', [slotId]);
+      if (slotResult.rows.length > 0) {
+        const slot = slotResult.rows[0];
+        courtPrice += parseFloat(slot.mucGia || slot.mucgia) || 0;
+      }
     }
 
     let servicesPrice = 0;
     if (dichVu && dichVu.length > 0) {
       for (const d of dichVu) {
-        const svc = await client.query('SELECT donGia FROM services WHERE id = $1', [d.dichVuId]);
-        if (svc.rows.length > 0) servicesPrice += (parseFloat(svc.rows[0].dongia) || 0) * (d.soLuong || 1);
+        const svcResult = await client.query('SELECT donGia, dongia FROM services WHERE id = $1', [d.dichVuId]);
+        if (svcResult.rows.length > 0) {
+          const svc = svcResult.rows[0];
+          servicesPrice += (parseFloat(svc.donGia || svc.dongia) || 0) * (d.soLuong || 1);
+        }
       }
     }
 
-    const totalPrice = courtPrice + servicesPrice;
+    let subTotal = courtPrice + servicesPrice;
+    let discountAmount = 0;
+    let discountId = null;
+
+    // Handle Discount Code
+    if (maGiamGia) {
+      const discResult = await client.query(
+        `SELECT * FROM discounts WHERE code = $1 AND trangThai = 'Active'
+         AND (ngayBatDau IS NULL OR ngayBatDau <= NOW())
+         AND (ngayKetThuc IS NULL OR ngayKetThuc >= NOW())
+         AND (soLuongBanDau = 0 OR soLuongDaDung < soLuongBanDau)`,
+        [maGiamGia]
+      );
+      if (discResult.rows.length > 0) {
+        const disc = discResult.rows[0];
+        discountId = disc.id;
+        if (disc.loaigiamgia === 'percentage') {
+          discountAmount = Math.round(subTotal * disc.mucgiamgia / 100);
+        } else {
+          discountAmount = Math.min(Number(disc.mucgiamgia), subTotal);
+        }
+        // Update usage count
+        await client.query('UPDATE discounts SET soLuongDaDung = soLuongDaDung + 1 WHERE id = $1', [disc.id]);
+      }
+    }
+
+    const totalPrice = subTotal - discountAmount;
 
     // Create bookings (one per time slot) - always full payment
     const bookingIds = [];
@@ -154,6 +189,27 @@ router.post('/', authenticate, async (req, res) => {
         "INSERT INTO notifications (nguoiDungId, tieuDe, noiDung, loaiThongBao) VALUES ($1, $2, $3, 'vip_auto_enabled')",
         [req.user.id, 'Tự động đặt lịch đã bật',
          `Hệ thống sẽ tự động đặt lịch cho khung giờ này vào ngày ${nextWeekStr}. Nếu có xung đột, bạn sẽ được thông báo.`]
+      );
+    }
+
+    // Loyalty Reward Logic: Every 3 bookings = 1 voucher
+    const userBookingCount = await client.query(
+      "SELECT COUNT(*) FROM bookings WHERE nguoiDungId = $1 AND trangThai NOT IN ('Đã hủy')",
+      [req.user.id]
+    );
+    const count = parseInt(userBookingCount.rows[0].count);
+    
+    if (count > 0 && count % 3 === 0) {
+      const rewardCode = `LOYAL${req.user.id}-${Math.floor(Math.random() * 1000)}`;
+      await client.query(
+        `INSERT INTO discounts (code, noiDung, moTa, loaiGiamGia, mucGiamGia, ngayBatDau, ngayKetThuc, soLuongBanDau, nguoiDungId, trangThai)
+         VALUES ($1, $2, $3, 'percentage', 10, NOW(), NOW() + INTERVAL '30 days', 1, $4, 'Active')`,
+        [rewardCode, 'Quà tặng đặt sân lần thứ ' + count, 'Giảm 10% tri ân khách hàng đặt sân thường xuyên', req.user.id]
+      );
+      
+      await client.query(
+        "INSERT INTO notifications (nguoiDungId, tieuDe, noiDung, loaiThongBao) VALUES ($1, $2, $3, 'promotion')",
+        [req.user.id, 'Quà tặng tri ân!', `Bạn đã đặt đủ ${count} đơn sân! Tặng bạn mã giảm giá 10%: ${rewardCode} (Hạn dùng 30 ngày)`]
       );
     }
 

@@ -58,6 +58,15 @@ router.post('/verify-register', async (req, res) => {
       [stored.full_name, email, hashedPw, stored.phone_number || null]
     );
     const user = result.rows[0];
+    
+    // Tặng mã chào mừng 20% cho user mới
+    const welcomeCode = `WELCOME${user.id}`;
+    await pool.query(
+      `INSERT INTO discounts (code, noiDung, moTa, loaiGiamGia, mucGiamGia, ngayBatDau, ngayKetThuc, soLuongBanDau, nguoiDungId, trangThai)
+       VALUES ($1, $2, $3, 'percentage', 20, NOW(), NOW() + INTERVAL '30 days', 1, $4, 'Active')`,
+      [welcomeCode, 'Chào mừng thành viên mới!', 'Giảm 20% cho lần đặt sân đầu tiên', user.id]
+    );
+
     const token = jwt.sign({ id: user.id, email: user.email, role: user.vaiTro }, JWT_SECRET, { expiresIn: '7d' });
     otpStore.delete(`register:${email}`);
     res.json({

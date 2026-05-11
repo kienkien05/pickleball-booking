@@ -230,6 +230,25 @@ router.get('/discounts', authenticate, async (req, res) => {
   }
 });
 
+router.get('/discounts/my', authenticate, async (req, res) => {
+  try {
+    // Lấy mã chung (nguoiDungId IS NULL) và mã riêng của user
+    const result = await pool.query(
+      `SELECT * FROM discounts 
+       WHERE (nguoiDungId IS NULL OR nguoiDungId = $1)
+       AND trangThai = 'Active'
+       AND (ngayBatDau IS NULL OR ngayBatDau <= NOW())
+       AND (ngayKetThuc IS NULL OR ngayKetThuc >= NOW())
+       AND (soLuongBanDau = 0 OR soLuongDaDung < soLuongBanDau)
+       ORDER BY created_at DESC`,
+      [req.user.id]
+    );
+    res.json({ data: result.rows });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.post('/discounts', authenticate, requireAdmin, async (req, res) => {
   try {
     const { code, noiDung, moTa, loaiGiamGia, mucGiamGia, ngayBatDau, ngayKetThuc, soLuongBanDau, trangThai } = req.body;
@@ -339,10 +358,10 @@ router.post('/discounts/validate', authenticate, async (req, res) => {
     if (result.rows.length === 0) return res.status(400).json({ error: 'Mã giảm giá không hợp lệ hoặc đã hết hạn' });
     const discount = result.rows[0];
     let discountAmount = 0;
-    if (discount.loaigiamgia === 'percentage') {
-      discountAmount = Math.round(totalAmount * discount.mucgiamgia / 100);
+    if (discount.loaiGiamGia === 'percentage') {
+      discountAmount = Math.round(totalAmount * discount.mucGiamGia / 100);
     } else {
-      discountAmount = Math.min(Number(discount.mucgiamgia), totalAmount);
+      discountAmount = Math.min(Number(discount.mucGiamGia), totalAmount);
     }
     res.json({ data: { ...discount, discountAmount } });
   } catch (err) {
