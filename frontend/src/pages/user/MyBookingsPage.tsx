@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { ClipboardList, XCircle, AlertCircle } from 'lucide-react'
+import { ClipboardList, XCircle, AlertCircle, QrCode } from 'lucide-react'
 import { toast } from 'sonner'
 import { bookingService } from '@/services'
 import { Button } from '@/components/ui/Button'
@@ -77,7 +77,9 @@ export default function MyBookingsPage() {
         ) : (
           <div className="space-y-4">
             {bookings.map((booking: any) => (
-              <div key={booking.id} className="rounded-xl border border-border bg-card p-4 sm:p-6 hover:border-primary/20 transition-colors">
+              <div key={booking.id} 
+                className="rounded-xl border border-border bg-card p-4 sm:p-6 hover:border-primary/20 transition-colors"
+              >
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div>
                     <Link to={`/booking/${booking.id}`} className="font-semibold hover:text-primary transition-colors">
@@ -88,17 +90,27 @@ export default function MyBookingsPage() {
                     </p>
                     <p className="text-sm font-medium mt-1">{formatPrice(Number(booking.tongTien || 0))}</p>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${statusColors[booking.trangThai] || 'bg-muted text-muted-foreground'}`}>
-                      {booking.trangThai}
-                    </span>
-                    {booking.trangThai === 'Đã thanh toán' && (
-                      <Button variant="outline" size="sm" onClick={() => setCancelId(booking.id)}>
-                        <XCircle className="size-3 mr-1" /> Hủy
-                      </Button>
-                    )}
+                    <div className="flex flex-col items-end gap-2">
+                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${statusColors[booking.trangThai] || 'bg-muted text-muted-foreground'}`}>
+                        {booking.trangThai}
+                      </span>
+                      
+                      {(booking.trangThai === 'Đã thanh toán' || booking.trangThai === 'Đang sử dụng' || booking.trangThai === 'Hoàn thành') && (
+                        <Link to={`/booking/${booking.id}`}>
+                          <Button variant="outline" size="sm" className="text-[10px] h-8 px-3 border-primary/30 text-primary hover:bg-primary/5">
+                            <QrCode className="size-3 mr-1" /> Xem hóa đơn & QR check-in
+                          </Button>
+                        </Link>
+                      )}
+
+                      {booking.trangThai === 'Đã thanh toán' && (
+                        <Button variant="outline" size="sm" onClick={() => setCancelId(booking.id)}>
+                          <XCircle className="size-3 mr-1" /> Hủy
+                        </Button>
+                      )}
+                    </div>
                   </div>
-                </div>
+
                 {booking.dichVu && booking.dichVu.length > 0 && (
                   <div className="mt-3 pt-3 border-t border-border">
                     <p className="text-xs text-muted-foreground">Dịch vụ: {booking.dichVu.map((d: any) => `${d.tenDichVu} x${d.soLuong}`).join(', ')}</p>

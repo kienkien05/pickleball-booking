@@ -12,7 +12,7 @@ const sidebarLinks = [
   { to: '/admin/courts', icon: MapPin, label: 'Quản lý sân' },
   { to: '/admin/timeslots', icon: Clock, label: 'Khung giờ & Giá' },
   { to: '/admin/bookings', icon: ClipboardList, label: 'Đơn đặt sân' },
-  { to: '/admin/schedule-board', icon: CalendarDays, label: 'Thời khóa biểu' },
+  { to: '/admin/schedule-board', icon: CalendarDays, label: 'Lịch sân' },
   { to: '/admin/services', icon: Package, label: 'Dịch vụ' },
   { to: '/admin/discounts', icon: Ticket, label: 'Giảm giá' },
   { to: '/admin/users', icon: Users, label: 'Khách hàng' },
