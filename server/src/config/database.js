@@ -198,6 +198,19 @@ const initDatabase = async () => {
       );
     `);
 
+    // -- PAYMENTS TABLE (ThanhToan theo doc KLTN) --
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS payments (
+        id SERIAL PRIMARY KEY,
+        booking_id INTEGER REFERENCES bookings(id) ON DELETE CASCADE,
+        amount DECIMAL(10,2) NOT NULL,
+        payment_type VARCHAR(20) NOT NULL,
+        payment_method_id INTEGER REFERENCES payment_methods(id),
+        status VARCHAR(20) DEFAULT 'completed',
+        transaction_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
     // Add missing columns to existing tables (safe migrations)
     await client.query(`
       ALTER TABLE users ADD COLUMN IF NOT EXISTS is_vip BOOLEAN DEFAULT FALSE;
@@ -212,6 +225,7 @@ const initDatabase = async () => {
       ALTER TABLE notifications ADD COLUMN IF NOT EXISTS notification_type VARCHAR(50) DEFAULT 'booking';
       ALTER TABLE notifications ADD COLUMN IF NOT EXISTS is_read BOOLEAN DEFAULT FALSE;
       ALTER TABLE notifications ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}'::jsonb;
+      ALTER TABLE equipment ADD COLUMN IF NOT EXISTS category VARCHAR(50);
     `);
 
     await client.query(`
@@ -224,6 +238,10 @@ const initDatabase = async () => {
       CREATE UNIQUE INDEX IF NOT EXISTS idx_vip_auto_user_weekly_unique
         ON vip_auto_bookings (user_id, court_id, slot_id, target_weekday)
         WHERE status = 'active';
+
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_booking_no_double
+        ON bookings (court_id, slot_id, booking_date)
+        WHERE status_id <> 3;
     `);
 
     console.log('[database] Tables ready');

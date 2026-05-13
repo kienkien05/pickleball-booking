@@ -239,6 +239,23 @@ router.put('/bookings/:id', async (req, res) => {
             }
         }
 
+        // Ghi nhận thanh toán vào bảng payments khi check-in (thu 90% còn lại)
+        if (action === 'checkin' && booking.payment_type === 'deposit') {
+            const remainingAmount = Math.round(Number(booking.total_price) - Number(booking.amount_paid));
+            if (remainingAmount > 0) {
+                await client.query(`
+                    INSERT INTO payments (booking_id, amount, payment_type, payment_method_id, status)
+                    VALUES ($1, $2, 'remaining', $3, 'completed')
+                `, [req.params.id, remainingAmount, booking.payment_method_id]);
+
+                // Cập nhật amount_paid
+                await client.query(
+                    'UPDATE bookings SET amount_paid = total_price WHERE id = $1',
+                    [req.params.id]
+                );
+            }
+        }
+
         const bookingLabel = `đơn #${booking.id}`;
         const scheduleLabel = `${booking.court_name || 'sân đã đặt'} ngày ${booking.booking_date_text || booking.booking_date} khung ${booking.start_time || '--'} - ${booking.end_time || '--'}`;
         const notificationConfig = {

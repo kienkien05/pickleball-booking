@@ -98,14 +98,14 @@ async function seed() {
             ('Ca Tối 3',   '20:00', '21:30', 1.5, 1.0)
         `);
 
-        // ── Equipment (Thiết bị cho thuê) ─────────────────────────────────
+        // ── Equipment (Thiết bị/Dịch vụ cho thuê) ────────────────────────
         await client.query(`
-            INSERT INTO equipment (name, description, price_per_booking, available_quantity) VALUES
-            ('Vợt Pickleball',    'Vợt tiêu chuẩn dành cho người mới', 50000,  20),
-            ('Bóng Pickleball',   'Hộp 3 bóng',                         20000,  50),
-            ('Giày thể thao',     'Size 36–45, vệ sinh sạch sẽ',        30000,  15),
-            ('Bình nước thể thao','500ml, tặng nước lọc miễn phí',      15000, 100),
-            ('Khăn tắm',          'Khăn cotton mềm',                     10000,  50)
+            INSERT INTO equipment (name, description, price_per_booking, available_quantity, category) VALUES
+            ('Vợt Pickleball',    'Vợt tiêu chuẩn dành cho người mới', 50000,  20, 'Dụng cụ'),
+            ('Bóng Pickleball',   'Hộp 3 bóng',                         20000,  50, 'Dụng cụ'),
+            ('Giày thể thao',     'Size 36–45, vệ sinh sạch sẽ',        30000,  15, 'Dụng cụ'),
+            ('Bình nước thể thao','500ml, tặng nước lọc miễn phí',      15000, 100, 'Đồ uống'),
+            ('Khăn tắm',          'Khăn cotton mềm',                     10000,  50, 'Dụng cụ')
         `);
 
         // ── Sample bookings ───────────────────────────────────────────────

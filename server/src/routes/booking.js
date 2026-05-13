@@ -391,6 +391,18 @@ router.post('/', async (req, res) => {
             triggeringBookingId: newBooking.rows[0].id
         });
 
+        // Ghi nhận thanh toán vào bảng payments (ThanhToan theo doc KLTN)
+        await client.query(`
+            INSERT INTO payments (booking_id, amount, payment_type, payment_method_id, status)
+            VALUES ($1, $2, $3, $4, $5)
+        `, [
+            newBooking.rows[0].id,
+            amountPaid,
+            effectivePaymentType,
+            payment_method_id || null,
+            amountPaid > 0 ? 'completed' : 'pending'
+        ]);
+
         for (const item of bookingEquipment) {
             await client.query(`
                 INSERT INTO booking_equipment (booking_id, equipment_id, quantity, subtotal)
@@ -449,6 +461,10 @@ router.post('/', async (req, res) => {
 
     } catch (error) {
         await client.query('ROLLBACK');
+        // Unique violation = slot đã bị đặt (safety net từ idx_booking_no_double)
+        if (error.code === '23505') {
+            return res.status(409).json({ error: 'Khung giờ này đã được đặt. Vui lòng chọn khung giờ khác.' });
+        }
         console.error('Lỗi đặt sân:', error);
         res.status(500).json({ error: 'Lỗi server khi đặt sân' });
     } finally {
@@ -570,7 +586,13 @@ router.get('/', async (req, res) => {
                 LOWER(bs.status_name) AS status,
                 pm.display_name AS payment_method,
                 COALESCE(eq.equipment_total, 0) AS equipment_total,
-                COALESCE(eq.items, '[]'::json) AS equipment
+                COALESCE(eq.items, '[]'::json) AS equipment,
+                CASE
+                    WHEN LOWER(bs.status_name) IN ('pending','confirmed') THEN 'upcoming'
+                    WHEN LOWER(bs.status_name) = 'in_progress' THEN 'in_progress'
+                    WHEN LOWER(bs.status_name) = 'completed' THEN 'completed'
+                    ELSE 'cancelled'
+                END AS sort_group
             FROM bookings b
             JOIN courts c      ON b.court_id = c.id
             JOIN slots s       ON b.slot_id  = s.id
@@ -592,7 +614,18 @@ router.get('/', async (req, res) => {
                 WHERE be.booking_id = b.id
             ) eq ON true
             WHERE b.user_id = $1
-            ORDER BY b.booking_date DESC, s.start_time DESC
+            ORDER BY
+                CASE
+                    WHEN LOWER(bs.status_name) IN ('pending','confirmed') THEN 0
+                    WHEN LOWER(bs.status_name) = 'in_progress' THEN 1
+                    WHEN LOWER(bs.status_name) = 'completed' THEN 2
+                    ELSE 3
+                END ASC,
+                CASE
+                    WHEN LOWER(bs.status_name) IN ('pending','confirmed') THEN b.booking_date
+                END ASC,
+                b.booking_date DESC,
+                s.start_time ASC
         `, [user_id]);
 
         const rows = result.rows.map(row => ({
@@ -747,6 +780,12 @@ router.put('/:id/pay', async (req, res) => {
             WHERE id = $5
         `, [paymentMethodId, effectivePaymentType, depositAmount, amountPaid, bookingId]);
 
+        // Ghi nhận thanh toán vào bảng payments
+        await client.query(`
+            INSERT INTO payments (booking_id, amount, payment_type, payment_method_id)
+            VALUES ($1, $2, $3, $4)
+        `, [bookingId, amountPaid, effectivePaymentType, paymentMethodId]);
+
         await createNotification(client, {
             userId: user_id,
             bookingId,
@@ -786,7 +825,7 @@ router.put('/:id/pay', async (req, res) => {
 // ────────────────────────────────────────────────
 // 8. HỦY ĐẶT SÂN (User tự hủy)
 //    - Kiểm tra quyền sở hữu
-//    - Kiểm tra thời hạn: VIP ≥1h, Thường ≥3h trước giờ đặt
+//    - Kiểm tra thời hạn: ≥3h trước giờ đặt (theo doc KLTN Table 6)
 //    - Ghi log vào booking_cancellations
 //    - Tăng cancel_count của user
 // ────────────────────────────────────────────────
@@ -856,13 +895,13 @@ router.put('/:id/cancel', async (req, res) => {
         const diffMs = bookingDateTime - now;
         const diffHours = diffMs / (1000 * 60 * 60);
 
-        const isVip = booking.is_vip;
-        const minHoursBefore = isVip ? 1 : 3;
+        // Doc KLTN Table 6: "Yêu cầu hủy trước giờ chơi ít nhất 3 tiếng"
+        const minHoursBefore = 3;
 
         if (diffHours < minHoursBefore) {
             await client.query('ROLLBACK');
             return res.status(400).json({
-                error: `${isVip ? 'Khách VIP' : 'Khách thường'} phải hủy trước ít nhất ${minHoursBefore} tiếng. Hiện tại còn ${diffHours.toFixed(1)} tiếng.`
+                error: `Yêu cầu hủy trước giờ chơi ít nhất ${minHoursBefore} tiếng. Hiện tại còn ${diffHours.toFixed(1)} tiếng.`
             });
         }
 

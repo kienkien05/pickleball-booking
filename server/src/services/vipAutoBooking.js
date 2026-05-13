@@ -270,6 +270,13 @@ async function processSingleAutoBooking(autoBookingId) {
         ]);
 
         const bookingId = bookingRes.rows[0].id;
+
+        // Ghi nhận thanh toán vào bảng payments (pay_later = chưa thu tiền)
+        await client.query(`
+            INSERT INTO payments (booking_id, amount, payment_type, status)
+            VALUES ($1, 0, 'pay_later', 'pending')
+        `, [bookingId]);
+
         const next = getNextAutoScheduleFromTargetDate(auto.target_booking_date);
 
         await client.query(`
@@ -297,6 +304,25 @@ async function processSingleAutoBooking(autoBookingId) {
         await client.query('COMMIT');
     } catch (error) {
         await client.query('ROLLBACK');
+
+        // Unique violation = slot đã bị đặt bởi người khác (idx_booking_no_double)
+        if (error.code === '23505') {
+            console.log(`[vip-auto-booking] Slot already booked for auto#${auto.id}, advancing to next week`);
+            try {
+                const next = getNextAutoScheduleFromTargetDate(auto.target_booking_date);
+                await pool.query(`
+                    UPDATE vip_auto_bookings
+                    SET target_booking_date = $1::date,
+                        next_run_at = $2::timestamp,
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE id = $3
+                `, [next.targetDate, next.runAt, auto.id]);
+            } catch (advanceErr) {
+                console.error('[vip-auto-booking] advance after conflict error:', advanceErr);
+            }
+            return;
+        }
+
         console.error('[vip-auto-booking] single process error:', error);
     } finally {
         client.release();

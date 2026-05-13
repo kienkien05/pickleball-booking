@@ -1,11 +1,15 @@
-/**
- * History page — Lịch sử đặt sân của user
- */
-
 let cancelBookingId = null;
 let autoPayBookingId = null;
 let bookingsCache = [];
 let paymentMethods = [];
+let activeFilter = 'all';
+
+const SECTION_LABELS = {
+    upcoming: '📌 Sắp tới',
+    in_progress: '⚡ Đang chơi',
+    completed: '✅ Đã hoàn thành',
+    cancelled: '❌ Đã hủy'
+};
 
 document.addEventListener('DOMContentLoaded', async () => {
     if (!requireAuth()) return;
@@ -14,6 +18,17 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     document.getElementById('confirm-cancel-btn').addEventListener('click', confirmCancel);
     document.getElementById('confirm-auto-pay-btn').addEventListener('click', confirmAutoPayment);
+
+    // Filter tabs
+    document.getElementById('filter-tabs').addEventListener('click', (e) => {
+        const btn = e.target.closest('.filter-tab');
+        if (!btn) return;
+
+        document.querySelectorAll('.filter-tab').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        activeFilter = btn.dataset.filter;
+        renderBookings();
+    });
 });
 
 async function loadPaymentMethods() {
@@ -29,83 +44,108 @@ async function loadBookings() {
     showLoading(container);
 
     try {
-        const bookings = await api.get('/bookings');
-        bookingsCache = bookings;
-
-        if (bookings.length === 0) {
-            container.innerHTML = `
-                <div class="card text-center">
-                    <p class="text-muted">Bạn chưa có đơn đặt sân nào.</p>
-                    <a href="/user/search/search.html" class="btn btn-primary mt-2">Tìm sân ngay</a>
-                </div>`;
-            return;
-        }
-
-        container.innerHTML = bookings.map(booking => {
-            const payTypeLabel = getPaymentTypeLabel(booking);
-            const paidInfo = getPaidInfo(booking);
-            const autoBadge = booking.is_auto_booking
-                ? `<span class="badge badge-info" style="font-size:0.75rem;margin-left:0.35rem;">Tự động VIP</span>`
-                : '';
-
-            const equipmentItems = Array.isArray(booking.equipment) ? booking.equipment : [];
-            const equipmentSummary = equipmentItems.length > 0
-                ? `<p class="mt-1 text-sm">
-                       <span class="meta-label">Dịch vụ:</span>
-                       ${equipmentItems.map(item => `${item.equipment_name} x${item.quantity}`).join(', ')}
-                       <span class="text-muted">(${formatPrice(booking.equipment_total || 0)})</span>
-                   </p>`
-                : '';
-
-            // Doc Table 6 - Luồng phụ 1: Đơn thanh toán 100% không hỗ trợ hủy
-            const canCancel = (booking.status === 'pending' || booking.status === 'confirmed')
-                && booking.payment_type !== 'full';
-
-            return `
-            <div class="booking-card">
-                <img src="${booking.image_url || 'https://placehold.co/150x100?text=Court'}"
-                     alt="${booking.court_name}"
-                     class="booking-card-image"
-                     onerror="this.src='https://placehold.co/150x100?text=Court'">
-
-                <div class="booking-card-content">
-                    <h3>${booking.court_name} ${autoBadge}</h3>
-                    <p class="text-muted text-sm"><span class="meta-label">Địa chỉ:</span> ${booking.court_address}</p>
-                    <p class="mt-1">
-                        <span class="meta-label">Ngày:</span> ${formatDate(booking.booking_date)} &nbsp;•&nbsp;
-                        <span class="meta-label">Giờ:</span> ${booking.start_time} – ${booking.end_time}
-                    </p>
-                    <p class="mt-1">
-                        <span class="meta-label">Thanh toán:</span> ${booking.payment_method || 'Chưa chọn'} &nbsp;
-                        ${payTypeLabel}
-                    </p>
-                    ${equipmentSummary}
-                    <p class="mt-1">${paidInfo}</p>
-                </div>
-
-                <div class="booking-card-actions">
-                    ${getStatusBadge(booking.status)}
-
-                    ${canCancel
-                        ? `<button class="btn btn-danger btn-sm mt-1"
-                                   onclick="openCancelModal(${booking.id})">Hủy đặt</button>`
-                        : ''}
-
-                    ${booking.status === 'completed'
-                        ? `<a href="/user/review/review.html?booking=${booking.id}"
-                              class="btn btn-secondary btn-sm mt-1">Đánh giá</a>`
-                        : ''}
-
-                    ${booking.can_pay_online
-                        ? `<button class="btn btn-primary btn-sm mt-1"
-                                   onclick="openAutoPayModal(${booking.id})">Thanh toán online</button>`
-                        : ''}
-                </div>
-            </div>`;
-        }).join('');
+        bookingsCache = await api.get('/bookings');
+        renderBookings();
     } catch (error) {
         container.innerHTML = '<p class="text-center text-danger">Có lỗi xảy ra khi tải lịch sử.</p>';
     }
+}
+
+function renderBookings() {
+    const container = document.getElementById('bookings-list');
+    let filtered = bookingsCache;
+
+    if (activeFilter !== 'all') {
+        filtered = bookingsCache.filter(b => b.sort_group === activeFilter);
+    }
+
+    if (filtered.length === 0) {
+        const msg = activeFilter === 'all'
+            ? 'Bạn chưa có đơn đặt sân nào.'
+            : `Không có đơn nào trong mục "${SECTION_LABELS[activeFilter] || activeFilter}".`;
+        container.innerHTML = `
+            <div class="card text-center">
+                <p class="text-muted">${msg}</p>
+                ${activeFilter === 'all' ? '<a href="/user/search/search.html" class="btn btn-primary mt-2">Tìm sân ngay</a>' : ''}
+            </div>`;
+        return;
+    }
+
+    let html = '';
+    let currentGroup = null;
+
+    filtered.forEach(booking => {
+        // Section header khi đổi nhóm (chỉ hiện khi filter = all)
+        if (activeFilter === 'all' && booking.sort_group !== currentGroup) {
+            currentGroup = booking.sort_group;
+            html += `<div class="section-header">${SECTION_LABELS[currentGroup] || currentGroup}</div>`;
+        }
+
+        const payTypeLabel = getPaymentTypeLabel(booking);
+        const paidInfo = getPaidInfo(booking);
+        const autoBadge = booking.is_auto_booking
+            ? `<span class="badge badge-info" style="font-size:0.75rem;margin-left:0.35rem;">Tự động VIP</span>`
+            : '';
+
+        const equipmentItems = Array.isArray(booking.equipment) ? booking.equipment : [];
+        const equipmentSummary = equipmentItems.length > 0
+            ? `<p class="mt-1 text-sm">
+                   <span class="meta-label">Dịch vụ:</span>
+                   ${equipmentItems.map(item => `${item.equipment_name} x${item.quantity}`).join(', ')}
+                   <span class="text-muted">(${formatPrice(booking.equipment_total || 0)})</span>
+               </p>`
+            : '';
+
+        // Doc Table 6 - Luồng phụ 1: Đơn thanh toán 100% không hỗ trợ hủy
+        const canCancel = (booking.status === 'pending' || booking.status === 'confirmed')
+            && booking.payment_type !== 'full';
+
+        const isUpcoming = booking.sort_group === 'upcoming';
+
+        html += `
+        <div class="booking-card ${isUpcoming ? 'booking-upcoming' : ''}" data-sort-group="${booking.sort_group}">
+            <img src="${booking.image_url || 'https://placehold.co/150x100?text=Court'}"
+                 alt="${booking.court_name}"
+                 class="booking-card-image"
+                 onerror="this.src='https://placehold.co/150x100?text=Court'">
+
+            <div class="booking-card-content">
+                <h3>${booking.court_name} ${autoBadge}</h3>
+                <p class="text-muted text-sm"><span class="meta-label">Địa chỉ:</span> ${booking.court_address}</p>
+                <p class="mt-1">
+                    <span class="meta-label">Ngày:</span> ${formatDate(booking.booking_date)} &nbsp;•&nbsp;
+                    <span class="meta-label">Giờ:</span> ${booking.start_time} – ${booking.end_time}
+                </p>
+                <p class="mt-1">
+                    <span class="meta-label">Thanh toán:</span> ${booking.payment_method || 'Chưa chọn'} &nbsp;
+                    ${payTypeLabel}
+                </p>
+                ${equipmentSummary}
+                <p class="mt-1">${paidInfo}</p>
+            </div>
+
+            <div class="booking-card-actions">
+                ${getStatusBadge(booking.status)}
+
+                ${canCancel
+                    ? `<button class="btn btn-danger btn-sm mt-1"
+                               onclick="openCancelModal(${booking.id})">Hủy đặt</button>`
+                    : ''}
+
+                ${booking.status === 'completed'
+                    ? `<a href="/user/review/review.html?booking=${booking.id}"
+                          class="btn btn-secondary btn-sm mt-1">Đánh giá</a>`
+                    : ''}
+
+                ${booking.can_pay_online
+                    ? `<button class="btn btn-primary btn-sm mt-1"
+                               onclick="openAutoPayModal(${booking.id})">Thanh toán online</button>`
+                    : ''}
+            </div>
+        </div>`;
+    });
+
+    container.innerHTML = html;
 }
 
 function getPaymentTypeLabel(booking) {

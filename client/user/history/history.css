@@ -1,4 +1,57 @@
 /* History Page Styles */
+
+/* ── Filter Tabs ── */
+.filter-tabs {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+}
+
+.filter-tab {
+    padding: 0.5rem 1rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    background: var(--background);
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 0.875rem;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.filter-tab:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+}
+
+.filter-tab.active {
+    background: var(--primary);
+    color: #fff;
+    border-color: var(--primary);
+}
+
+/* ── Section Headers ── */
+.section-header {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text);
+    padding: 0.75rem 0 0.5rem;
+    margin-top: 0.75rem;
+    border-bottom: 2px solid var(--border);
+    margin-bottom: 0.75rem;
+}
+
+.section-header:first-child {
+    margin-top: 0;
+}
+
+/* ── Upcoming highlight ── */
+.booking-upcoming {
+    border-left: 4px solid var(--primary);
+}
+
+/* ── Booking Card ── */
 .booking-card {
     display: flex;
     gap: 1.5rem;
@@ -7,6 +60,12 @@
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow);
     margin-bottom: 1rem;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.booking-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg, 0 4px 12px rgba(0,0,0,0.1));
 }
 
 .booking-card-image {
@@ -53,5 +112,14 @@
     .booking-card-actions {
         flex-direction: row;
         align-items: center;
+    }
+
+    .filter-tabs {
+        gap: 0.35rem;
+    }
+
+    .filter-tab {
+        padding: 0.4rem 0.75rem;
+        font-size: 0.8rem;
     }
 }

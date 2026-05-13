@@ -149,6 +149,14 @@ router.get('/:id/slots', async (req, res) => {
             available: Boolean(slot.available) && isSlotInFuture(dateStr, slot.start_time)
         }));
 
+        // Debug: log slot availability (dev mode only)
+        if (process.env.NODE_ENV !== 'production') {
+            const unavailable = rows.filter(s => !s.available);
+            if (unavailable.length > 0) {
+                console.log(`[slots] Court ${courtId} date ${dateStr}: ${unavailable.length} unavailable (${unavailable.map(s => s.name).join(', ')})`);
+            }
+        }
+
         res.json(rows);
     } catch (error) {
         console.error('Lỗi lấy khung giờ:', error);
