@@ -20,7 +20,7 @@
   --shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   --shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.15);
   --radius: 8px;
-  --radius-lg: 12px;
+  --radius-lg: 8px;
 }
 
 /* Reset & Base */
@@ -104,6 +104,30 @@ h3 { font-size: 1.25rem; }
   text-decoration: none;
 }
 
+.brand-mark {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius);
+  background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
+  color: white;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0;
+  box-shadow: 0 2px 8px rgba(0, 76, 153, 0.22);
+  flex-shrink: 0;
+}
+
+.brand-mark-lg {
+  width: 52px;
+  height: 52px;
+  font-size: 1rem;
+  margin: 0 auto 0.75rem;
+}
+
 .nav {
   display: flex;
   gap: 1.5rem;
@@ -130,6 +154,12 @@ h3 { font-size: 1.25rem; }
 }
 
 /* User menu */
+.user-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
 .user-menu {
   position: relative;
 }
@@ -182,6 +212,147 @@ h3 { font-size: 1.25rem; }
 .user-dropdown a:hover {
   background-color: var(--background-alt);
   text-decoration: none;
+}
+
+.notification-menu {
+  position: relative;
+}
+
+.notification-btn {
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  background: var(--background);
+  color: var(--text-primary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.2s;
+}
+
+.notification-btn:hover {
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+  background: var(--background-alt);
+}
+
+.notification-btn svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.notification-count {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--error);
+  color: white;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  font-weight: 700;
+  border: 2px solid var(--background);
+}
+
+.notification-dropdown {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  right: 0;
+  width: min(380px, calc(100vw - 2rem));
+  max-height: 480px;
+  overflow: hidden;
+  background: var(--background);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+  display: none;
+  z-index: 300;
+}
+
+.notification-dropdown.show {
+  display: block;
+}
+
+.notification-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.875rem 1rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.notification-read-all {
+  border: none;
+  background: transparent;
+  color: var(--primary-color);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.notification-list {
+  max-height: 410px;
+  overflow-y: auto;
+}
+
+.notification-item {
+  width: 100%;
+  padding: 0.875rem 1rem;
+  border: none;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--background);
+  color: var(--text-primary);
+  text-align: left;
+  cursor: pointer;
+}
+
+.notification-item:last-child {
+  border-bottom: none;
+}
+
+.notification-item:hover {
+  background: var(--background-alt);
+}
+
+.notification-item.unread {
+  background: #F0F7FF;
+  border-left: 3px solid var(--primary-color);
+}
+
+.notification-title {
+  font-weight: 700;
+  margin-bottom: 0.25rem;
+}
+
+.notification-message {
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  line-height: 1.45;
+}
+
+.notification-time {
+  color: var(--text-light);
+  font-size: 0.75rem;
+  margin-top: 0.4rem;
+}
+
+.notification-empty {
+  padding: 1.25rem;
+  text-align: center;
+  color: var(--text-light);
 }
 
 /* Footer */
@@ -449,6 +620,35 @@ textarea.form-control {
 .badge-secondary {
   background-color: var(--text-light);
   color: white;
+}
+
+.badge-info {
+  background-color: #17a2b8;
+  color: white;
+}
+
+.feature-icon {
+  width: 56px;
+  height: 56px;
+  margin: 0 auto 1rem;
+  border-radius: var(--radius);
+  background: #E8F3FF;
+  color: var(--primary-dark);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.95rem;
+  letter-spacing: 0;
+}
+
+.meta-label {
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.rating-star {
+  color: #fbbf24;
 }
 
 /* Modal */
@@ -727,7 +927,6 @@ textarea.form-control {
 }
 
 .auth-logo {
-  font-size: 2rem;
   color: var(--primary-color);
   margin-bottom: 0.5rem;
 }

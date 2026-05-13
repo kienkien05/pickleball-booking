@@ -85,7 +85,7 @@ async function loadCourts() {
                 
                 <div class="court-card-body">
                   <h3 class="court-card-title">${court.name}</h3>
-                  <p class="court-card-location">📍 ${court.district_name || 'Hồ Chí Minh'}</p>
+                  <p class="court-card-location"><span class="meta-label">Khu vực:</span> ${court.district_name || 'Hồ Chí Minh'}</p>
                   <p class="text-sm text-muted mb-1">${court.address}</p>
                   <p class="court-card-price" style="color: #2563eb; font-weight: bold;">
                     ${new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(court.price_per_hour)}/giờ
@@ -94,7 +94,7 @@ async function loadCourts() {
                 <div class="court-card-footer">
                   <div>
                     ${court.avg_rating
-                        ? `<span style="color: #fbbf24">★</span> ${Math.round(court.avg_rating * 10) / 10} <span class="text-sm text-muted">(${court.review_count})</span>`
+                        ? `<span class="rating-star">&#9733;</span> ${Math.round(court.avg_rating * 10) / 10} <span class="text-sm text-muted">(${court.review_count})</span>`
                         : '<span class="text-muted text-sm">Chưa có đánh giá</span>'
                     }
                   </div>

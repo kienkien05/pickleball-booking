@@ -28,6 +28,18 @@
     align-items: flex-end;
 }
 
+.auto-pay-options {
+    display: grid;
+    gap: 0.5rem;
+}
+
+.auto-pay-options label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+}
+
 @media (max-width: 768px) {
     .booking-card {
         flex-direction: column;

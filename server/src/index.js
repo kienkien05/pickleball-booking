@@ -2,14 +2,15 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const { initDatabase } = require('./config/database');
+const { startVipAutoBookingScheduler } = require('./services/vipAutoBooking');
 
 // Routes
-const authRoutes = require('./routes/auth');
-const userRoutes = require('./routes/user');
-const courtRoutes = require('./routes/court');
+const authRoutes    = require('./routes/auth');
+const userRoutes    = require('./routes/user');
+const courtRoutes   = require('./routes/court');
 const bookingRoutes = require('./routes/booking');
-const reviewRoutes = require('./routes/review');
-const adminRoutes = require('./routes/admin');
+const reviewRoutes  = require('./routes/review');
+const adminRoutes   = require('./routes/admin');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -19,26 +20,25 @@ app.use(cors());
 app.use(express.json());
 
 // Serve static files
-// Thêm dấu ../ để thoát ra khỏi thư mục src
 app.use('/uploads', express.static(path.join(__dirname, '../public/uploads')));
 app.use(express.static(path.join(__dirname, '../../client')));
 
 // API Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/users', userRoutes);
-app.use('/api/courts', courtRoutes);
+app.use('/api/auth',     authRoutes);
+app.use('/api/users',    userRoutes);
+app.use('/api/courts',   courtRoutes);
 app.use('/api/bookings', bookingRoutes);
-app.use('/api/reviews', reviewRoutes);
-app.use('/api/admin', adminRoutes);
+app.use('/api/reviews',  reviewRoutes);
+app.use('/api/admin',    adminRoutes);
 
-// SPA fallback
+// SPA fallback — serve client index.html for any non-API route
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, '../../client/index.html'));
 });
 
-// Error handler
+// Global error handler
 app.use((err, req, res, next) => {
-    console.error('Server error:', err);
+    console.error('Unhandled error:', err);
     res.status(500).json({ error: 'Lỗi server' });
 });
 
@@ -46,13 +46,12 @@ app.use((err, req, res, next) => {
 async function startServer() {
     try {
         await initDatabase();
-        console.log('Database initialized');
-
         app.listen(PORT, () => {
-            console.log(`Server running on http://localhost:${PORT}`);
+            console.log(`Server chạy tại http://localhost:${PORT}`);
+            startVipAutoBookingScheduler();
         });
     } catch (error) {
-        console.error('Failed to start server:', error);
+        console.error('Không thể khởi động server:', error);
         process.exit(1);
     }
 }

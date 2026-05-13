@@ -14,7 +14,7 @@
     <!-- Header -->
     <header class="header">
       <div class="container">
-        <a href="/" class="logo">🏓 Pickleball</a>
+        <a href="/" class="logo"><span class="brand-mark" aria-hidden="true">PB</span><span>Pickleball</span></a>
 
         <nav class="nav">
           <a href="/" class="active">Trang chủ</a>
@@ -50,7 +50,7 @@
       <section
         style="background: linear-gradient(135deg, #0066CC 0%, #004C99 100%); color: white; padding: 4rem 0; text-align: center;">
         <div class="container">
-          <h1 style="font-size: 2.5rem; margin-bottom: 1rem;">Đặt sân Pickleball dễ dàng</h1>
+          <h1 style="font-size: 2.5rem; margin-bottom: 1rem; color: white;">Đặt sân Pickleball dễ dàng</h1>
           <p style="font-size: 1.25rem; margin-bottom: 2rem; opacity: 0.9;">Tìm và đặt sân Pickleball tại các địa điểm
             hàng đầu</p>
           <a href="/user/search/search.html" class="btn btn-lg" style="background: white; color: #0066CC;">
@@ -64,17 +64,17 @@
         <h2 class="text-center mb-3">Tại sao chọn chúng tôi?</h2>
         <div class="grid grid-3">
           <div class="card text-center">
-            <div style="font-size: 3rem; margin-bottom: 1rem;">📍</div>
+            <div class="feature-icon">01</div>
             <h3>Nhiều địa điểm</h3>
             <p class="text-muted">Hàng chục sân Pickleball chất lượng cao tại TP.HCM</p>
           </div>
           <div class="card text-center">
-            <div style="font-size: 3rem; margin-bottom: 1rem;">⚡</div>
+            <div class="feature-icon">02</div>
             <h3>Đặt sân nhanh</h3>
             <p class="text-muted">Chỉ cần vài bước đơn giản để hoàn tất đặt sân</p>
           </div>
           <div class="card text-center">
-            <div style="font-size: 3rem; margin-bottom: 1rem;">💳</div>
+            <div class="feature-icon">03</div>
             <h3>Thanh toán linh hoạt</h3>
             <p class="text-muted">Hỗ trợ nhiều phương thức: tiền mặt, MoMo, VNPay</p>
           </div>
@@ -100,7 +100,7 @@
       <div class="container">
         <div class="footer-content">
           <div>
-            <strong>🏓 Pickleball Court Booking</strong>
+            <strong>Pickleball Court Booking</strong>
             <p class="text-sm" style="opacity: 0.7; margin-top: 0.5rem;">© 2025 - Hệ thống đặt sân Pickleball</p>
           </div>
           <div>
@@ -136,7 +136,7 @@
                  onerror="this.src='https://via.placeholder.com/400x200?text=Pickleball+Court'">
             <div class="court-card-body">
               <h3 class="court-card-title">${court.name}</h3>
-              <p class="court-card-location">📍 ${court.district_name}</p>
+              <p class="court-card-location"><span class="meta-label">Khu vực:</span> ${court.district_name}</p>
               <p class="court-card-price">${formatPrice(court.price_per_hour)}/giờ</p>
             </div>
             <div class="court-card-footer">

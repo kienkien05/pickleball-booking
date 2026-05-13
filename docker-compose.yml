@@ -7,7 +7,7 @@ services:
     environment:
       POSTGRES_DB: pickleball
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres123
+      POSTGRES_PASSWORD: 123456
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
@@ -30,7 +30,8 @@ services:
       - DB_PORT=5432
       - DB_NAME=pickleball
       - DB_USER=postgres
-      - DB_PASSWORD=postgres123
+      - DB_PASSWORD=123456
+      - JWT_SECRET=pickleball-jwt-secret-2024
     depends_on:
       db:
         condition: service_healthy

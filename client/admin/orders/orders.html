@@ -6,20 +6,22 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin - Quản lý đơn đặt</title>
     <link rel="stylesheet" href="/assets/css/main.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 </head>
 
 <body>
     <div class="admin-layout">
         <aside class="admin-sidebar">
-            <a href="/" class="admin-sidebar-logo">🏓 Pickleball Admin</a>
+            <a href="/" class="admin-sidebar-logo">Pickleball Admin</a>
             <ul class="admin-nav">
-                <li><a href="/admin/dashboard/dashboard.html">📊 Dashboard</a></li>
-                <li><a href="/admin/revenue/revenue.html">💰 Doanh thu</a></li>
-                <li><a href="/admin/orders/orders.html" class="active">📋 Đơn đặt sân</a></li>
-                <li><a href="/admin/customers/customers.html">👥 Khách hàng</a></li>
-                <li><a href="/admin/courts/courts.html">🏟️ Quản lý sân</a></li>
-                <li><a href="/admin/timeslots/timeslots.html">🕐 Khung giờ</a></li>
-                <li><a href="#" class="logout-btn">🚪 Đăng xuất</a></li>
+                <li><a href="/admin/dashboard/dashboard.html"><i class="bi bi-speedometer2"></i> Dashboard</a></li>
+                <li><a href="/admin/revenue/revenue.html"><i class="bi bi-graph-up-arrow"></i> Doanh thu</a></li>
+                <li><a href="/admin/orders/orders.html" class="active"><i class="bi bi-clipboard-check"></i> Đơn đặt sân</a></li>
+                <li><a href="/admin/customers/customers.html"><i class="bi bi-people"></i> Khách hàng</a></li>
+                <li><a href="/admin/courts/courts.html"><i class="bi bi-building"></i> Quản lý sân</a></li>
+                <li><a href="/admin/timeslots/timeslots.html"><i class="bi bi-clock"></i> Khung giờ</a></li>
+                <li><a href="/admin/equipment/equipment.html"><i class="bi bi-bag-check"></i> Dịch vụ đi kèm</a></li>
+                <li><a href="#" class="logout-btn"><i class="bi bi-box-arrow-right"></i> Đăng xuất</a></li>
             </ul>
         </aside>
 
@@ -31,6 +33,7 @@
                         <option value="">Tất cả trạng thái</option>
                         <option value="pending">Chờ xác nhận</option>
                         <option value="confirmed">Đã xác nhận</option>
+                        <option value="in_progress">Đang chơi</option>
                         <option value="completed">Hoàn thành</option>
                         <option value="cancelled">Đã hủy</option>
                     </select>
@@ -47,7 +50,8 @@
                             <th>Ngày</th>
                             <th>Khung giờ</th>
                             <th>Trạng thái</th>
-                            <th>Tổng tiền</th>
+                            <th>Tiền / Hình thức</th>
+                            <th>PTTT</th>
                             <th>Thao tác</th>
                         </tr>
                     </thead>
@@ -67,8 +71,8 @@
             <div class="modal-body">
                 <p id="modal-message"></p>
                 <div id="reason-group" class="form-group mt-2 hidden">
-                    <label class="form-label">Lý do hủy</label>
-                    <textarea id="cancel-reason" class="form-control" rows="3"></textarea>
+                    <label class="form-label" id="reason-label">Lý do hủy</label>
+                    <textarea id="cancel-reason" class="form-control" rows="3" placeholder="Nhập lý do (không bắt buộc)"></textarea>
                 </div>
             </div>
             <div class="modal-footer">

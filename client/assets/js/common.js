@@ -156,7 +156,15 @@ function formatPrice(price) {
 
 // Format date
 function formatDate(dateStr) {
-    const date = new Date(dateStr);
+    const raw = String(dateStr || '');
+    const dateOnly = raw.split(/[T\s]/)[0];
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateOnly);
+    const date = match
+        ? new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]))
+        : new Date(dateStr);
+
+    if (Number.isNaN(date.getTime())) return raw || '--';
+
     return date.toLocaleDateString('vi-VN', {
         day: '2-digit',
         month: '2-digit',
@@ -179,10 +187,11 @@ function formatDateTime(dateStr) {
 // Get status badge HTML
 function getStatusBadge(status) {
     const statusMap = {
-        'pending': { text: 'Chờ xác nhận', class: 'badge-warning' },
-        'confirmed': { text: 'Đã xác nhận', class: 'badge-primary' },
-        'cancelled': { text: 'Đã hủy', class: 'badge-danger' },
-        'completed': { text: 'Hoàn thành', class: 'badge-success' }
+        'pending':     { text: 'Chờ xác nhận', class: 'badge-warning' },
+        'confirmed':   { text: 'Đã xác nhận',  class: 'badge-primary' },
+        'in_progress': { text: 'Đang chơi',    class: 'badge-info' },
+        'completed':   { text: 'Hoàn thành',   class: 'badge-success' },
+        'cancelled':   { text: 'Đã hủy',       class: 'badge-danger' }
     };
 
     const info = statusMap[status] || { text: status, class: 'badge-secondary' };
@@ -193,10 +202,19 @@ function getStatusBadge(status) {
 function getStarsHTML(rating, max = 5) {
     let html = '<div class="stars">';
     for (let i = 1; i <= max; i++) {
-        html += `<span class="star ${i <= rating ? 'filled' : ''}">★</span>`;
+        html += `<span class="star ${i <= rating ? 'filled' : ''}">&#9733;</span>`;
     }
     html += '</div>';
     return html;
+}
+
+function escapeHTML(value) {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
 }
 
 // ==================== MODAL ====================
@@ -297,6 +315,134 @@ function updateNavigation() {
     }
 }
 
+// ==================== NOTIFICATIONS ====================
+
+function getNotificationIcon() {
+    return `
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"></path>
+            <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+        </svg>
+    `;
+}
+
+function initNotifications() {
+    if (!isLoggedIn()) return;
+
+    const userNav = document.querySelector('.user-nav');
+    if (!userNav || userNav.querySelector('.notification-menu')) return;
+
+    const notificationMenu = document.createElement('div');
+    notificationMenu.className = 'notification-menu';
+    notificationMenu.innerHTML = `
+        <button class="notification-btn" type="button" aria-label="Thông báo" title="Thông báo">
+            ${getNotificationIcon()}
+            <span class="notification-count hidden">0</span>
+        </button>
+        <div class="notification-dropdown">
+            <div class="notification-header">
+                <strong>Thông báo</strong>
+                <button type="button" class="notification-read-all">Đọc tất cả</button>
+            </div>
+            <div class="notification-list">
+                <div class="notification-empty">Đang tải...</div>
+            </div>
+        </div>
+    `;
+
+    const userMenu = userNav.querySelector('.user-menu');
+    if (userMenu) {
+        userNav.insertBefore(notificationMenu, userMenu);
+    } else {
+        userNav.appendChild(notificationMenu);
+    }
+
+    const button = notificationMenu.querySelector('.notification-btn');
+    const dropdown = notificationMenu.querySelector('.notification-dropdown');
+    const readAllBtn = notificationMenu.querySelector('.notification-read-all');
+
+    button.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        dropdown.classList.toggle('show');
+        if (dropdown.classList.contains('show')) {
+            await loadNotifications();
+        }
+    });
+
+    dropdown.addEventListener('click', e => e.stopPropagation());
+
+    readAllBtn.addEventListener('click', async () => {
+        try {
+            await api.put('/users/notifications/read-all', {});
+            await loadNotifications();
+        } catch (error) {
+            showAlert('Không thể cập nhật thông báo', 'error');
+        }
+    });
+
+    document.addEventListener('click', () => {
+        dropdown.classList.remove('show');
+    });
+
+    loadNotifications();
+}
+
+async function loadNotifications() {
+    const menu = document.querySelector('.notification-menu');
+    if (!menu) return;
+
+    const list = menu.querySelector('.notification-list');
+    const count = menu.querySelector('.notification-count');
+
+    try {
+        const response = await api.get('/users/notifications');
+        const notifications = response.data || [];
+        const unreadCount = response.unread_count || 0;
+
+        if (unreadCount > 0) {
+            count.textContent = unreadCount > 99 ? '99+' : unreadCount;
+            count.classList.remove('hidden');
+        } else {
+            count.classList.add('hidden');
+        }
+
+        if (notifications.length === 0) {
+            list.innerHTML = '<div class="notification-empty">Chưa có thông báo nào.</div>';
+            return;
+        }
+
+        list.innerHTML = notifications.map(item => `
+            <button type="button"
+                    class="notification-item ${item.is_read ? '' : 'unread'}"
+                    data-id="${item.id}"
+                    data-booking-id="${item.booking_id || ''}">
+                <div class="notification-title">${escapeHTML(item.title)}</div>
+                <div class="notification-message">${escapeHTML(item.message)}</div>
+                <div class="notification-time">${formatDateTime(item.created_at)}</div>
+            </button>
+        `).join('');
+
+        list.querySelectorAll('.notification-item').forEach(item => {
+            item.addEventListener('click', async () => {
+                const id = item.dataset.id;
+                try {
+                    await api.put(`/users/notifications/${id}/read`, {});
+                } catch (error) {
+                    // UI navigation still works even if marking read fails.
+                }
+                const bookingId = item.dataset.bookingId;
+                if (bookingId) {
+                    window.location.href = '/user/history/history.html';
+                } else {
+                    await loadNotifications();
+                }
+            });
+        });
+    } catch (error) {
+        list.innerHTML = '<div class="notification-empty text-danger">Không thể tải thông báo.</div>';
+    }
+}
+
 // Logout handler
 async function handleLogout() {
     try {
@@ -314,6 +460,7 @@ async function handleLogout() {
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', () => {
     updateNavigation();
+    initNotifications();
 
     // User dropdown toggle
     const userMenuBtn = document.querySelector('.user-menu-btn');

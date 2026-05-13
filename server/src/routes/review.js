@@ -10,14 +10,14 @@ router.get('/my-bookings', authenticateToken, async (req, res) => {
         const bookings = await query(`
       SELECT b.id, b.booking_date, 
         c.name as court_name, c.id as court_id,
-        ts.start_time, ts.end_time,
+        s.start_time, s.end_time,
         CASE WHEN r.id IS NOT NULL THEN true ELSE false END as has_review
       FROM bookings b
       JOIN courts c ON b.court_id = c.id
-      JOIN time_slots ts ON b.slot_id = ts.id
+      JOIN slots s ON b.slot_id = s.id
       LEFT JOIN reviews r ON b.id = r.booking_id
       WHERE b.user_id = $1 
-        AND b.status_id = (SELECT id FROM booking_statuses WHERE name = 'completed')
+        AND b.status_id = (SELECT id FROM booking_statuses WHERE LOWER(status_name) = 'completed')
       ORDER BY b.booking_date DESC
     `, [req.user.id]);
 
@@ -41,7 +41,7 @@ router.post('/', authenticateToken, async (req, res) => {
         }
 
         const booking = await queryOne(`
-      SELECT b.*, bs.name as status 
+      SELECT b.*, LOWER(bs.status_name) as status 
       FROM bookings b 
       JOIN booking_statuses bs ON b.status_id = bs.id
       WHERE b.id = $1 AND b.user_id = $2

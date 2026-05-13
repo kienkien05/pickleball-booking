@@ -42,8 +42,8 @@ async function showReviewForm(bookingId) {
       <div class="card" style="background: var(--background-alt);">
         <p><strong>${booking.court_name}</strong></p>
         <p class="text-sm text-muted">
-          📅 ${formatDate(booking.booking_date)} • 
-          🕐 ${booking.start_time} - ${booking.end_time}
+          <span class="meta-label">Ngày:</span> ${formatDate(booking.booking_date)} •
+          <span class="meta-label">Giờ:</span> ${booking.start_time} - ${booking.end_time}
         </p>
       </div>
     `;
@@ -79,8 +79,8 @@ async function loadReviewableBookings() {
             <div>
               <strong>${booking.court_name}</strong>
               <p class="text-sm text-muted">
-                📅 ${formatDate(booking.booking_date)} • 
-                🕐 ${booking.start_time} - ${booking.end_time}
+                <span class="meta-label">Ngày:</span> ${formatDate(booking.booking_date)} •
+                <span class="meta-label">Giờ:</span> ${booking.start_time} - ${booking.end_time}
               </p>
             </div>
             <a href="/user/review/review.html?booking=${booking.id}" class="btn btn-primary btn-sm">Đánh giá</a>

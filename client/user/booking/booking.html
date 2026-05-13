@@ -14,7 +14,7 @@
         <!-- Header -->
         <header class="header">
             <div class="container">
-                <a href="/" class="logo">🏓 Pickleball</a>
+                <a href="/" class="logo"><span class="brand-mark" aria-hidden="true">PB</span><span>Pickleball</span></a>
                 <nav class="nav">
                     <a href="/">Trang chủ</a>
                     <a href="/user/search/search.html">Tìm sân</a>
@@ -39,8 +39,9 @@
         <!-- Main Content -->
         <main class="main-content">
             <div class="container">
-                <a href="/user/search/search.html" class="text-muted mb-2" style="display: inline-block;">← Quay lại tìm
-                    kiếm</a>
+                <a href="/user/search/search.html" class="text-muted mb-2" style="display: inline-block;">
+                    ← Quay lại tìm kiếm
+                </a>
 
                 <div id="court-detail" class="grid" style="grid-template-columns: 1fr 1fr; gap: 2rem;">
                     <div class="loading">
@@ -50,7 +51,7 @@
             </div>
         </main>
 
-        <!-- Confirm Modal -->
+        <!-- Confirm Booking Modal -->
         <div class="modal-overlay" id="confirm-modal">
             <div class="modal">
                 <div class="modal-header">
@@ -72,14 +73,36 @@
                             <td id="confirm-slot"></td>
                         </tr>
                         <tr>
-                            <td>Thanh toán:</td>
-                            <td id="confirm-payment"></td>
+                            <td>Dịch vụ đi kèm:</td>
+                            <td id="confirm-equipment"></td>
+                        </tr>
+                        <tr id="confirm-pay-type-row">
+                            <td>Hình thức:</td>
+                            <td></td>
                         </tr>
                         <tr>
-                            <td><strong>Tổng tiền:</strong></td>
-                            <td><strong id="confirm-price"></strong></td>
+                            <td>Phương thức TT:</td>
+                            <td id="confirm-payment-method"></td>
+                        </tr>
+                        <tr>
+                            <td>Tổng tiền sân:</td>
+                            <td id="confirm-total"></td>
+                        </tr>
+                        <tr style="border-top: 2px solid var(--primary-color);">
+                            <td><strong>Thanh toán ngay:</strong></td>
+                            <td><strong class="text-primary" id="confirm-pay-now"></strong></td>
                         </tr>
                     </table>
+                    <p class="text-muted text-sm mt-1">
+                        * Số tiền còn lại (nếu đặt cọc) sẽ thanh toán tại sân trước khi chơi.
+                    </p>
+                    <div class="vip-auto-weekly hidden" id="vip-auto-weekly-row">
+                        <label class="switch-control">
+                            <input type="checkbox" id="vip-auto-weekly">
+                            <span class="switch-slider" aria-hidden="true"></span>
+                            <span>Tự động đặt hằng tuần</span>
+                        </label>
+                    </div>
                 </div>
                 <div class="modal-footer">
                     <button class="btn btn-secondary" onclick="hideModal('confirm-modal')">Hủy</button>
@@ -92,7 +115,7 @@
         <footer class="footer">
             <div class="container">
                 <div class="footer-content">
-                    <div>© 2025 Pickleball Court Booking</div>
+                    <div>© 2025 Pickleball Court Booking System</div>
                 </div>
             </div>
         </footer>
