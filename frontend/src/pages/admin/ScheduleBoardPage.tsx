@@ -59,35 +59,50 @@ export default function ScheduleBoardPage() {
   const bookings = Array.isArray(bookingsData) ? bookingsData : []
 
   const { data: slotsData, isLoading: slotsLoading } = useQuery({
-    queryKey: ['admin', 'timeslots', 'all-base'],
+    queryKey: ['schedule-board-timeslots', selectedCourtId || 'all'],
     queryFn: async () => {
-      const allCourts = courts.length ? courts : await courtService.getCourts().then(r => r.data.data ?? r.data ?? [])
+      if (selectedCourtId) {
+        const rawData = await timeSlotService.getByCourt(selectedCourtId).then(r => r.data.data ?? r.data ?? []);
+
+        // Cập nhật 1: Lấy data giống hệt cách bên TimeSlotsManagePage làm để tránh mảng rỗng
+        const slots = Array.isArray(rawData) ? rawData : rawData?.slots ?? [];
+
+        return slots.map((s: any) => ({
+          // Cập nhật 2: Đồng bộ cách cắt chuỗi substring(0, 5) để khớp giao diện (UI - User Interface)
+          start_time: s.gioBatDau?.substring(0, 5) || s.start_time?.substring(0, 5),
+          end_time: s.gioKetThuc?.substring(0, 5) || s.end_time?.substring(0, 5),
+        })).sort((a: any, b: any) => a.start_time.localeCompare(b.start_time));
+      }
+
+      // All courts: gộp tất cả khung giờ của mọi sân
+      const allCourts = courts.length ? courts : await courtService.getCourts().then(r => r.data.data ?? r.data ?? []);
       const results = await Promise.all(
         allCourts.map((c: any) => timeSlotService.getByCourt(String(c.id)).then(r => r.data.data ?? r.data ?? []))
-      )
-      const uniqueTimes = new Map<string, { start_time: string; end_time: string }>()
+      );
 
-      results.flat().forEach((s: any) => {
-        const start = s.gioBatDau || s.start_time
-        const end = s.gioKetThuc || s.end_time
-        if (start && !uniqueTimes.has(start)) {
-          uniqueTimes.set(start, { start_time: start, end_time: end })
-        }
-      })
+      const seen = new Set<string>();
+      const merged: { start_time: string; end_time: string }[] = [];
 
-      // Include booking times even if slot is deleted
-      bookings.forEach((b: any) => {
-        if (b.start_time && !uniqueTimes.has(b.start_time)) {
-          uniqueTimes.set(b.start_time, { start_time: b.start_time, end_time: b.end_time })
-        }
-      })
+      results.forEach((rawData: any) => {
+        // Cập nhật tương tự cho vòng lặp lấy tất cả các sân
+        const slots = Array.isArray(rawData) ? rawData : rawData?.slots ?? [];
 
-      return Array.from(uniqueTimes.values()).sort((a, b) => a.start_time.localeCompare(b.start_time))
+        slots.forEach((s: any) => {
+          const start = s.gioBatDau?.substring(0, 5) || s.start_time?.substring(0, 5);
+          const end = s.gioKetThuc?.substring(0, 5) || s.end_time?.substring(0, 5);
+
+          if (start && !seen.has(start)) {
+            seen.add(start);
+            merged.push({ start_time: start, end_time: end });
+          }
+        });
+      });
+
+      return merged.sort((a, b) => a.start_time.localeCompare(b.start_time));
     },
-    enabled: courts.length > 0 && !!bookingsData,
-  })
+  });
   const timeRows = Array.isArray(slotsData) ? slotsData : []
-
+  console.log(timeRows)
   const bookingMap = useMemo(() => {
     const map = new Map<string, any[]>()
     bookings.forEach((b: any) => {
