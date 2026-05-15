@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils'
 
 const statusTabs = [
   { key: '', label: 'Tất cả' },
+  { key: 'Đã đặt', label: 'Đã đặt' },
   { key: 'Đã thanh toán', label: 'Đã thanh toán' },
   { key: 'Đang sử dụng', label: 'Đang dùng' },
   { key: 'Hoàn thành', label: 'Hoàn thành' },
@@ -63,7 +64,7 @@ export default function BookingsManagePage() {
 
   const getActions = (b: any) => {
     const actions: { type: 'checkin' | 'checkout' | 'noshow'; label: string; icon: any; variant: any }[] = []
-    if (b.trangThai === 'Đã thanh toán') {
+    if (b.trangThai === 'Đã thanh toán' || b.trangThai === 'Đã đặt') {
       actions.push({ type: 'checkin', label: 'Check-in', icon: LogIn, variant: 'success' })
       actions.push({ type: 'noshow', label: 'Vắng mặt', icon: UserX, variant: 'destructive' })
     } else if (b.trangThai === 'Đang sử dụng') {
@@ -111,6 +112,7 @@ export default function BookingsManagePage() {
                 <th className="text-left px-4 py-3 font-medium hidden sm:table-cell">Sân</th>
                 <th className="text-left px-4 py-3 font-medium hidden sm:table-cell">Thời gian</th>
                 <th className="text-left px-4 py-3 font-medium">Tổng tiền</th>
+                <th className="text-left px-4 py-3 font-medium">Hình thức</th>
                 <th className="text-left px-4 py-3 font-medium">Trạng thái</th>
                 <th className="text-center px-4 py-3 font-medium w-16">Thao tác</th>
               </tr>
@@ -127,8 +129,10 @@ export default function BookingsManagePage() {
                       {booking.ngayChoi ? formatDate(booking.ngayChoi) : ''} {booking.gioBatDau ? formatTime(booking.gioBatDau) + '-' + formatTime(booking.gioKetThuc) : ''}
                     </td>
                     <td className="px-4 py-3">{formatPrice(Number(booking.tongTien || 0))}</td>
+                    <td className="px-4 py-3 text-xs text-muted-foreground">{booking.loaiThanhToan || 'N/A'}</td>
                     <td className="px-4 py-3">
                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        booking.trangThai === 'Đã đặt' ? 'bg-amber-500/10 text-amber-600' :
                         booking.trangThai === 'Đã thanh toán' ? 'bg-blue-500/10 text-blue-600' :
                         booking.trangThai === 'Đang sử dụng' ? 'bg-success/10 text-success' :
                         booking.trangThai === 'Hoàn thành' ? 'bg-muted text-muted-foreground' :

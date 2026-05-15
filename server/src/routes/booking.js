@@ -146,10 +146,11 @@ router.post('/', authenticate, async (req, res) => {
       const finalPriceForThisSlot = originalPriceForThisSlot - discountForThisSlot;
 
       const autoBook = isAutoBooking === true;
+      const bookingStatus = phuongThuc === 'cash' ? 'Đã đặt' : 'Đã thanh toán';
       const booking = await client.query(
         `INSERT INTO bookings (nguoiDungId, sanId, khungGioId, ngayChoi, tongTien, tienDaCoc, giaGoc, tienGiam, trangThai, isAutoBooking, maGiamGia)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'Đã thanh toán', $9, $10) RETURNING id`,
-        [req.user.id, sanId, slotId, ngayChoi, finalPriceForThisSlot, finalPriceForThisSlot, originalPriceForThisSlot, discountForThisSlot, autoBook, appliedCode]
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id`,
+        [req.user.id, sanId, slotId, ngayChoi, finalPriceForThisSlot, finalPriceForThisSlot, originalPriceForThisSlot, discountForThisSlot, bookingStatus, autoBook, appliedCode]
       );
       bookingIds.push(booking.rows[0].id);
 
@@ -158,7 +159,7 @@ router.post('/', authenticate, async (req, res) => {
         'INSERT INTO payments (donDatId, soTien, loaiThanhToan, trangThai) VALUES ($1, $2, $3, $4)',
         [booking.rows[0].id, finalPriceForThisSlot,
          `Full - ${phuongThuc === 'transfer' ? 'Chuyển khoản' : phuongThuc === 'momo' ? 'MoMo' : phuongThuc === 'visa' ? 'Visa/MC' : 'Tiền mặt'}`,
-         phuongThuc === 'cash' ? 'Thành công' : 'Chờ xác nhận']
+         phuongThuc === 'cash' ? 'Chờ thanh toán' : 'Chờ xác nhận']
       );
     }
 
@@ -281,10 +282,15 @@ router.get('/my', authenticate, async (req, res, next) => {
     const { page = 1, limit = 50, status } = req.query;
     const offset = (page - 1) * limit;
     let query = `
-      SELECT b.*, c.tenSan, t.gioBatDau, t.gioKetThuc
+      SELECT b.*, c.tenSan, t.gioBatDau, t.gioKetThuc, p.loaiThanhToan
       FROM bookings b
       JOIN courts c ON b.sanId = c.id
       JOIN timeslots t ON b.khungGioId = t.id
+      LEFT JOIN (
+        SELECT DISTINCT ON (donDatId) donDatId, loaiThanhToan 
+        FROM payments 
+        ORDER BY donDatId, id DESC
+      ) p ON b.id = p.donDatId
       WHERE b.nguoiDungId = $1`;
     const params = [req.user.id];
     let idx = 2;
@@ -317,11 +323,16 @@ router.get('/', authenticate, async (req, res) => {
     }
     const offset = (page - 1) * limit;
     let query = `
-      SELECT b.*, c.tenSan, t.gioBatDau, t.gioKetThuc, u.hoTen as full_name, u.email
+      SELECT b.*, c.tenSan, t.gioBatDau, t.gioKetThuc, u.hoTen as full_name, u.email, p.loaiThanhToan
       FROM bookings b
       JOIN courts c ON b.sanId = c.id
       JOIN timeslots t ON b.khungGioId = t.id
       JOIN users u ON b.nguoiDungId = u.id
+      LEFT JOIN (
+        SELECT DISTINCT ON (donDatId) donDatId, loaiThanhToan 
+        FROM payments 
+        ORDER BY donDatId, id DESC
+      ) p ON b.id = p.donDatId
       WHERE 1=1`;
     const params = [];
     let idx = 1;
@@ -342,9 +353,17 @@ router.get('/', authenticate, async (req, res) => {
 router.get('/:id', authenticate, async (req, res) => {
   try {
     const result = await pool.query(
-      `SELECT b.*, c.tenSan, t.gioBatDau, t.gioKetThuc, u.hoTen as full_name
-       FROM bookings b JOIN courts c ON b.sanId = c.id JOIN timeslots t ON b.khungGioId = t.id
-       JOIN users u ON b.nguoiDungId = u.id WHERE b.id = $1`,
+      `SELECT b.*, c.tenSan, t.gioBatDau, t.gioKetThuc, u.hoTen as full_name, p.loaiThanhToan
+       FROM bookings b 
+       JOIN courts c ON b.sanId = c.id 
+       JOIN timeslots t ON b.khungGioId = t.id
+       JOIN users u ON b.nguoiDungId = u.id 
+       LEFT JOIN (
+         SELECT DISTINCT ON (donDatId) donDatId, loaiThanhToan 
+         FROM payments 
+         ORDER BY donDatId, id DESC
+       ) p ON b.id = p.donDatId
+       WHERE b.id = $1`,
       [req.params.id]
     );
     if (result.rows.length === 0) return res.status(404).json({ error: 'Không tìm thấy' });
@@ -370,8 +389,8 @@ router.post('/:id/cancel', authenticate, async (req, res) => {
     );
     if (result.rows.length === 0) return res.status(404).json({ error: 'Không tìm thấy' });
     const booking = result.rows[0];
-    if (booking.trangThai !== 'Đã thanh toán') {
-      return res.status(400).json({ error: 'Chỉ có thể hủy đơn ở trạng thái Đã thanh toán' });
+    if (booking.trangThai !== 'Đã thanh toán' && booking.trangThai !== 'Đã đặt') {
+      return res.status(400).json({ error: 'Chỉ có thể hủy đơn ở trạng thái Đã thanh toán hoặc Đã đặt' });
     }
     // Check 3-hour rule
     const playTime = new Date(`${booking.ngayChoi}T${booking.gioBatDau || '00:00'}`);
@@ -399,8 +418,8 @@ router.post('/:id/checkin', authenticate, async (req, res) => {
     const result = await pool.query('SELECT * FROM bookings WHERE id = $1', [req.params.id]);
     if (result.rows.length === 0) return res.status(404).json({ error: 'Không tìm thấy' });
     const booking = result.rows[0];
-    if (booking.trangThai !== 'Đã thanh toán') {
-      return res.status(400).json({ error: 'Chỉ check-in đơn ở trạng thái Đã thanh toán' });
+    if (booking.trangThai !== 'Đã thanh toán' && booking.trangThai !== 'Đã đặt') {
+      return res.status(400).json({ error: 'Chỉ check-in đơn ở trạng thái Đã thanh toán hoặc Đã đặt' });
     }
     await pool.query("UPDATE bookings SET trangThai = 'Đang sử dụng', updated_at = NOW() WHERE id = $1", [req.params.id]);
     await pool.query(
@@ -445,8 +464,8 @@ router.post('/:id/noshow', authenticate, async (req, res) => {
     }
     const result = await pool.query('SELECT * FROM bookings WHERE id = $1', [req.params.id]);
     if (result.rows.length === 0) return res.status(404).json({ error: 'Không tìm thấy' });
-    if (result.rows[0].trangThai !== 'Đã thanh toán') {
-      return res.status(400).json({ error: 'Chỉ hủy vắng mặt đơn Đã thanh toán' });
+    if (result.rows[0].trangThai !== 'Đã thanh toán' && result.rows[0].trangThai !== 'Đã đặt') {
+      return res.status(400).json({ error: 'Chỉ hủy vắng mặt đơn Đã thanh toán hoặc Đã đặt' });
     }
     await pool.query("UPDATE bookings SET trangThai = 'Đã hủy', ghiChu = 'No-show', updated_at = NOW() WHERE id = $1", [req.params.id]);
     await pool.query(

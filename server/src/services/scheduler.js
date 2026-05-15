@@ -34,7 +34,7 @@ async function handleBookingStatus() {
     const noShowResult = await client.query(
       `SELECT b.* FROM bookings b
        JOIN timeslots t ON b.khungGioId = t.id
-       WHERE b.trangThai = 'Đã thanh toán'
+       WHERE b.trangThai IN ('Đã thanh toán', 'Đã đặt')
        AND b.ngayChoi = $1
        AND t.gioBatDau <= ($2::time - INTERVAL '15 minutes')`,
       [today, currentTime]

@@ -91,6 +91,7 @@ export default function BookingDetailPage() {
 
         <div className="pt-4 border-t border-border space-y-3">
           <div className="flex justify-between text-sm"><span>Mã đơn</span><span className="font-mono">{booking.id}</span></div>
+          <div className="flex justify-between text-sm"><span>Hình thức thanh toán</span><span className="font-medium">{booking.loaiThanhToan || 'N/A'}</span></div>
           <div className="flex justify-between text-sm"><span>Trạng thái</span><span className={`font-medium ${
             booking.trangThai === 'Đã thanh toán' ? 'text-blue-600' :
             booking.trangThai === 'Đang sử dụng' ? 'text-success' :

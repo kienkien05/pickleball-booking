@@ -141,16 +141,16 @@ async function seed() {
     const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
     const twoDaysAgo = new Date(Date.now() - 2 * 86400000).toISOString().slice(0, 10);
 
-    // Booking 1: user1, court1, slot1(5:30-7:00), ngày mai, Đã cọc 10%
+    // Booking 1: user1, court1, slot1(5:30-7:00), ngày mai, Đã đặt (Tiền mặt)
     await client.query(`
       INSERT INTO bookings (nguoiDungId, sanId, khungGioId, ngayChoi, tongTien, tienDaCoc, trangThai)
-      VALUES (2, 1, 1, '${tomorrow}', 200000, 20000, 'Đã thanh toán')
+      VALUES (2, 1, 1, '${tomorrow}', 200000, 200000, 'Đã đặt')
     `);
 
-    // Booking 2: user1, court1, slot2(7:00-8:30), ngày mai, Đã cọc
+    // Booking 2: user1, court1, slot2(7:00-8:30), ngày mai, Đã đặt (Tiền mặt)
     await client.query(`
       INSERT INTO bookings (nguoiDungId, sanId, khungGioId, ngayChoi, tongTien, tienDaCoc, trangThai)
-      VALUES (2, 1, 2, '${tomorrow}', 240000, 24000, 'Đã thanh toán')
+      VALUES (2, 1, 2, '${tomorrow}', 240000, 240000, 'Đã đặt')
     `);
 
     // Booking 3: vip, court2, slot1, ngày mai, Đã thanh toán Full
@@ -202,13 +202,13 @@ async function seed() {
     // ── Payments ────────────────────────────────────────────────────────
     await client.query(`
       INSERT INTO payments (donDatId, soTien, loaiThanhToan, trangThai) VALUES
-        (1, 20000,  'Full',   'Thành công'),
-        (2, 24000,  'Full',   'Thành công'),
-        (3, 180000, 'Full',      'Thành công'),
-        (4, 24000,  'Full',   'Thành công'),
+        (1, 200000, 'Full - Tiền mặt', 'Chờ thanh toán'),
+        (2, 240000, 'Full - Tiền mặt', 'Chờ thanh toán'),
+        (3, 180000, 'Full - Chuyển khoản', 'Thành công'),
+        (4, 24000,  'Full - MoMo',   'Thành công'),
         (5, 150000, 'Full',      'Thành công'),
         (6, 180000, 'Full',      'Thành công'),
-        (7, 220000, 'Full',      'Thành công'),
+        (7, 220000, 'Full - Visa/MC', 'Thành công'),
         (8, 15000,  'Full',   'Thành công'),
         (9, 26400,  'Full',   'Thành công')
     `);

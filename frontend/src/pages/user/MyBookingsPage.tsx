@@ -12,6 +12,7 @@ import { formatPrice, formatDate, formatTime } from '@/lib/utils'
 
 const statusTabs = [
   { key: '', label: 'Tất cả' },
+  { key: 'Đã đặt', label: 'Đã đặt' },
   { key: 'Đã thanh toán', label: 'Đã thanh toán' },
   { key: 'Đang sử dụng', label: 'Đang dùng' },
   { key: 'Hoàn thành', label: 'Hoàn thành' },
@@ -19,6 +20,7 @@ const statusTabs = [
 ]
 
 const statusColors: Record<string, string> = {
+  'Đã đặt': 'bg-amber-500/10 text-amber-600',
   'Đã thanh toán': 'bg-blue-500/10 text-blue-600',
   'Đang sử dụng': 'bg-success/10 text-success',
   'Hoàn thành': 'bg-muted text-muted-foreground',
@@ -89,6 +91,9 @@ export default function MyBookingsPage() {
                     <p className="text-sm text-muted-foreground mt-1">
                       {booking.ngayChoi ? formatDate(booking.ngayChoi) : ''} • {booking.gioBatDau ? formatTime(booking.gioBatDau) : ''} - {booking.gioKetThuc ? formatTime(booking.gioKetThuc) : ''}
                     </p>
+                    <p className="text-[10px] uppercase font-bold text-muted-foreground/60 mt-1">
+                      {booking.loaiThanhToan || 'Chưa xác định'}
+                    </p>
                     <p className="text-sm font-medium mt-1">{formatPrice(Number(booking.tongTien || 0))}</p>
                   </div>
                     <div className="flex flex-col items-end gap-2">
@@ -96,7 +101,7 @@ export default function MyBookingsPage() {
                         {booking.trangThai}
                       </span>
                       
-                      {(booking.trangThai === 'Đã thanh toán' || booking.trangThai === 'Đang sử dụng' || booking.trangThai === 'Hoàn thành') && (
+                      {(booking.trangThai === 'Đã thanh toán' || booking.trangThai === 'Đã đặt' || booking.trangThai === 'Đang sử dụng' || booking.trangThai === 'Hoàn thành') && (
                         <Link to={`/booking/${booking.id}`}>
                           <Button variant="outline" size="sm" className="text-[10px] h-8 px-3 border-primary/30 text-primary hover:bg-primary/5">
                             <QrCode className="size-3 mr-1" /> Xem hóa đơn & QR check-in
@@ -104,7 +109,7 @@ export default function MyBookingsPage() {
                         </Link>
                       )}
 
-                      {booking.trangThai === 'Đã thanh toán' && (
+                      {(booking.trangThai === 'Đã thanh toán' || booking.trangThai === 'Đã đặt') && (
                         <Button variant="outline" size="sm" onClick={() => setCancelId(booking.id)}>
                           <XCircle className="size-3 mr-1" /> Hủy
                         </Button>
