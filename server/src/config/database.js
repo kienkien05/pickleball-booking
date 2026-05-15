@@ -38,8 +38,12 @@ const FIELD_MAP = {
   usage_limit_per_user: 'usageLimitPerUser', giamtoida: 'giamToiDa',
   // common
   trangthai: 'trangThai', created_at: 'created_at', updated_at: 'updated_at',
+  soluongton: 'soLuongTon', is_hidden: 'isHidden',
   // aliases from queries
   avgrating: 'avgRating', slotcount: 'slotCount',
+  booking_id: 'booking_id', court_id: 'court_id', court_name: 'court_name',
+  slot_id: 'slot_id', user_name: 'user_name', is_vip: 'is_vip',
+  is_auto_booking: 'is_auto_booking', booking_date: 'booking_date',
   // computed
   totalrevenue: 'totalRevenue', totalbookings: 'totalBookings', cancelrevenue: 'cancelRevenue',
   revenue: 'revenue', date: 'date', name: 'name', total: 'total', count: 'count',

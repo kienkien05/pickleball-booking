@@ -168,14 +168,14 @@ router.post('/', authenticate, async (req, res) => {
         const svc = await client.query('SELECT donGia, soLuongTon FROM services WHERE id = $1', [d.dichVuId]);
         if (svc.rows.length > 0) {
           const qty = d.soLuong || 1;
-          const currentStock = parseInt(svc.rows[0].soluongton) || 0;
+          const currentStock = parseInt(svc.rows[0].soLuongTon) || 0;
           if (currentStock > 0) {
             const newStock = Math.max(0, currentStock - qty);
             await client.query('UPDATE services SET soLuongTon = $1 WHERE id = $2', [newStock, d.dichVuId]);
           }
           await client.query(
             'INSERT INTO booking_services (donDatId, dichVuId, soLuong, tongTien) VALUES ($1, $2, $3, $4)',
-            [bookingIds[0], d.dichVuId, qty, (parseFloat(svc.rows[0].dongia) || 0) * qty]
+            [bookingIds[0], d.dichVuId, qty, (parseFloat(svc.rows[0].donGia) || 0) * qty]
           );
         }
       }
@@ -353,7 +353,7 @@ router.get('/:id', authenticate, async (req, res) => {
       'SELECT bs.*, s.tenDichVu FROM booking_services bs JOIN services s ON bs.dichVuId = s.id WHERE bs.donDatId = $1',
       [booking.id]
     );
-    res.json({ data: { ...booking, maGiamGia: booking.maGiamGia || booking.magiamgia, dichVu: svcs.rows } });
+    res.json({ data: { ...booking, dichVu: svcs.rows } });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

@@ -103,7 +103,7 @@ router.get('/:id/timeslots', async (req, res) => {
       if (date === todayStr) {
         // Rule 2: Past start time + threshold (e.g. 15 mins)
         const thresholdMins = parseInt(process.env.BOOKING_LOCK_THRESHOLD_MINS) || 15;
-        const gioBatDau = s.gioBatDau || s.giobatdau || '00:00';
+        const gioBatDau = s.gioBatDau || '00:00';
         const [startH, startM] = gioBatDau.split(':').map(Number);
         const startTotalMins = startH * 60 + startM;
         
@@ -112,7 +112,7 @@ router.get('/:id/timeslots', async (req, res) => {
         
         const isPastThreshold = nowTotalMins >= startTotalMins + thresholdMins;
         
-        isPast = (s.gioKetThuc || s.gioketthuc || '00:00') <= currentTimeStr || isPastThreshold;
+        isPast = (s.gioKetThuc || '00:00') <= currentTimeStr || isPastThreshold;
       } else if (date < todayStr) {
         isPast = true;
       }

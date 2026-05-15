@@ -1,34 +1,15 @@
 const { pool } = require('../config/database');
 
-// Auto check-in for full-payment bookings at the start time
-async function autoCheckIn() {
+// Auto check-out and No-show management
+async function handleBookingStatus() {
   const client = await pool.connect();
   try {
     const now = new Date();
     const today = now.toISOString().slice(0, 10);
     const currentTime = now.toTimeString().slice(0, 5);
+    console.log(`[Scheduler] Checking status at ${today} ${currentTime}`);
 
-    const result = await client.query(
-      `SELECT b.* FROM bookings b
-       JOIN timeslots t ON b.khungGioId = t.id
-       WHERE b.trangThai IN ('Đã thanh toán', 'Đã xác nhận')
-       AND b.ngayChoi = $1
-       AND t.gioBatDau <= $2::time`,
-      [today, currentTime]
-    );
-
-    for (const booking of result.rows) {
-      await client.query(
-        "UPDATE bookings SET trangThai = 'Đang sử dụng', updated_at = NOW() WHERE id = $1",
-        [booking.id]
-      );
-      await client.query(
-        "INSERT INTO notifications (nguoiDungId, tieuDe, noiDung, loaiThongBao, maDonDat) VALUES ($1, $2, $3, 'auto_checkin', $4)",
-        [booking.nguoidungid, 'Tự động Check-in', `Hệ thống đã tự động check-in cho đơn #${booking.id}`, booking.id]
-      );
-    }
-
-    // Auto check-out full-payment bookings past end time
+    // 1. Auto check-out bookings past end time (only if they were actually checked in)
     const checkoutResult = await client.query(
       `SELECT b.* FROM bookings b
        JOIN timeslots t ON b.khungGioId = t.id
@@ -59,6 +40,10 @@ async function autoCheckIn() {
       [today, currentTime]
     );
 
+    if (noShowResult.rows.length > 0) {
+      console.log(`[Scheduler] Found ${noShowResult.rows.length} no-shows to cancel`);
+    }
+
     for (const booking of noShowResult.rows) {
       await client.query(
         "UPDATE bookings SET trangThai = 'Đã hủy', ghiChu = 'No-show (tự động)', updated_at = NOW() WHERE id = $1",
@@ -70,7 +55,7 @@ async function autoCheckIn() {
       );
     }
   } catch (err) {
-    console.error('Auto check-in/out error:', err);
+    console.error('Booking status handler error:', err);
   } finally {
     client.release();
   }
@@ -179,10 +164,10 @@ async function processVipAutoBooking(force = false) {
 }
 
 function startScheduler(cron) {
-  cron.schedule('* * * * *', autoCheckIn);
+  cron.schedule('* * * * *', handleBookingStatus);
   cron.schedule('5 0 * * *', autoCancelPastBookings);
   cron.schedule('1 0 * * 1', processVipAutoBooking);
   console.log('Schedulers started: check-in/out (every min), cancel past (daily 00:05), VIP auto-booking (Monday 00:01)');
 }
 
-module.exports = { startScheduler, autoCheckIn, processVipAutoBooking, autoCancelPastBookings };
+module.exports = { startScheduler, handleBookingStatus, processVipAutoBooking, autoCancelPastBookings };
