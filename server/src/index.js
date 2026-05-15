@@ -41,8 +41,11 @@ app.get('*', (req, res) => {
 });
 
 app.use((err, req, res, next) => {
+  const fs = require('fs');
+  const logMsg = `${new Date().toISOString()} - ${req.method} ${req.url} - ${err.stack}\n`;
+  fs.appendFileSync(path.join(__dirname, '../debug.log'), logMsg);
   console.error('Unhandled error:', err);
-  res.status(500).json({ error: 'Lỗi server' });
+  res.status(500).json({ error: err.message || 'Lỗi server' });
 });
 
 async function startServer() {

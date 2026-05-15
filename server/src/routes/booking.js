@@ -276,7 +276,7 @@ router.post('/', authenticate, async (req, res) => {
 });
 
 // Get my bookings
-router.get('/my', authenticate, async (req, res) => {
+router.get('/my', authenticate, async (req, res, next) => {
   try {
     const { page = 1, limit = 50, status } = req.query;
     const offset = (page - 1) * limit;
@@ -304,7 +304,7 @@ router.get('/my', authenticate, async (req, res) => {
     }
     res.json({ data: bookings });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 

@@ -190,7 +190,7 @@ router.get('/notifications', authenticate, async (req, res) => {
   }
 });
 
-router.get('/notifications/unread-count', authenticate, async (req, res) => {
+router.get('/notifications/unread-count', authenticate, async (req, res, next) => {
   try {
     const result = await pool.query(
       'SELECT COUNT(*) as count FROM notifications WHERE nguoiDungId = $1 AND daDoc = FALSE',
@@ -198,7 +198,7 @@ router.get('/notifications/unread-count', authenticate, async (req, res) => {
     );
     res.json({ data: { count: parseInt(result.rows[0].count) } });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
@@ -226,6 +226,7 @@ router.get('/discounts', authenticate, async (req, res) => {
     const result = await pool.query('SELECT * FROM discounts ORDER BY created_at DESC');
     res.json({ data: result.rows });
   } catch (err) {
+    console.error('[Discounts Error]:', err);
     res.status(500).json({ error: err.message });
   }
 });

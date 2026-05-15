@@ -156,7 +156,7 @@ router.post('/reset-password', async (req, res) => {
 });
 
 // Get Profile
-router.get('/profile', authenticate, async (req, res) => {
+router.get('/profile', authenticate, async (req, res, next) => {
   try {
     const result = await pool.query('SELECT id, hoTen, email, soDienThoai, vaiTro, isVIP, gioiTinh, diaChi, avatar_url, trangThai FROM users WHERE id = $1', [req.user.id]);
     if (result.rows.length === 0) return res.status(404).json({ error: 'Không tìm thấy' });
@@ -170,7 +170,7 @@ router.get('/profile', authenticate, async (req, res) => {
       }
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
