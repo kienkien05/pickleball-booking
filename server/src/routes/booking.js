@@ -63,10 +63,12 @@ router.post('/', authenticate, async (req, res) => {
         const slotRes = await client.query('SELECT gioBatDau, gioKetThuc FROM timeslots WHERE id = $1', [slotId]);
         if (slotRes.rows.length > 0) {
           const slot = slotRes.rows[0];
-          const [startH, startM] = slot.gioBatDau.split(':').map(Number);
+          const gioBatDau = slot.gioBatDau || slot.giobatdau || '00:00';
+          const gioKetThuc = slot.gioKetThuc || slot.gioketthuc || '00:00';
+          const [startH, startM] = gioBatDau.split(':').map(Number);
           const startTotalMins = startH * 60 + startM;
 
-          if (nowTotalMins >= startTotalMins + thresholdMins || slot.gioKetThuc <= currentTimeStr) {
+          if (nowTotalMins >= startTotalMins + thresholdMins || gioKetThuc <= currentTimeStr) {
             await client.query('ROLLBACK');
             return res.status(400).json({ error: 'Khung giờ này đã quá thời gian cho phép đặt' });
           }
