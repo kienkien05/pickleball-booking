@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/Button'
 import { Modal, ModalFooter } from '@/components/ui/Modal'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { formatPrice, formatDate } from '@/lib/utils'
+import { BOOKING_LOCK_THRESHOLD_MINS } from '@/lib/constants'
 
 const REVIEW_PAGE_SIZE = 5
 
@@ -34,6 +35,12 @@ export default function CourtDetailPage() {
   const [validatingDiscount, setValidatingDiscount] = useState(false)
   const [showVoucherList, setShowVoucherList] = useState(false)
   const [hasAutoApplied, setHasAutoApplied] = useState<string | null>(null)
+  const [now, setNow] = useState(new Date())
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 30000)
+    return () => clearInterval(timer)
+  }, [])
 
   const { data: court, isLoading: courtLoading } = useQuery({
     queryKey: ['courts', id],
@@ -340,13 +347,30 @@ export default function CourtDetailPage() {
                   {timeSlots.map((slot: any) => {
                     const isSelected = selectedSlots.includes(String(slot.id))
                     const isBooked = slot.isBooked
+                    
+                    // Real-time locking logic
+                    const todayStr = new Date().toISOString().slice(0, 10)
+                    const currentTimeStr = now.toTimeString().slice(0, 5)
+                    
+                    let isLocked = isBooked
+                    if (!isLocked && selectedDate === todayStr) {
+                      const isPastEnd = (slot.gioKetThuc || '').substring(0, 5) <= currentTimeStr
+                      const [h, m] = (slot.gioBatDau || '00:00').split(':').map(Number)
+                      const startTotal = h * 60 + m
+                      const nowTotal = now.getHours() * 60 + now.getMinutes()
+                      const isPastThreshold = nowTotal >= startTotal + BOOKING_LOCK_THRESHOLD_MINS
+                      isLocked = isPastEnd || isPastThreshold
+                    } else if (selectedDate < todayStr) {
+                      isLocked = true
+                    }
+
                     return (
-                      <button key={slot.id} disabled={isBooked} onClick={() => handleSlotToggle(String(slot.id))}
-                        className={`p-3 rounded-lg border text-sm font-medium transition-all ${isBooked ? 'border-border bg-muted/50 text-muted-foreground cursor-not-allowed' :
+                      <button key={slot.id} disabled={isLocked} onClick={() => handleSlotToggle(String(slot.id))}
+                        className={`p-3 rounded-lg border text-sm font-medium transition-all ${isLocked ? 'border-border bg-muted/50 text-muted-foreground cursor-not-allowed' :
                             isSelected ? 'border-primary bg-primary/10 text-primary' : 'border-border hover:border-primary/50 hover:bg-accent'}`}>
-                        <div>{slot.gioBatDau?.substring(0, 5)} - {slot.gioKetThuc?.substring(0, 5)}</div>
+                        <div>{(slot.gioBatDau || '').substring(0, 5)} - {(slot.gioKetThuc || '').substring(0, 5)}</div>
                         <div className="text-xs text-muted-foreground mt-1">{formatPrice(Number(slot.mucGia || 0))}</div>
-                        {isBooked && <div className="text-xs text-destructive mt-1">Đã đặt</div>}
+                        {isLocked && <div className="text-xs text-destructive mt-1">{isBooked ? 'Đã đặt' : 'Đã khóa'}</div>}
                       </button>
                     )
                   })}

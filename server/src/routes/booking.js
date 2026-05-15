@@ -44,6 +44,36 @@ router.post('/', authenticate, async (req, res) => {
       return res.status(409).json({ error: 'Khung giờ này vừa có người đặt. Vui lòng chọn giờ khác' });
     }
 
+    // Time validation: prevent past bookings or past threshold
+    const now = new Date();
+    const todayStr = now.toISOString().slice(0, 10);
+    const currentTimeStr = now.toTimeString().slice(0, 5);
+
+    if (ngayChoi < todayStr) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Không thể đặt lịch cho ngày đã qua' });
+    }
+
+    if (ngayChoi === todayStr) {
+      const thresholdMins = parseInt(process.env.BOOKING_LOCK_THRESHOLD_MINS) || 15;
+      const [nowH, nowM] = currentTimeStr.split(':').map(Number);
+      const nowTotalMins = nowH * 60 + nowM;
+
+      for (const slotId of khungGioIds) {
+        const slotRes = await client.query('SELECT gioBatDau, gioKetThuc FROM timeslots WHERE id = $1', [slotId]);
+        if (slotRes.rows.length > 0) {
+          const slot = slotRes.rows[0];
+          const [startH, startM] = slot.gioBatDau.split(':').map(Number);
+          const startTotalMins = startH * 60 + startM;
+
+          if (nowTotalMins >= startTotalMins + thresholdMins || slot.gioKetThuc <= currentTimeStr) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ error: 'Khung giờ này đã quá thời gian cho phép đặt' });
+          }
+        }
+      }
+    }
+
     // Calculate prices
     let courtPrice = 0;
     for (const slotId of khungGioIds) {

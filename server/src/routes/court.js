@@ -95,7 +95,30 @@ router.get('/:id/timeslots', async (req, res) => {
       bookings.rows.forEach(b => bookedSlotIds.add(b.khungGioId));
     }
     const data = slots.rows.map(s => {
-      const isPast = date === todayStr && s.gioKetThuc <= new Date().toTimeString().slice(0, 5);
+      const now = new Date();
+      const todayStr = now.toISOString().slice(0, 10);
+      const currentTimeStr = now.toTimeString().slice(0, 5);
+      
+      let isPast = false;
+      if (date === todayStr) {
+        // Rule 1: Past end time
+        const isPastEnd = s.gioKetThuc <= currentTimeStr;
+        
+        // Rule 2: Past start time + threshold (e.g. 15 mins)
+        const thresholdMins = parseInt(process.env.BOOKING_LOCK_THRESHOLD_MINS) || 15;
+        const [startH, startM] = s.gioBatDau.split(':').map(Number);
+        const startTotalMins = startH * 60 + startM;
+        
+        const [nowH, nowM] = currentTimeStr.split(':').map(Number);
+        const nowTotalMins = nowH * 60 + nowM;
+        
+        const isPastThreshold = nowTotalMins >= startTotalMins + thresholdMins;
+        
+        isPast = isPastEnd || isPastThreshold;
+      } else if (date < todayStr) {
+        isPast = true;
+      }
+
       return { ...s, isBooked: bookedSlotIds.has(s.id) || isPast };
     });
     res.json({ data });
