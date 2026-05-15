@@ -18,24 +18,24 @@ services:
       timeout: 5s
       retries: 5
 
-  app:
-    build: .
-    container_name: pickleball-app
-    ports:
-      - "3000:3000"
-    environment:
-      - NODE_ENV=production
-      - PORT=3000
-      - DB_HOST=db
-      - DB_PORT=5432
-      - DB_NAME=pickleball
-      - DB_USER=postgres
-      - DB_PASSWORD=123456
-      - JWT_SECRET=pickleball-jwt-secret-2024
-    depends_on:
-      db:
-        condition: service_healthy
-    restart: unless-stopped
+  # app:
+  #   build: .
+  #   container_name: pickleball-app
+  #   ports:
+  #     - "3000:3000"
+  #   environment:
+  #     - NODE_ENV=production
+  #     - PORT=3000
+  #     - DB_HOST=db
+  #     - DB_PORT=5432
+  #     - DB_NAME=pickleball
+  #     - DB_USER=postgres
+  #     - DB_PASSWORD=123456
+  #     - JWT_SECRET=pickleball-jwt-secret-2024
+  #   depends_on:
+  #     db:
+  #       condition: service_healthy
+  #   restart: unless-stopped
 
 volumes:
   postgres_data:

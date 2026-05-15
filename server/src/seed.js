@@ -124,13 +124,13 @@ async function seed() {
     // ── Services ────────────────────────────────────────────────────────
     await client.query(`
       INSERT INTO services (tenDichVu, donGia, loaiDichVu, soLuongTon, trangThai) VALUES
-        ('Vợt Pickleball',        50000,  'Dụng cụ',   20, 'Còn hàng'),
-        ('Bóng Pickleball (3 quả)', 20000,  'Dụng cụ',   50, 'Còn hàng'),
-        ('Giày thể thao',         30000,  'Dụng cụ',   15, 'Còn hàng'),
-        ('Khăn tắm',              10000,  'Dụng cụ',   30, 'Còn hàng'),
-        ('Nước suối',             10000,  'Đồ uống',   100,'Còn hàng'),
-        ('Nước tăng lực',         20000,  'Đồ uống',   80, 'Còn hàng'),
-        ('Cà phê',                25000,  'Đồ uống',   60, 'Còn hàng'),
+        ('Vợt Pickleball',        50000,  'Dụng cụ',   100, 'Còn hàng'),
+        ('Bóng Pickleball (3 quả)', 20000,  'Dụng cụ',   500, 'Còn hàng'),
+        ('Giày thể thao',         30000,  'Dụng cụ',   150, 'Còn hàng'),
+        ('Khăn tắm',              10000,  'Dụng cụ',   300, 'Còn hàng'),
+        ('Nước suối',             10000,  'Đồ uống',   1000,'Còn hàng'),
+        ('Nước tăng lực',         20000,  'Đồ uống',   800, 'Còn hàng'),
+        ('Cà phê',                25000,  'Đồ uống',   600, 'Còn hàng'),
         ('Trà đá',                15000,  'Đồ uống',   0,  'Hết hàng')
     `);
 
@@ -141,16 +141,16 @@ async function seed() {
     const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
     const twoDaysAgo = new Date(Date.now() - 2 * 86400000).toISOString().slice(0, 10);
 
-    // Booking 1: user1, court1, slot1(5:30-7:00), ngày mai, Đã cọc 10%
+    // Booking 1: user1, court1, slot1(5:30-7:00), ngày mai, Đã đặt (Tiền mặt)
     await client.query(`
       INSERT INTO bookings (nguoiDungId, sanId, khungGioId, ngayChoi, tongTien, tienDaCoc, trangThai)
-      VALUES (2, 1, 1, '${tomorrow}', 200000, 20000, 'Đã thanh toán')
+      VALUES (2, 1, 1, '${tomorrow}', 200000, 200000, 'Đã đặt')
     `);
 
-    // Booking 2: user1, court1, slot2(7:00-8:30), ngày mai, Đã cọc
+    // Booking 2: user1, court1, slot2(7:00-8:30), ngày mai, Đã đặt (Tiền mặt)
     await client.query(`
       INSERT INTO bookings (nguoiDungId, sanId, khungGioId, ngayChoi, tongTien, tienDaCoc, trangThai)
-      VALUES (2, 1, 2, '${tomorrow}', 240000, 24000, 'Đã thanh toán')
+      VALUES (2, 1, 2, '${tomorrow}', 240000, 240000, 'Đã đặt')
     `);
 
     // Booking 3: vip, court2, slot1, ngày mai, Đã thanh toán Full
@@ -202,13 +202,13 @@ async function seed() {
     // ── Payments ────────────────────────────────────────────────────────
     await client.query(`
       INSERT INTO payments (donDatId, soTien, loaiThanhToan, trangThai) VALUES
-        (1, 20000,  'Full',   'Thành công'),
-        (2, 24000,  'Full',   'Thành công'),
-        (3, 180000, 'Full',      'Thành công'),
-        (4, 24000,  'Full',   'Thành công'),
+        (1, 200000, 'Full - Tiền mặt', 'Chờ thanh toán'),
+        (2, 240000, 'Full - Tiền mặt', 'Chờ thanh toán'),
+        (3, 180000, 'Full - Chuyển khoản', 'Thành công'),
+        (4, 24000,  'Full - MoMo',   'Thành công'),
         (5, 150000, 'Full',      'Thành công'),
         (6, 180000, 'Full',      'Thành công'),
-        (7, 220000, 'Full',      'Thành công'),
+        (7, 220000, 'Full - Visa/MC', 'Thành công'),
         (8, 15000,  'Full',   'Thành công'),
         (9, 26400,  'Full',   'Thành công')
     `);
@@ -228,7 +228,9 @@ async function seed() {
     await client.query(`
       INSERT INTO reviews (donDatId, nguoiDungId, diemSao, binhLuan, ngayTao) VALUES
         (${b5.rows[0].id}, 5, 5, 'Không gian thoáng mát, nhân viên nhiệt tình. Sân sạch sẽ, sẽ quay lại!', NOW() - INTERVAL '1 day'),
-        (${b6.rows[0].id}, 5, 4, 'Sân ổn, giá hợp lý. Hơi ồn một chút vào giờ cao điểm.', NOW() - INTERVAL '2 days')
+        (${b6.rows[0].id}, 5, 4, 'Sân ổn, giá hợp lý. Hơi ồn một chút vào giờ cao điểm.', NOW() - INTERVAL '2 days'),
+        (1, 2, 5, 'Sân Landmark đánh cực sướng, mặt sân mới và êm chân!', NOW() - INTERVAL '3 hours'),
+        (2, 2, 4, 'Ánh sáng đèn LED rất tốt, không bị chói mắt khi lốp bóng.', NOW() - INTERVAL '1 hour')
     `);
 
     // ── Notifications ───────────────────────────────────────────────────
@@ -246,9 +248,11 @@ async function seed() {
 
     // ── Discounts ───────────────────────────────────────────────────────
     await client.query(`
-      INSERT INTO discounts (code, noiDung, moTa, loaiGiamGia, mucGiamGia, ngayBatDau, ngayKetThuc, soLuongBanDau, soLuongDaDung, trangThai) VALUES
-        ('WELCOME20', 'Giảm 20% cho khách mới', 'Áp dụng cho đơn đầu tiên, tối đa giảm 100K', 'percentage', 20, '2026-01-01', '2026-12-31', 2, 0, 'Active'),
-        ('SUMMER50', 'Giảm 50K mùa hè', 'Giảm thẳng 50,000đ cho đơn từ 200K', 'fixed', 50000, '2026-01-01', '2026-12-31', 1, 0, 'Active');
+      INSERT INTO discounts (code, noiDung, moTa, loaiGiamGia, mucGiamGia, ngayBatDau, ngayKetThuc, soLuongBanDau, soLuongDaDung, trangThai, is_hidden, nguoiDungId, conditions) VALUES
+        ('WELCOME8', 'Mã chào mừng khách mới', 'Giảm 8% cho đơn đầu tiên, tối đa 100K', 'percentage', 8, '2026-01-01', '2026-12-31', 500, 0, 'Active', false, NULL, '{"target_audience": "new_user"}'),
+        ('TET50', 'Giảm 50K mùa Tết', 'Sự kiện Fanpage - Giảm thẳng 50,000đ cho đơn từ 300K', 'fixed', 50000, '2026-01-01', '2026-12-31', 100, 0, 'Active', true, NULL, '{}'),
+        ('SUMMER50', 'Giảm 50K mùa hè', 'Giảm thẳng 50,000đ cho đơn từ 200K', 'fixed', 50000, '2026-01-01', '2026-12-31', 100, 0, 'Active', false, NULL, '{}'),
+        ('PRO20', 'Ưu đãi hội viên Pro', 'Giảm 20% dành riêng cho VIP', 'percentage', 20, '2026-01-01', '2026-12-31', 999, 0, 'Active', false, NULL, '{"target_audience": "vip"}');
     `);
 
     // ── Set updated_at for existing rows ───────────────────────────────

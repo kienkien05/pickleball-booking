@@ -190,7 +190,7 @@ router.get('/notifications', authenticate, async (req, res) => {
   }
 });
 
-router.get('/notifications/unread-count', authenticate, async (req, res) => {
+router.get('/notifications/unread-count', authenticate, async (req, res, next) => {
   try {
     const result = await pool.query(
       'SELECT COUNT(*) as count FROM notifications WHERE nguoiDungId = $1 AND daDoc = FALSE',
@@ -198,7 +198,7 @@ router.get('/notifications/unread-count', authenticate, async (req, res) => {
     );
     res.json({ data: { count: parseInt(result.rows[0].count) } });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
@@ -226,6 +226,7 @@ router.get('/discounts', authenticate, async (req, res) => {
     const result = await pool.query('SELECT * FROM discounts ORDER BY created_at DESC');
     res.json({ data: result.rows });
   } catch (err) {
+    console.error('[Discounts Error]:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -400,7 +401,7 @@ router.post('/discounts/validate', authenticate, async (req, res) => {
     }
 
     // 1. Check usage limit per user
-    const usageLimit = parseInt(discount.usageLimitPerUser || discount.usage_limit_per_user || 1);
+    const usageLimit = parseInt(discount.usageLimitPerUser || 1);
     const userUsageRes = await pool.query(
       "SELECT COUNT(*) FROM bookings WHERE nguoiDungId = $1 AND maGiamGia = $2 AND trangThai != 'Đã hủy'",
       [userId, code]
@@ -440,9 +441,9 @@ router.post('/discounts/validate', authenticate, async (req, res) => {
 
     // 3. Calculate Discount Amount
     let discountAmount = 0;
-    const mucGiamGia = Number(discount.mucGiamGia || discount.mucgiamgia);
-    const loaiGiamGia = discount.loaiGiamGia || discount.loaigiamgia;
-    const giamToiDa = Number(discount.giamToiDa || discount.giamtoida || 0);
+    const mucGiamGia = Number(discount.mucGiamGia);
+    const loaiGiamGia = discount.loaiGiamGia;
+    const giamToiDa = Number(discount.giamToiDa || 0);
 
     if (loaiGiamGia === 'percentage') {
       discountAmount = Math.round(totalAmount * mucGiamGia / 100);

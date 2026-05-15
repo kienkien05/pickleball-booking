@@ -27,3 +27,5 @@ pickleball-rework
 package-lock.json
 
 CLAUDE.md
+
+docker-compose.yml   
