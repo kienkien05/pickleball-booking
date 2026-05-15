@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { ChevronLeft, ChevronRight, Filter, User, Zap, Star, CheckCircle, XCircle, MapPin, Clock } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Filter, User, Zap, Star, CheckCircle, XCircle, MapPin, Clock, CreditCard, Banknote } from 'lucide-react'
 import { adminService, courtService, timeSlotService } from '@/services'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { formatTime, cn } from '@/lib/utils'
@@ -137,18 +137,21 @@ export default function ScheduleBoardPage() {
                 {courts.map((c: any) => (<option key={c.id} value={String(c.id)}>{c.tenSan}</option>))}
               </select>
             </div>
-            <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-wider border-l border-border pl-4">
-              <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg border-2 border-indigo-500/80 bg-indigo-500/5 text-indigo-700 dark:text-indigo-400">
-                <div className="size-1.5 rounded-full bg-indigo-500" /><span>Thường</span>
-              </div>
+            <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-wider border-l border-border pl-4 flex-wrap">
               <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg border-2 border-amber-500/80 bg-amber-500/5 text-amber-700 dark:text-amber-400">
-                <div className="size-1.5 rounded-full bg-amber-500" /><span>VIP</span>
+                <Banknote className="size-3" /><span>Đã đặt</span>
+              </div>
+              <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg border-2 border-blue-500/80 bg-blue-500/5 text-blue-700 dark:text-blue-400">
+                <CreditCard className="size-3" /><span>Đã thanh toán</span>
+              </div>
+              <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg border-2 border-green-500/80 bg-green-500/5 text-green-700 dark:text-green-400">
+                <div className="size-1.5 rounded-full bg-green-500 animate-pulse" /><span>Đang dùng</span>
               </div>
               <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg border-2 border-slate-300 bg-muted/20 text-muted-foreground">
-                <CheckCircle className="size-3" /><span>Đã xong</span>
+                <CheckCircle className="size-3" /><span>Hoàn thành</span>
               </div>
               <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg border-2 border-red-500/50 bg-red-500/5 text-red-600">
-                <XCircle className="size-3" /><span>Hủy</span>
+                <XCircle className="size-3" /><span>Đã hủy</span>
               </div>
             </div>
           </div>
@@ -225,40 +228,79 @@ export default function ScheduleBoardPage() {
 
 function BookingBlock({ booking: b, showCourt, isFirstRow }: { booking: any; showCourt: boolean; isFirstRow: boolean }) {
   const isVip = b.is_vip
-  // Bắt mọi tên trường trạng thái mà Backend có thể trả về
-  const statusRaw = String(b.booking_status || b.status || b.status_name || '').toLowerCase().trim();
+  const status = b.booking_status || b.status || b.status_name || ''
 
-  // Bắt cả tiếng Anh và tiếng Việt (không dấu và có dấu)
-  const isCompleted = statusRaw === 'hoàn thành' || statusRaw === 'completed' || statusRaw === 'hoan thanh';
-  const isCancelled = statusRaw === 'đã hủy' || statusRaw === 'cancelled' || statusRaw === 'da huy';
-  const isUsing = statusRaw === 'đang sử dụng' || statusRaw === 'đang dùng' || statusRaw === 'in_progress';
-  const isPastState = isCompleted || isCancelled;
+  const statusColors: Record<string, string> = {
+    'Đã đặt': 'bg-amber-500/[0.04] text-amber-700 border-amber-500/80 dark:text-amber-400 dark:border-amber-500',
+    'Đã thanh toán': 'bg-blue-500/[0.04] text-blue-700 border-blue-500/80 dark:text-blue-400 dark:border-blue-500',
+    'Đang sử dụng': 'bg-green-500/[0.04] text-green-700 border-green-500/80 dark:text-green-400 dark:border-green-500',
+    'Hoàn thành': 'bg-muted/20 text-muted-foreground border-slate-300 dark:border-slate-700',
+    'Đã hủy': 'bg-red-500/5 text-red-600 border-red-500/50 dark:text-red-400 dark:bg-red-500/10',
+    'Đã cọc': 'bg-purple-500/[0.04] text-purple-700 border-purple-500/80 dark:text-purple-400 dark:border-purple-500',
+  }
 
-  // Tạo văn bản hiển thị trạng thái chuẩn để dùng cho Hover Card
-  const displayStatus = isCancelled ? 'Đã hủy'
-    : isCompleted ? 'Hoàn thành'
-      : isUsing ? 'Đang sử dụng'
-        : (b.booking_status || b.status || b.status_name || 'Đã thanh toán');
+  const defaultStyle = isVip
+    ? 'bg-amber-500/[0.04] text-amber-700 border-amber-500/80 dark:text-amber-400 dark:border-amber-500'
+    : 'bg-indigo-500/[0.04] text-indigo-700 border-indigo-500/80 dark:text-indigo-400 dark:border-indigo-500'
 
-  const statusColors = {
-    cancelled: 'bg-red-500/5 text-red-600 border-red-500/50 dark:text-red-400 dark:bg-red-500/10',
-    completed: 'bg-muted/20 text-muted-foreground border-slate-300 dark:border-slate-700',
-    vip: 'bg-amber-500/[0.04] text-amber-700 border-amber-500/80 dark:text-amber-400 dark:border-amber-500',
-    regular: 'bg-indigo-500/[0.04] text-indigo-700 border-indigo-500/80 dark:text-indigo-400 dark:border-indigo-500'
-  };
+  const currentStyle = statusColors[status] || defaultStyle
 
-  const currentStyle = isCancelled ? statusColors.cancelled
-    : isCompleted ? statusColors.completed
-      : isVip ? statusColors.vip
-        : statusColors.regular;
+  const isCancelled = status === 'Đã hủy'
+  const isCompleted = status === 'Hoàn thành'
+  const isUsing = status === 'Đang sử dụng'
+  const isPastState = isCompleted || isCancelled
+
+  const statusDotColor =
+    isCancelled ? 'bg-red-500' :
+    isCompleted ? 'bg-slate-400' :
+    isUsing ? 'bg-green-500 animate-pulse' :
+    status === 'Đã đặt' ? 'bg-amber-500' :
+    status === 'Đã thanh toán' ? 'bg-blue-500' :
+    status === 'Đã cọc' ? 'bg-purple-500' :
+    isVip ? 'bg-amber-500' : 'bg-indigo-500'
+
+  const StatusIcon = isCompleted ? CheckCircle
+    : isCancelled ? XCircle
+      : null
+
+  const statusLabel =
+    isCancelled ? 'Hủy' :
+    isCompleted ? 'Xong' :
+    isUsing ? 'Dùng' :
+    status === 'Đã đặt' ? 'Đã đặt' :
+    status === 'Đã thanh toán' ? 'Đã TT' :
+    status === 'Đã cọc' ? 'Đã cọc' : ''
+
+  const statusLabelColor =
+    isUsing ? 'text-green-600' :
+    status === 'Đã đặt' ? 'text-amber-600' :
+    status === 'Đã thanh toán' ? 'text-blue-600' :
+    status === 'Đã cọc' ? 'text-purple-600' :
+    'opacity-40'
+
+  const hoverStatusColor =
+    isCancelled ? 'text-red-500' :
+    isCompleted ? 'text-muted-foreground' :
+    isUsing ? 'text-green-500' :
+    status === 'Đã đặt' ? 'text-amber-500' :
+    status === 'Đã thanh toán' ? 'text-blue-500' :
+    status === 'Đã cọc' ? 'text-purple-500' :
+    'text-primary'
+
+  const hoverIconBg =
+    isVip ? 'bg-amber-500/20 text-amber-500'
+      : status === 'Đã thanh toán' ? 'bg-blue-500/20 text-blue-500'
+      : status === 'Đã đặt' ? 'bg-amber-500/20 text-amber-500'
+      : status === 'Đã cọc' ? 'bg-purple-500/20 text-purple-500'
+      : 'bg-indigo-500/20 text-indigo-500'
+
   return (
     <div className={cn("group relative z-10 hover:z-[100] animate-in zoom-in-95 duration-300")}>
       <div className={cn('px-2.5 py-2 rounded-xl text-[10px] font-black transition-all border-2 shadow-sm group-hover:shadow-md cursor-pointer', currentStyle, isPastState && "opacity-70")}>
         <div className="flex items-center justify-between gap-1.5 mb-1">
           <div className="flex items-center gap-1.5 truncate">
-            {isCompleted ? <CheckCircle className="size-2.5 text-muted-foreground" /> :
-              isCancelled ? <XCircle className="size-2.5 text-red-500" /> :
-                <div className={cn('size-1.5 rounded-full', isUsing ? 'bg-green-500 animate-pulse' : isVip ? 'bg-amber-500' : 'bg-indigo-500')} />}
+            {StatusIcon ? <StatusIcon className="size-2.5 text-muted-foreground" /> :
+              <div className={cn('size-1.5 rounded-full', statusDotColor)} />}
             <span className={cn("truncate max-w-[80px] tracking-tight", isCancelled && "line-through", isPastState && "opacity-70")}>
               {b.user_name}
             </span>
@@ -267,8 +309,8 @@ function BookingBlock({ booking: b, showCourt, isFirstRow }: { booking: any; sho
         </div>
         <div className="flex items-center justify-between">
           {showCourt && <div className="text-[8px] opacity-60 font-black truncate">{b.court_name}</div>}
-          <div className={cn("text-[7px] font-black uppercase tracking-tighter ml-auto", isUsing ? "text-green-600" : "opacity-40")}>
-            {isCompleted ? 'Xong' : isCancelled ? 'Hủy' : isUsing ? 'Dùng' : ''}
+          <div className={cn("text-[7px] font-black uppercase tracking-tighter ml-auto", statusLabelColor)}>
+            {statusLabel}
           </div>
         </div>
       </div>
@@ -281,12 +323,11 @@ function BookingBlock({ booking: b, showCourt, isFirstRow }: { booking: any; sho
           <div className="flex items-center justify-between border-b border-border pb-3">
             <div className="space-y-1">
               <div className="font-black text-lg text-foreground truncate">{b.user_name}</div>
-              <div className={cn("text-[10px] font-black uppercase tracking-widest",
-                isCancelled ? "text-red-500" : isCompleted ? "text-muted-foreground" : isUsing ? "text-green-500" : "text-primary")}>
-                {displayStatus}
+              <div className={cn("text-[10px] font-black uppercase tracking-widest", hoverStatusColor)}>
+                {status || 'Chưa xác định'}
               </div>
             </div>
-            <div className={cn('size-10 rounded-xl flex items-center justify-center', isVip ? 'bg-amber-500/20 text-amber-500' : 'bg-indigo-500/20 text-indigo-500')}>
+            <div className={cn('size-10 rounded-xl flex items-center justify-center', hoverIconBg)}>
               {isVip ? <Star className="size-5 fill-current" /> : <User className="size-5" />}
             </div>
           </div>
