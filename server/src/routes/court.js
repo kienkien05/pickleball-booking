@@ -1,23 +1,63 @@
+/**
+ * Route quản lý sân Pickleball và khung giờ.
+ *
+ * File này cung cấp API cho cả user và admin:
+ *
+ * == API cho User (không cần đăng nhập) ==
+ * 1. GET / - Lấy danh sách sân (phân trang, tìm kiếm, lọc trạng thái):
+ *    - Kèm avgRating (điểm đánh giá trung bình), reviewCount (số đánh giá), slotCount (số khung giờ)
+ *    - User thường không thấy sân có trạng thái 'Ẩn'
+ *
+ * 2. GET /:id - Chi tiết sân:
+ *    - Kèm danh sách ảnh (court_images), điểm đánh giá trung bình, số đánh giá
+ *
+ * 3. GET /:id/timeslots - Lấy khung giờ của sân theo ngày:
+ *    - Trả về danh sách khung giờ kèm trạng thái đã đặt (isBooked) hay chưa
+ *    - Tự động chặn các khung giờ đã qua (dựa trên BOOKING_LOCK_THRESHOLD_MINS)
+ *    - Nếu sân có trạng thái 'Ẩn' -> trả về mảng rỗng
+ *
+ * == API cho Admin (cần authenticate + requireAdmin) ==
+ * 4. GET /:id/timeslots/all - Lấy tất cả khung giờ của sân (không cần ngày)
+ * 5. POST /:id/timeslots - Tạo khung giờ mới cho sân (kiểm tra trùng lặp)
+ * 6. PUT /:courtId/timeslots/:id - Cập nhật khung giờ
+ * 7. DELETE /:courtId/timeslots/:id - Xóa khung giờ
+ * 8. POST / - Tạo sân mới (kiểm tra trùng tên)
+ * 9. PUT /:id - Cập nhật thông tin sân
+ * 10. DELETE /:id - Xóa mềm sân (đặt trạng thái 'Ẩn')
+ * 11. DELETE /:courtId/images/:imageId - Xóa ảnh sân
+ * 12. PUT /:courtId/images/:imageId/main - Đặt ảnh chính cho sân
+ */
+
 const express = require('express');
 const { pool } = require('../config/database');
 const { authenticate, requireAdmin } = require('../middleware/auth');
 const router = express.Router();
 
-// Get all courts
+/**
+ * GET / - Lấy danh sách sân Pickleball.
+ *
+ * Query params:
+ * - page, limit: phân trang
+ * - search: tìm kiếm theo tên sân (ILIKE)
+ * - status: lọc theo trạng thái
+ * - isAdmin: nếu 'true' thì hiển thị cả sân ẩn, nếu không thì ẩn sân có trạng thái 'Ẩn'
+ *
+ * Mỗi sân kèm theo: avgRating, reviewCount, slotCount (tính từ subquery).
+ */
 router.get('/', async (req, res) => {
   try {
     const { page = 1, limit = 20, search, status, isAdmin } = req.query;
     const offset = (page - 1) * limit;
-    
+
     let query = `SELECT c.*,
       CAST((SELECT ROUND(COALESCE(AVG(diemSao), 0), 1) FROM reviews WHERE sanId = c.id OR donDatId IN (SELECT id FROM bookings WHERE sanId = c.id)) AS FLOAT) as "avgRating",
       CAST((SELECT COUNT(*) FROM reviews WHERE sanId = c.id OR donDatId IN (SELECT id FROM bookings WHERE sanId = c.id)) AS INTEGER) as "reviewCount",
       CAST((SELECT COUNT(*) FROM timeslots WHERE sanId = c.id) AS INTEGER) as "slotCount"
       FROM courts c WHERE 1=1`;
-    
+
     const params = [];
     let idx = 1;
-    
+
     // Nếu không phải admin thì mặc định ẩn các sân có trạng thái 'Ẩn'
     if (isAdmin !== 'true') {
       query += ` AND c.trangThai != 'Ẩn'`;
@@ -25,7 +65,7 @@ router.get('/', async (req, res) => {
 
     if (search) { query += ` AND c.tenSan ILIKE $${idx}`; params.push(`%${search}%`); idx++; }
     if (status) { query += ` AND c.trangThai = $${idx}`; params.push(status); idx++; }
-    
+
     query += ' ORDER BY c.created_at DESC';
     query += ` LIMIT $${idx} OFFSET $${idx + 1}`; params.push(limit, offset);
 
@@ -41,7 +81,14 @@ router.get('/', async (req, res) => {
   }
 });
 
-// Get court by ID
+/**
+ * GET /:id - Lấy thông tin chi tiết của một sân.
+ *
+ * Response: { data: { ...court, images, avgRating, reviewCount } }
+ * - images: danh sách ảnh của sân (sắp xếp ảnh chính trước)
+ * - avgRating: điểm đánh giá trung bình (làm tròn 1 chữ số thập phân)
+ * - reviewCount: tổng số lượt đánh giá
+ */
 router.get('/:id', async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM courts WHERE id = $1', [req.params.id]);
@@ -55,20 +102,31 @@ router.get('/:id', async (req, res) => {
       'SELECT COUNT(*) FROM reviews WHERE sanId = $1 OR donDatId IN (SELECT id FROM bookings WHERE sanId = $1)',
       [req.params.id]
     );
-    res.json({ 
-      data: { 
-        ...result.rows[0], 
-        images: images.rows, 
+    res.json({
+      data: {
+        ...result.rows[0],
+        images: images.rows,
         avgRating: parseFloat(avgRating.rows[0].avg),
         reviewCount: parseInt(reviewCount.rows[0].count)
-      } 
+      }
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// Get time slots for a court on a specific date (with booking status)
+/**
+ * GET /:id/timeslots - Lấy danh sách khung giờ của sân cho một ngày cụ thể.
+ *
+ * Query params: date (YYYY-MM-DD)
+ * Response: { data: [...timeslots với isBooked] }
+ *
+ * Logic:
+ * - Lấy tất cả khung giờ của sân
+ * - Kiểm tra khung giờ nào đã có người đặt trong ngày đó (trừ 'Đã hủy')
+ * - Đánh dấu isBooked = true nếu đã đặt hoặc đã qua thời gian cho phép
+ * - Nếu sân đang 'Ẩn' -> trả về mảng rỗng
+ */
 router.get('/:id/timeslots', async (req, res) => {
   try {
     const { date } = req.query;
@@ -98,20 +156,21 @@ router.get('/:id/timeslots', async (req, res) => {
       const now = new Date();
       const todayStr = now.toISOString().slice(0, 10);
       const currentTimeStr = now.toTimeString().slice(0, 5);
-      
+
       let isPast = false;
       if (date === todayStr) {
-        // Rule 2: Past start time + threshold (e.g. 15 mins)
+        // Nếu là ngày hôm nay: chặn khung giờ đã qua ngưỡng cho phép
+        // (mặc định 15 phút sau giờ bắt đầu là không cho đặt)
         const thresholdMins = parseInt(process.env.BOOKING_LOCK_THRESHOLD_MINS) || 15;
         const gioBatDau = s.gioBatDau || '00:00';
         const [startH, startM] = gioBatDau.split(':').map(Number);
         const startTotalMins = startH * 60 + startM;
-        
+
         const [nowH, nowM] = currentTimeStr.split(':').map(Number);
         const nowTotalMins = nowH * 60 + nowM;
-        
+
         const isPastThreshold = nowTotalMins >= startTotalMins + thresholdMins;
-        
+
         isPast = (s.gioKetThuc || '00:00') <= currentTimeStr || isPastThreshold;
       } else if (date < todayStr) {
         isPast = true;
@@ -125,7 +184,10 @@ router.get('/:id/timeslots', async (req, res) => {
   }
 });
 
-// Get all time slots for a court (admin)
+/**
+ * GET /:id/timeslots/all - Lấy tất cả khung giờ của sân (Admin).
+ * Không cần query ngày, trả về toàn bộ khung giờ đã cấu hình cho sân.
+ */
 router.get('/:id/timeslots/all', authenticate, requireAdmin, async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM timeslots WHERE sanId = $1 ORDER BY gioBatDau', [req.params.id]);
@@ -135,13 +197,22 @@ router.get('/:id/timeslots/all', authenticate, requireAdmin, async (req, res) =>
   }
 });
 
-// Create time slot for a court (admin)
+/**
+ * POST /:id/timeslots - Tạo khung giờ mới cho sân (Admin).
+ *
+ * Body: { gioBatDau, gioKetThuc, mucGia }
+ * Response: 201 { data: newTimeslot }
+ *
+ * Kiểm tra trùng lặp: không được tạo khung giờ giao với khung giờ đã tồn tại.
+ * Điều kiện trùng: gioBatDau mới < gioKetThuc cũ AND gioKetThuc mới > gioBatDau cũ
+ */
 router.post('/:id/timeslots', authenticate, requireAdmin, async (req, res) => {
   try {
     const { gioBatDau, gioKetThuc, mucGia } = req.body;
     if (!gioBatDau || !gioKetThuc || !mucGia) {
       return res.status(400).json({ error: 'Vui lòng nhập đầy đủ thông tin' });
     }
+    // Kiểm tra trùng lặp khung giờ
     const overlap = await pool.query(
       'SELECT id FROM timeslots WHERE sanId = $1 AND gioBatDau < $3 AND gioKetThuc > $2',
       [req.params.id, gioBatDau, gioKetThuc]
@@ -159,7 +230,10 @@ router.post('/:id/timeslots', authenticate, requireAdmin, async (req, res) => {
   }
 });
 
-// Update time slot (admin)
+/**
+ * PUT /:courtId/timeslots/:id - Cập nhật khung giờ (Admin).
+ * Dùng COALESCE để chỉ cập nhật trường được gửi lên.
+ */
 router.put('/:courtId/timeslots/:id', authenticate, requireAdmin, async (req, res) => {
   try {
     const { gioBatDau, gioKetThuc, mucGia } = req.body;
@@ -174,7 +248,9 @@ router.put('/:courtId/timeslots/:id', authenticate, requireAdmin, async (req, re
   }
 });
 
-// Delete time slot (admin)
+/**
+ * DELETE /:courtId/timeslots/:id - Xóa khung giờ (Admin).
+ */
 router.delete('/:courtId/timeslots/:id', authenticate, requireAdmin, async (req, res) => {
   try {
     await pool.query('DELETE FROM timeslots WHERE id = $1 AND sanId = $2', [req.params.id, req.params.courtId]);
@@ -184,7 +260,12 @@ router.delete('/:courtId/timeslots/:id', authenticate, requireAdmin, async (req,
   }
 });
 
-// Create court (admin)
+/**
+ * POST / - Tạo sân mới (Admin).
+ *
+ * Body: { tenSan (bắt buộc), moTa?, hinhAnh?, trangThai? }
+ * Kiểm tra trùng tên sân trước khi tạo.
+ */
 router.post('/', authenticate, requireAdmin, async (req, res) => {
   try {
     const { tenSan, moTa, hinhAnh, trangThai } = req.body;
@@ -201,7 +282,10 @@ router.post('/', authenticate, requireAdmin, async (req, res) => {
   }
 });
 
-// Update court (admin)
+/**
+ * PUT /:id - Cập nhật thông tin sân (Admin).
+ * Dùng COALESCE để chỉ cập nhật trường được gửi lên.
+ */
 router.put('/:id', authenticate, requireAdmin, async (req, res) => {
   try {
     const { tenSan, moTa, hinhAnh, trangThai } = req.body;
@@ -216,7 +300,9 @@ router.put('/:id', authenticate, requireAdmin, async (req, res) => {
   }
 });
 
-// Delete court image (admin)
+/**
+ * DELETE /:courtId/images/:imageId - Xóa ảnh sân (Admin).
+ */
 router.delete('/:courtId/images/:imageId', authenticate, requireAdmin, async (req, res) => {
   try {
     await pool.query('DELETE FROM court_images WHERE id = $1 AND sanId = $2', [req.params.imageId, req.params.courtId]);
@@ -226,7 +312,10 @@ router.delete('/:courtId/images/:imageId', authenticate, requireAdmin, async (re
   }
 });
 
-// Set main image (admin)
+/**
+ * PUT /:courtId/images/:imageId/main - Đặt ảnh chính cho sân (Admin).
+ * Đầu tiên đặt tất cả ảnh của sân về isMain = FALSE, sau đó đặt ảnh được chọn thành TRUE.
+ */
 router.put('/:courtId/images/:imageId/main', authenticate, requireAdmin, async (req, res) => {
   try {
     await pool.query('UPDATE court_images SET isMain = FALSE WHERE sanId = $1', [req.params.courtId]);
@@ -237,7 +326,11 @@ router.put('/:courtId/images/:imageId/main', authenticate, requireAdmin, async (
   }
 });
 
-// Delete court (admin) - soft delete by setting status to 'Ẩn'
+/**
+ * DELETE /:id - Xóa mềm sân (Admin).
+ * Không xóa thật mà chỉ đặt trạng thái 'Ẩn' (soft delete).
+ * Các dữ liệu liên quan (khung giờ, booking cũ) vẫn được giữ lại.
+ */
 router.delete('/:id', authenticate, requireAdmin, async (req, res) => {
   try {
     await pool.query("UPDATE courts SET trangThai = 'Ẩn', updated_at = NOW() WHERE id = $1", [req.params.id]);

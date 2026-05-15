@@ -1,3 +1,27 @@
+/**
+ * App.tsx - Component gốc của ứng dụng Pickleball, định nghĩa toàn bộ routing.
+ *
+ * File này chứa:
+ *
+ * 1. PageLoader - Component hiển thị spinner khi đang tải trang (lazy load):
+ *    - Hiển thị vòng tròn xoay + chữ "Đang tải..."
+ *    - Dùng làm fallback cho React.Suspense
+ *
+ * 2. ProtectedRoute - Component bảo vệ route yêu cầu đăng nhập:
+ *    - Nếu chưa đăng nhập -> chuyển hướng đến /login
+ *    - Nếu requireAdmin=true và user không phải admin -> chuyển hướng đến /forbidden (403)
+ *    - Nếu đủ điều kiện -> render children bình thường
+ *
+ * 3. App() - Component chính định nghĩa tất cả route trong ứng dụng:
+ *    - Dùng React.lazy() để tải từng trang khi cần (code splitting)
+ *    - Kiểm tra token còn hiệu lực mỗi 15 giây bằng setInterval gọi authService.getProfile()
+ *    - Route được chia thành 3 nhóm:
+ *      a. Auth: /login, /forgot-password, /reset-password, /verify-otp
+ *      b. User (có UserLayout bao ngoài): /, /courts, /courts/:id, /profile, /my-bookings, /booking/:id, /my-vouchers, /payment/sepay-return
+ *      c. Admin (có AdminLayout + ProtectedRoute requireAdmin): /admin/* (dashboard, courts, timeslots, bookings, schedule-board, services, discounts, users, scanner, reports)
+ *    - Route không khớp (*) -> chuyển hướng về trang chủ
+ */
+
 import { authService } from '@/services'
 import { useAuthStore } from '@/stores/authStore'
 import { Suspense, lazy, useEffect } from 'react'
@@ -6,6 +30,9 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import AdminLayout from '@/components/layout/AdminLayout'
 import UserLayout from '@/components/layout/UserLayout'
 
+// ── Lazy load tất cả các trang ──
+// Dùng React.lazy() để tách code từng trang thành chunk riêng (code splitting)
+// Điều này giúp giảm kích thước bundle ban đầu, trang chỉ tải khi người dùng truy cập
 const HomePage = lazy(() => import('@/pages/user/HomePage'))
 const ProfilePage = lazy(() => import('@/pages/user/ProfilePage'))
 const CourtListPage = lazy(() => import('@/pages/user/CourtListPage'))
@@ -33,6 +60,10 @@ const ScheduleBoardPage = lazy(() => import('@/pages/admin/ScheduleBoardPage'))
 
 const ForbiddenPage = lazy(() => import('@/pages/error/ForbiddenPage'))
 
+/**
+ * PageLoader - Hiển thị giao diện loading khi trang đang được tải (lazy load).
+ * Dùng làm fallback cho <Suspense>, hiển thị spinner xoay + chữ "Đang tải...".
+ */
 function PageLoader() {
   return (
     <div className="flex items-center justify-center min-h-[60vh]">
@@ -44,6 +75,17 @@ function PageLoader() {
   )
 }
 
+/**
+ * ProtectedRoute - Bảo vệ route yêu cầu đăng nhập và/hoặc quyền admin.
+ *
+ * @param children - Component con sẽ được render nếu đủ điều kiện
+ * @param requireAdmin - Nếu true, chỉ admin mới được truy cập (mặc định false)
+ *
+ * Logic:
+ * - Nếu chưa đăng nhập (isAuthenticated = false) -> chuyển hướng đến /login
+ * - Nếu yêu cầu admin nhưng user không có role 'admin' -> chuyển hướng đến /forbidden (403)
+ * - Nếu đủ điều kiện -> render children
+ */
 function ProtectedRoute({ children, requireAdmin = false }: { children: React.ReactNode; requireAdmin?: boolean }) {
   const { isAuthenticated, user } = useAuthStore()
   if (!isAuthenticated) return <Navigate to="/login" replace />
@@ -51,9 +93,23 @@ function ProtectedRoute({ children, requireAdmin = false }: { children: React.Re
   return <>{children}</>
 }
 
+/**
+ * App - Component gốc của ứng dụng, chứa toàn bộ định nghĩa routing.
+ *
+ * Sử dụng React Router v6 với:
+ * - <Suspense> bọc ngoài cùng để hiển thị PageLoader trong lúc lazy load trang
+ * - <Routes> định nghĩa tất cả route
+ * - <UserLayout> và <AdminLayout> là layout wrapper cho từng nhóm route
+ *
+ * Ngoài ra còn có useEffect kiểm tra token định kỳ mỗi 15 giây:
+ * - Gọi authService.getProfile() để xác nhận token còn hiệu lực
+ * - Nếu token hết hạn, axios interceptor sẽ tự động logout
+ */
 export default function App() {
   const { isAuthenticated } = useAuthStore()
 
+  // Kiểm tra token còn hiệu lực mỗi 15 giây
+  // Nếu token đã hết hạn, interceptor của axios sẽ bắt lỗi 401 và gọi logout()
   useEffect(() => {
     if (!isAuthenticated) return
     const checkActive = async () => {
@@ -66,25 +122,26 @@ export default function App() {
   return (
     <Suspense fallback={<PageLoader />}>
       <Routes>
-        {/* Auth */}
+        {/* ── Auth Routes (không cần đăng nhập) ── */}
         <Route path="/login" element={<LoginPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/verify-otp" element={<OTPVerifyPage />} />
 
-        {/* User */}
+        {/* ── User Routes (có UserLayout bao ngoài) ── */}
         <Route element={<UserLayout />}>
           <Route path="/" element={<HomePage />} />
           <Route path="/courts" element={<CourtListPage />} />
           <Route path="/courts/:id" element={<CourtDetailPage />} />
           <Route path="/payment/sepay-return" element={<PaymentReturnPage />} />
+          {/* Các route yêu cầu đăng nhập */}
           <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
           <Route path="/my-bookings" element={<ProtectedRoute><MyBookingsPage /></ProtectedRoute>} />
           <Route path="/booking/:id" element={<ProtectedRoute><BookingDetailPage /></ProtectedRoute>} />
           <Route path="/my-vouchers" element={<ProtectedRoute><VouchersPage /></ProtectedRoute>} />
         </Route>
 
-        {/* Admin */}
+        {/* ── Admin Routes (yêu cầu đăng nhập + quyền admin) ── */}
         <Route path="/admin" element={<ProtectedRoute requireAdmin><AdminLayout /></ProtectedRoute>}>
           <Route index element={<DashboardPage />} />
           <Route path="courts" element={<CourtsManagePage />} />
@@ -98,7 +155,9 @@ export default function App() {
           <Route path="schedule-board" element={<ScheduleBoardPage />} />
         </Route>
 
+        {/* ── Error Routes ── */}
         <Route path="/forbidden" element={<ForbiddenPage />} />
+        {/* Route không tồn tại -> về trang chủ */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Suspense>

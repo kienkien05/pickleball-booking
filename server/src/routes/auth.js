@@ -1,3 +1,34 @@
+/**
+ * Route xác thực người dùng - Đăng ký, Đăng nhập, Quên mật khẩu, Profile.
+ *
+ * File này quản lý tất cả API liên quan đến xác thực và tài khoản người dùng:
+ *
+ * 1. POST /register - Đăng ký tài khoản mới:
+ *    - Nhận email, password, confirm_password, full_name, phone_number
+ *    - Kiểm tra email và số điện thoại chưa được sử dụng
+ *    - Tạo OTP 6 số, lưu vào otpStore (Map trong bộ nhớ) với thời hạn 10 phút
+ *    - Trong môi trường production nên dùng Redis hoặc DB thay vì Map
+ *
+ * 2. POST /verify-register - Xác thực OTP và hoàn tất đăng ký:
+ *    - Kiểm tra OTP khớp và chưa hết hạn
+ *    - Hash mật khẩu bằng bcryptjs (10 vòng salt), tạo user trong DB
+ *    - Tặng mã chào mừng (WELCOME + userId) giảm 20% cho lần đầu đặt sân
+ *    - Tạo JWT token (hết hạn 7 ngày) và trả về thông tin user + token
+ *
+ * 3. POST /login - Đăng nhập:
+ *    - Tìm user theo email, kiểm tra trạng thái (không bị khóa)
+ *    - Dùng bcrypt.compare() để so sánh mật khẩu với hash trong DB
+ *    - Tạo JWT token và trả về thông tin user (id, email, full_name, role, is_vip, avatar...)
+ *
+ * 4. POST /forgot-password - Gửi OTP reset mật khẩu qua email
+ * 5. POST /reset-password - Đổi mật khẩu mới sau khi xác thực OTP
+ *
+ * 6. GET /profile - Lấy thông tin profile người dùng hiện tại (cần authenticate)
+ * 7. PUT /profile - Cập nhật profile (full_name, phone_number, address, avatar_url, gender)
+ *
+ * JWT Secret lấy từ biến môi trường JWT_SECRET, mặc định là 'pickleball_jwt_secret_key_2026'.
+ */
+
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
@@ -9,13 +40,33 @@ const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'pickleball_jwt_secret_key_2026';
 
 // Store OTPs temporarily (in production, use Redis or DB)
+// Bộ nhớ tạm lưu OTP - key: "register:email" hoặc "reset:email", value: { otp, expires, ...data }
+// Lưu ý: Map sẽ bị xóa khi server restart, trong production nên dùng Redis
 const otpStore = new Map();
 
+/**
+ * Sinh mã OTP ngẫu nhiên 6 chữ số.
+ * Dùng Math.random() để tạo số từ 100000 đến 999999.
+ *
+ * @returns {string} Mã OTP 6 chữ số
+ */
 function generateOTP() {
   return String(Math.floor(100000 + Math.random() * 900000));
 }
 
-// Register
+/**
+ * POST /register - Đăng ký tài khoản mới.
+ *
+ * Body: { email, password, confirm_password, full_name, phone_number? }
+ * Response: { message: 'Mã OTP đã được gửi' }
+ *
+ * Quy trình:
+ * 1. Validate dữ liệu đầu vào (bắt buộc email, password, full_name)
+ * 2. Kiểm tra password và confirm_password khớp nhau
+ * 3. Kiểm tra email và số điện thoại chưa tồn tại trong DB
+ * 4. Tạo OTP 6 số, lưu vào otpStore với key "register:{email}", hết hạn sau 10 phút
+ * 5. Trả về thông báo thành công (OTP được log ra console thay vì gửi email thật)
+ */
 router.post('/register', async (req, res) => {
   try {
     const { email, password, confirm_password, full_name, phone_number } = req.body;
@@ -44,7 +95,20 @@ router.post('/register', async (req, res) => {
   }
 });
 
-// Verify Register
+/**
+ * POST /verify-register - Xác thực OTP và hoàn tất đăng ký.
+ *
+ * Body: { email, otp, password, full_name }
+ * Response: { data: { token, user: { id, email, full_name, phone_number, role, is_vip, is_active } } }
+ *
+ * Quy trình:
+ * 1. Kiểm tra OTP khớp với otpStore và chưa hết hạn
+ * 2. Hash mật khẩu bằng bcryptjs (10 vòng salt)
+ * 3. INSERT user vào DB
+ * 4. Tạo mã chào mừng WELCOME{userId} giảm 20%, hết hạn sau 30 ngày
+ * 5. Tạo JWT token (7 ngày) và xóa OTP khỏi otpStore
+ * 6. Trả về token + thông tin user
+ */
 router.post('/verify-register', async (req, res) => {
   try {
     const { email, otp, password, full_name } = req.body;
@@ -58,8 +122,8 @@ router.post('/verify-register', async (req, res) => {
       [stored.full_name, email, hashedPw, stored.phone_number || null]
     );
     const user = result.rows[0];
-    
-    // Tặng mã chào mừng 20% cho user mới
+
+    // Tặng mã chào mừng 20% cho user mới - mã riêng chỉ user này dùng được
     const welcomeCode = `WELCOME${user.id}`;
     await pool.query(
       `INSERT INTO discounts (code, noiDung, moTa, loaiGiamGia, mucGiamGia, ngayBatDau, ngayKetThuc, soLuongBanDau, nguoiDungId, trangThai)
@@ -84,7 +148,20 @@ router.post('/verify-register', async (req, res) => {
   }
 });
 
-// Login
+/**
+ * POST /login - Đăng nhập vào hệ thống.
+ *
+ * Body: { email, password }
+ * Response: { data: { token, user: { id, email, full_name, phone_number, role, is_vip, is_active, avatar_url, address, gender } } }
+ *
+ * Quy trình:
+ * 1. Tìm user theo email trong DB
+ * 2. Kiểm tra tài khoản không bị khóa (trangThai !== 'Locked')
+ * 3. So sánh mật khẩu với hash bằng bcrypt.compare()
+ * 4. Tạo JWT token (7 ngày) và trả về thông tin user đầy đủ
+ *
+ * Lưu ý: Hiện tại login trực tiếp không cần OTP (SKIP_OTP).
+ */
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -121,7 +198,15 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// Forgot Password
+/**
+ * POST /forgot-password - Gửi OTP để đặt lại mật khẩu.
+ *
+ * Body: { email }
+ * Response: { message: 'Mã OTP đã được gửi' }
+ *
+ * Kiểm tra email tồn tại trong hệ thống, tạo OTP 6 số và lưu vào otpStore.
+ * OTP được log ra console (trong production sẽ gửi qua email thật).
+ */
 router.post('/forgot-password', async (req, res) => {
   try {
     const { email } = req.body;
@@ -138,7 +223,18 @@ router.post('/forgot-password', async (req, res) => {
   }
 });
 
-// Reset Password
+/**
+ * POST /reset-password - Đặt lại mật khẩu mới sau khi xác thực OTP.
+ *
+ * Body: { email, otp, new_password }
+ * Response: { message: 'Đổi mật khẩu thành công' }
+ *
+ * Quy trình:
+ * 1. Kiểm tra OTP khớp và chưa hết hạn
+ * 2. Hash mật khẩu mới bằng bcryptjs
+ * 3. UPDATE mật khẩu trong DB
+ * 4. Xóa OTP khỏi otpStore
+ */
 router.post('/reset-password', async (req, res) => {
   try {
     const { email, otp, new_password } = req.body;
@@ -155,7 +251,12 @@ router.post('/reset-password', async (req, res) => {
   }
 });
 
-// Get Profile
+/**
+ * GET /profile - Lấy thông tin profile của người dùng hiện tại.
+ * Yêu cầu: authenticate middleware (phải có token hợp lệ)
+ *
+ * Response: { data: { id, email, full_name, phone_number, role, is_vip, gender, address, avatar_url, is_active } }
+ */
 router.get('/profile', authenticate, async (req, res, next) => {
   try {
     const result = await pool.query('SELECT id, hoTen, email, soDienThoai, vaiTro, isVIP, gioiTinh, diaChi, avatar_url, trangThai FROM users WHERE id = $1', [req.user.id]);
@@ -174,7 +275,16 @@ router.get('/profile', authenticate, async (req, res, next) => {
   }
 });
 
-// Update Profile
+/**
+ * PUT /profile - Cập nhật thông tin profile người dùng.
+ * Yêu cầu: authenticate middleware
+ *
+ * Body: { full_name?, phone_number?, address?, avatar_url?, gender? }
+ * - Chỉ cập nhật các trường được gửi lên (dùng COALESCE hoặc build query động)
+ * - Nếu không có thay đổi nào -> trả về message 'Không có thay đổi'
+ *
+ * Response: { data: { id, email, full_name, phone_number, role, is_vip, gender, address, avatar_url } }
+ */
 router.put('/profile', authenticate, async (req, res) => {
   try {
     const { full_name, phone_number, address, avatar_url, gender } = req.body;

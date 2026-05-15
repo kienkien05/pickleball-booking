@@ -1,3 +1,28 @@
+/**
+ * AdminLayout.tsx - Layout cho toàn bộ trang quản trị (Admin).
+ *
+ * Component này cung cấp layout chung cho tất cả trang admin:
+ *
+ * 1. Sidebar (bên trái):
+ *    - Danh sách link điều hướng: Dashboard, Quản lý sân, Khung giờ & Giá, Đơn đặt sân,
+ *      Lịch sân, Dịch vụ, Giảm giá, Khách hàng, Quét QR, Báo cáo
+ *    - Link "Về trang chủ" ở cuối sidebar
+ *    - Trên mobile: sidebar ẩn, hiển thị khi bấm nút Menu (hamburger)
+ *    - Đóng sidebar khi bấm nút X hoặc click ra ngoài overlay
+ *
+ * 2. Header (trên cùng):
+ *    - Nút Menu (mobile only) để mở sidebar
+ *    - Avatar + tên admin (link đến /profile)
+ *    - Nút chuyển đổi theme (sáng/tối)
+ *
+ * 3. Main content:
+ *    - <Outlet /> từ React Router để render trang con tương ứng
+ *
+ * Responsive:
+ * - Desktop (lg+): sidebar luôn hiển thị cố định bên trái, content có padding-left = 256px
+ * - Mobile (<lg): sidebar overlay, có nút hamburger để mở, overlay đen mờ khi mở
+ */
+
 import { useState } from 'react'
 import { Outlet, NavLink, Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -7,6 +32,11 @@ import { useThemeStore } from '@/stores/themeStore'
 import { Button } from '@/components/ui/Button'
 import { cn } from '@/lib/utils'
 
+/**
+ * sidebarLinks - Định nghĩa các link trong sidebar admin.
+ * Mỗi link có: đường dẫn (to), icon (lucide-react), nhãn (label).
+ * Link Dashboard có end: true để chỉ active khi path chính xác là /admin.
+ */
 const sidebarLinks = [
   { to: '/admin', icon: LayoutDashboard, label: 'Dashboard', end: true },
   { to: '/admin/courts', icon: MapPin, label: 'Quản lý sân' },
@@ -20,6 +50,12 @@ const sidebarLinks = [
   { to: '/admin/reports', icon: BarChart3, label: 'Báo cáo' },
 ]
 
+/**
+ * AdminLayout - Layout chính cho khu vực quản trị.
+ *
+ * Sử dụng React Router <Outlet /> để render nội dung trang con
+ * vào vị trí <main> bên trong layout này.
+ */
 export default function AdminLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const { user } = useAuthStore()
@@ -27,18 +63,23 @@ export default function AdminLayout() {
 
   return (
     <div className="min-h-screen bg-background">
+      {/* ── Sidebar ── */}
       <aside className={cn('fixed top-0 left-0 z-50 h-full w-64 bg-card border-r border-border',
         'transform transition-transform duration-200 ease-in-out', 'lg:translate-x-0',
         sidebarOpen ? 'translate-x-0' : '-translate-x-full')}>
+        {/* Sidebar header: logo + tên app */}
         <div className="h-16 flex items-center justify-between px-4 border-b border-border">
           <Link to="/admin" className="flex items-center gap-2">
             <MapPin className="size-5 text-primary" />
             <span className="font-bold bg-gradient-to-r from-primary to-green-400 bg-clip-text text-transparent">PickleBall Admin</span>
           </Link>
+          {/* Nút đóng sidebar (mobile only) */}
           <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setSidebarOpen(false)}>
             <X className="size-5" />
           </Button>
         </div>
+
+        {/* Sidebar navigation */}
         <nav className="p-3 space-y-1 overflow-y-auto h-[calc(100vh-4rem)] scrollbar-thin">
           {sidebarLinks.map(link => (
             <NavLink key={link.to} to={link.to} end={link.end} onClick={() => setSidebarOpen(false)}
@@ -48,6 +89,7 @@ export default function AdminLayout() {
               <span>{link.label}</span>
             </NavLink>
           ))}
+          {/* Link về trang chủ */}
           <div className="pt-4 mt-4 border-t border-border">
             <Link to="/" className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors touch-target">
               <ChevronLeft className="size-5 shrink-0" />
@@ -57,6 +99,7 @@ export default function AdminLayout() {
         </nav>
       </aside>
 
+      {/* ── Overlay khi sidebar mở trên mobile ── */}
       <AnimatePresence>
         {sidebarOpen && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
@@ -64,13 +107,17 @@ export default function AdminLayout() {
         )}
       </AnimatePresence>
 
+      {/* ── Nội dung chính ── */}
       <div className="lg:pl-64">
+        {/* Header */}
         <header className="sticky top-0 z-30 h-16 bg-card/80 backdrop-blur-xl border-b border-border">
           <div className="flex items-center justify-between h-full px-4">
             <div className="flex items-center gap-3">
+              {/* Nút hamburger mở sidebar (mobile only) */}
               <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setSidebarOpen(true)}>
                 <Menu className="size-5" />
               </Button>
+              {/* Avatar + tên admin */}
               <div className="hidden sm:flex items-center gap-2">
                 <Link to="/profile">
                   <div className="size-8 rounded-full overflow-hidden border border-border bg-muted flex items-center justify-center hover:opacity-80 transition-opacity">
@@ -84,6 +131,7 @@ export default function AdminLayout() {
                 <span className="text-sm font-semibold text-foreground">{user?.full_name || 'Admin'}</span>
               </div>
             </div>
+            {/* Nút chuyển đổi theme */}
             <div className="flex items-center gap-2">
               <Button variant="ghost" size="icon" onClick={toggleTheme}>
                 {theme === 'dark' ? <Sun className="size-4" /> : <Moon className="size-4" />}
@@ -91,6 +139,8 @@ export default function AdminLayout() {
             </div>
           </div>
         </header>
+
+        {/* Main content - render trang con qua Outlet */}
         <main className="p-4 lg:p-6">
           <Outlet />
         </main>

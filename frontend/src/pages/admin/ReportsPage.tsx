@@ -1,3 +1,20 @@
+/**
+ * ReportsPage.tsx
+ *
+ * Trang báo cáo doanh thu dành cho admin.
+ * Chức năng chính:
+ * - Chọn khoảng thời gian (từ ngày - đến ngày) để xem báo cáo.
+ * - Hiển thị 3 thẻ thống kê tổng quan: Tổng doanh thu, Tổng đơn hàng, Doanh thu hủy cọc.
+ * - Biểu đồ cột (BarChart) thể hiện doanh thu theo ngày, phân tách theo từng sân
+ *   (stacked bar chart - các sân xếp chồng lên nhau).
+ * - Biểu đồ tròn (PieChart) thể hiện tỉ trọng doanh thu của từng sân.
+ * - Danh sách chi tiết doanh thu theo từng sân (tên sân + số tiền).
+ * - Xuất báo cáo ra file Excel (.xlsx).
+ *
+ * Sử dụng thư viện Recharts để vẽ biểu đồ và Framer Motion cho hiệu ứng animation.
+ * Tất cả dữ liệu được lấy từ API adminService.getReports().
+ */
+
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Download, TrendingUp, DollarSign, ClipboardList, Calendar, MapPin, PieChart as PieIcon, ArrowUpRight } from 'lucide-react'
@@ -9,43 +26,69 @@ import { Skeleton } from '@/components/ui/Skeleton'
 import { formatPrice, cn } from '@/lib/utils'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
 
+/** Bảng màu cho các sân trong biểu đồ - tối đa 6 màu, lặp lại nếu nhiều sân hơn */
 const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899']
 
+/**
+ * Component trang báo cáo doanh thu.
+ * Hiển thị số liệu thống kê và biểu đồ trực quan cho admin phân tích kinh doanh.
+ *
+ * @returns Giao diện báo cáo với thẻ thống kê, biểu đồ cột, biểu đồ tròn, và nút xuất Excel.
+ */
 export default function ReportsPage() {
   const now = new Date()
+  /** Chuỗi ngày hôm nay định dạng YYYY-MM-DD - dùng làm giá trị mặc định cho bộ lọc */
   const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
-  
+
+  /** Ngày bắt đầu của khoảng thời gian báo cáo (mặc định: hôm nay) */
   const [startDate, setStartDate] = useState(todayStr)
+  /** Ngày kết thúc của khoảng thời gian báo cáo (mặc định: hôm nay) */
   const [endDate, setEndDate] = useState(todayStr)
+  /** Trạng thái đang xuất file Excel */
   const [exporting, setExporting] = useState(false)
 
+  /**
+   * Lấy dữ liệu báo cáo từ API.
+   * Query key bao gồm startDate và endDate để tự động gọi lại API khi thay đổi bộ lọc.
+   */
   const { data, isLoading } = useQuery({
     queryKey: ['admin', 'reports', startDate, endDate],
     queryFn: () => adminService.getReports({ startDate, endDate }).then(r => r.data.data ?? r.data),
   })
 
+  /** Dữ liệu tổng quan (summary) chứa totalRevenue, totalBookings, cancelRevenue */
   const stats = data?.summary ?? {}
+  /** Dữ liệu doanh thu theo ngày cho biểu đồ cột */
   const revenueByDay = data?.revenueByDay ?? []
+  /** Dữ liệu doanh thu theo sân cho biểu đồ tròn */
   const revenueByCourt = data?.revenueByCourt ?? []
 
+  /**
+   * Xử lý xuất báo cáo ra file Excel.
+   * Gọi API exportReports, tạo Blob từ response, tạo link download tạm thời
+   * và tự động kích hoạt tải xuống file .xlsx.
+   */
   const handleExport = async () => {
     setExporting(true)
     try {
       const response = await adminService.exportReports({ startDate, endDate })
+      // Tạo URL tạm thời từ Blob Excel
       const url = window.URL.createObjectURL(new Blob([response.data]))
       const link = document.createElement('a')
       link.href = url
+      // Tên file báo cáo kèm khoảng ngày
       link.setAttribute('download', `bao-cao-doanh-thu-${startDate}-${endDate}.xlsx`)
       document.body.appendChild(link)
-      link.click()
+      link.click() // Kích hoạt tải xuống
       link.remove()
-      window.URL.revokeObjectURL(url)
+      window.URL.revokeObjectURL(url) // Dọn dẹp URL tạm thời
       toast.success('Xuất báo cáo thành công!')
     } catch (err) {
       toast.error('Xuất báo cáo thất bại')
     } finally { setExporting(false) }
   }
 
+  /** Cấu hình các thẻ thống kê (stat cards) hiển thị ở đầu trang */
   const statCards = [
     { label: 'Tổng doanh thu', value: formatPrice(Number(stats.totalRevenue ?? 0)), icon: DollarSign, color: 'bg-emerald-500', text: 'text-emerald-500' },
     { label: 'Tổng đơn hàng', value: stats.totalBookings ?? 0, icon: ClipboardList, color: 'bg-blue-500', text: 'text-blue-500' },
@@ -54,6 +97,7 @@ export default function ReportsPage() {
 
   return (
     <div className="space-y-8 pb-12 animate-in fade-in duration-700">
+      {/* Tiêu đề trang và nút xuất Excel */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-black tracking-tight uppercase">Báo cáo doanh thu</h1>
@@ -64,6 +108,7 @@ export default function ReportsPage() {
         </Button>
       </div>
 
+      {/* Bộ lọc khoảng thời gian: Từ ngày - Đến ngày */}
       <div className="bg-card p-6 rounded-[2rem] border border-border shadow-sm flex flex-wrap items-end gap-6">
         <div className="space-y-2">
           <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Từ ngày</label>
@@ -83,6 +128,7 @@ export default function ReportsPage() {
         </div>
       </div>
 
+      {/* Loading state với skeleton */}
       {isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <Skeleton className="h-32 rounded-[2rem]" />
@@ -93,10 +139,12 @@ export default function ReportsPage() {
         </div>
       ) : (
         <div className="space-y-8">
+          {/* Hàng thẻ thống kê (3 thẻ) với hiệu ứng animation */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {statCards.map((card, i) => (
               <motion.div key={i} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.1 }}
                 className="group relative overflow-hidden rounded-[2rem] border border-border bg-card p-6 shadow-sm hover:shadow-xl transition-all duration-300">
+                {/* Hiệu ứng nền mờ phía sau - phóng to khi hover */}
                 <div className={cn("absolute top-0 right-0 size-24 -mr-6 -mt-6 rounded-full opacity-[0.05] transition-transform duration-500 group-hover:scale-150", card.color)} />
                 <div className="flex items-center gap-4 relative z-10">
                   <div className={cn("p-4 rounded-2xl bg-opacity-10", card.color.replace('bg-', 'bg-opacity-10 bg-'))}>
@@ -111,7 +159,9 @@ export default function ReportsPage() {
             ))}
           </div>
 
+          {/* Hàng biểu đồ: cột (doanh thu theo ngày) và tròn (tỉ trọng sân) */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            {/* Biểu đồ cột - Doanh thu theo ngày (chiếm 2/3 chiều rộng) */}
             <div className="lg:col-span-2 rounded-[2.5rem] border border-border bg-card p-8 shadow-sm">
               <div className="flex items-center gap-3 mb-8">
                 <div className="p-3 rounded-2xl bg-primary/10 text-primary">
@@ -122,35 +172,37 @@ export default function ReportsPage() {
                   <p className="text-xs text-muted-foreground font-medium">Chi tiết biến động doanh thu</p>
                 </div>
               </div>
-              
+
               <div className="h-[350px] w-full">
                 {revenueByDay.length > 0 ? (
                   <ResponsiveContainer width="100%" height="100%">
+                    {/* Biểu đồ cột xếp chồng (stacked): mỗi cột là một ngày, các sân xếp chồng lên nhau */}
                     <BarChart data={revenueByDay} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
                       <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fontSize: 12, fontWeight: 700 }} stroke="hsl(var(--muted-foreground))" dy={10} />
                       <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fontWeight: 700 }} stroke="hsl(var(--muted-foreground))" tickFormatter={(v) => `${v/1000}k`} />
-                      <Tooltip 
+                      <Tooltip
                         cursor={{ fill: 'hsl(var(--muted))', opacity: 0.4 }}
-                        contentStyle={{ 
-                          background: 'hsl(var(--card))', 
-                          border: '1px solid hsl(var(--border))', 
+                        contentStyle={{
+                          background: 'hsl(var(--card))',
+                          border: '1px solid hsl(var(--border))',
                           borderRadius: '16px',
                           boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)',
                           padding: '12px'
-                        }} 
+                        }}
                         itemStyle={{ fontWeight: 800, fontSize: '14px' }}
                         labelStyle={{ fontWeight: 800, marginBottom: '4px', color: 'hsl(var(--foreground))' }}
                         formatter={(val: any) => [formatPrice(val), 'Doanh thu']}
                       />
+                      {/* Mỗi sân là một Bar với stackId="a" để xếp chồng */}
                       {revenueByCourt.map((court: any, i: number) => (
-                        <Bar 
-                          key={court.name} 
-                          dataKey={court.name} 
+                        <Bar
+                          key={court.name}
+                          dataKey={court.name}
                           name={court.name}
-                          stackId="a" 
-                          fill={COLORS[i % COLORS.length]} 
-                          radius={i === revenueByCourt.length - 1 ? [6, 6, 0, 0] : [0, 0, 0, 0]}
+                          stackId="a" // Cùng stackId để xếp chồng các sân lên nhau
+                          fill={COLORS[i % COLORS.length]}
+                          radius={i === revenueByCourt.length - 1 ? [6, 6, 0, 0] : [0, 0, 0, 0]} // Bo góc cho bar trên cùng
                           barSize={40}
                         />
                       ))}
@@ -165,6 +217,7 @@ export default function ReportsPage() {
               </div>
             </div>
 
+            {/* Biểu đồ tròn - Tỉ trọng doanh thu theo sân (chiếm 1/3 chiều rộng) */}
             <div className="rounded-[2.5rem] border border-border bg-card p-8 shadow-sm flex flex-col">
               <div className="flex items-center gap-3 mb-8">
                 <div className="p-3 rounded-2xl bg-indigo-500/10 text-indigo-500">
@@ -180,10 +233,11 @@ export default function ReportsPage() {
                 {revenueByCourt.length > 0 ? (
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
+                      {/* Biểu đồ tròn dạng donut (có innerRadius và outerRadius) */}
                       <Pie data={revenueByCourt} dataKey="revenue" nameKey="name" cx="50%" cy="50%" innerRadius={60} outerRadius={100} paddingAngle={5} cornerRadius={8}>
                         {revenueByCourt.map((_: any, i: number) => <Cell key={i} fill={COLORS[i % COLORS.length]} stroke="none" />)}
                       </Pie>
-                      <Tooltip 
+                      <Tooltip
                         contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '16px' }}
                         formatter={(val: any) => [formatPrice(val), 'Doanh thu']}
                       />
@@ -194,10 +248,12 @@ export default function ReportsPage() {
                 )}
               </div>
 
+              {/* Danh sách chi tiết doanh thu từng sân bên dưới biểu đồ tròn */}
               <div className="space-y-3 mt-6">
                 {revenueByCourt.map((item: any, i: number) => (
                   <div key={i} className="flex items-center justify-between p-3 rounded-2xl bg-muted/20 border border-border/50 group hover:bg-muted/40 transition-colors">
                     <div className="flex items-center gap-3">
+                      {/* Chấm màu tương ứng với màu trên biểu đồ */}
                       <div className="size-3 rounded-full shadow-sm" style={{ background: COLORS[i % COLORS.length] }} />
                       <span className="text-xs font-black truncate max-w-[120px]">{item.name}</span>
                     </div>

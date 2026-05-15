@@ -1,8 +1,44 @@
+/**
+ * Route quản lý người dùng (Admin only).
+ *
+ * File này cung cấp các API quản lý người dùng chỉ dành cho Admin:
+ *
+ * 1. GET / - Lấy danh sách người dùng (phân trang, tìm kiếm, lọc trạng thái):
+ *    - Hỗ trợ search theo tên, email, số điện thoại (ILIKE)
+ *    - Hỗ trợ lọc theo trạng thái (Active/Locked)
+ *    - Kèm thống kê: tổng số booking, số booking hoàn thành, số booking đã hủy
+ *    - Trả về dạng { data, total, page, limit }
+ *
+ * 2. PUT /:id - Cập nhật thông tin người dùng (Admin):
+ *    - Cập nhật full_name, phone_number, is_vip, address
+ *    - Dùng COALESCE để chỉ cập nhật trường được gửi lên
+ *
+ * 3. PATCH /:id/toggle-status - Khóa/Mở khóa tài khoản (Admin):
+ *    - Nếu đang Active -> đổi thành Locked
+ *    - Nếu đang Locked -> đổi thành Active
+ *
+ * 4. PATCH /:id/toggle-vip - Bật/Tắt trạng thái VIP (Admin):
+ *    - Nếu đang VIP -> tắt VIP
+ *    - Nếu không VIP -> bật VIP
+ *    - Người dùng VIP có đặc quyền tự động đặt lịch hàng tuần
+ */
+
 const express = require('express');
 const { pool } = require('../config/database');
 const { authenticate, requireAdmin } = require('../middleware/auth');
 const router = express.Router();
 
+/**
+ * GET / - Lấy danh sách người dùng (Admin).
+ *
+ * Query params: page, limit, search, status
+ * Response: { data: [...users], total, page, limit }
+ *
+ * Mỗi user trong data có thêm thống kê:
+ * - totalBookings: tổng số đơn đã đặt
+ * - completedBookings: số đơn đã hoàn thành
+ * - cancelledBookings: số đơn đã hủy
+ */
 router.get('/', authenticate, requireAdmin, async (req, res) => {
   try {
     const { page = 1, limit = 20, search, status } = req.query;
@@ -40,6 +76,15 @@ router.get('/', authenticate, requireAdmin, async (req, res) => {
   }
 });
 
+/**
+ * PUT /:id - Cập nhật thông tin người dùng (Admin).
+ *
+ * Body: { full_name?, phone_number?, is_vip?, address? }
+ * Response: { message: 'Cập nhật thành công' }
+ *
+ * Dùng COALESCE để chỉ cập nhật các trường được gửi lên (giữ nguyên nếu không gửi).
+ * Luôn cập nhật updated_at = NOW().
+ */
 router.put('/:id', authenticate, requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
@@ -54,6 +99,14 @@ router.put('/:id', authenticate, requireAdmin, async (req, res) => {
   }
 });
 
+/**
+ * PATCH /:id/toggle-status - Khóa/Mở khóa tài khoản người dùng.
+ *
+ * Response: { message, data: { trangThai } }
+ *
+ * - Nếu tài khoản đang Active -> khóa (Locked), người dùng không thể đăng nhập
+ * - Nếu tài khoản đang Locked -> mở khóa (Active)
+ */
 router.patch('/:id/toggle-status', authenticate, requireAdmin, async (req, res) => {
   try {
     const result = await pool.query('SELECT trangThai FROM users WHERE id = $1', [req.params.id]);
@@ -66,6 +119,15 @@ router.patch('/:id/toggle-status', authenticate, requireAdmin, async (req, res) 
   }
 });
 
+/**
+ * PATCH /:id/toggle-vip - Bật/Tắt trạng thái VIP của người dùng.
+ *
+ * Response: { message, data: { isVIP } }
+ *
+ * Người dùng VIP có đặc quyền tự động đặt lịch hàng tuần.
+ * Khi bật VIP -> isVIP = true, hệ thống sẽ tự động đặt lịch mỗi thứ 2.
+ * Khi tắt VIP -> isVIP = false.
+ */
 router.patch('/:id/toggle-vip', authenticate, requireAdmin, async (req, res) => {
   try {
     const result = await pool.query('SELECT isVIP FROM users WHERE id = $1', [req.params.id]);
