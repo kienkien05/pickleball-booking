@@ -112,6 +112,10 @@ export const authService = {
   resetPassword: (data: { email: string; otp: string; new_password: string }) =>
     api.post('/auth/reset-password', data),
 
+  /** Gửi lại mã OTP mới */
+  resendOtp: (data: { email: string; type: 'register' | 'reset' }) =>
+    api.post('/auth/resend-otp', data),
+
   /** Lấy thông tin profile user hiện tại (dùng để kiểm tra token còn hiệu lực) */
   getProfile: () => api.get('/auth/profile'),
 

@@ -53,6 +53,10 @@ export default function OTPVerifyPage() {
   // Trạng thái loading khi gửi request API
   const [loading, setLoading] = useState(false)
 
+  // Countdown 30 giây trước khi cho phép gửi lại OTP
+  const [countdown, setCountdown] = useState(30)
+  const [resending, setResending] = useState(false)
+
   // Mảng refs cho 6 ô input, dùng để quản lý focus
   const inputRefs = useRef<(HTMLInputElement | null)[]>([])
 
@@ -72,6 +76,29 @@ export default function OTPVerifyPage() {
   useEffect(() => {
     if (!state?.email) navigate('/login')
   }, [state, navigate])
+
+  // Countdown timer: giảm mỗi giây, dừng khi về 0
+  useEffect(() => {
+    if (countdown <= 0) return
+    const timer = setInterval(() => setCountdown(c => c - 1), 1000)
+    return () => clearInterval(timer)
+  }, [countdown])
+
+  /**
+   * Gửi lại mã OTP mới
+   */
+  const handleResend = async () => {
+    if (!state?.email || !state?.type) return
+    setResending(true)
+    try {
+      const resendType = state.type === 'register' ? 'register' : 'reset'
+      await authService.resendOtp({ email: state.email, type: resendType })
+      toast.success('Đã gửi lại mã OTP mới (kiểm tra console)')
+      setCountdown(30)
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || 'Gửi lại mã OTP thất bại')
+    } finally { setResending(false) }
+  }
 
   /**
    * Xử lý thay đổi giá trị trong một ô OTP
@@ -203,6 +230,23 @@ export default function OTPVerifyPage() {
             {/* Nút xác nhận - hiển thị loading spinner khi đang gửi request */}
             <Button type="submit" loading={loading} className="w-full" size="lg">Xác nhận</Button>
           </form>
+
+          {/* Gửi lại mã OTP với countdown 30 giây */}
+          <div className="mt-4 pt-4 border-t border-border">
+            {countdown > 0 ? (
+              <p className="text-xs text-muted-foreground">
+                Gửi lại mã sau <span className="font-bold text-foreground">{countdown}s</span>
+              </p>
+            ) : (
+              <button
+                onClick={handleResend}
+                disabled={resending}
+                className="text-sm text-primary hover:underline font-medium disabled:opacity-50"
+              >
+                {resending ? 'Đang gửi...' : 'Gửi lại mã OTP'}
+              </button>
+            )}
+          </div>
         </div>
       </motion.div>
     </div>

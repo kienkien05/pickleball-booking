@@ -313,4 +313,51 @@ router.put('/profile', authenticate, async (req, res) => {
   }
 });
 
+/**
+ * POST /resend-otp - Gửi lại mã OTP mới.
+ *
+ * Body: { email, type: 'register' | 'reset' }
+ * Response: { message: 'Mã OTP mới đã được gửi' }
+ *
+ * Quy trình:
+ * 1. Với type='register': kiểm tra email chưa đăng ký, tạo OTP mới và cập nhật otpStore
+ * 2. Với type='reset': kiểm tra email tồn tại, tạo OTP mới và cập nhật otpStore
+ */
+router.post('/resend-otp', async (req, res) => {
+  try {
+    const { email, type } = req.body;
+    if (!email || !type) {
+      return res.status(400).json({ error: 'Thiếu thông tin' });
+    }
+
+    if (type === 'register') {
+      const existing = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
+      if (existing.rows.length > 0) {
+        return res.status(400).json({ error: 'Email đã được sử dụng' });
+      }
+      const stored = otpStore.get(`register:${email}`);
+      if (!stored) {
+        return res.status(400).json({ error: 'Không tìm thấy yêu cầu đăng ký. Vui lòng đăng ký lại.' });
+      }
+      const otp = generateOTP();
+      otpStore.set(`register:${email}`, { ...stored, otp, expires: Date.now() + 10 * 60 * 1000 });
+      console.log(`[OTP] Resend Register OTP for ${email}: ${otp}`);
+    } else if (type === 'reset') {
+      const result = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: 'Email chưa được đăng ký' });
+      }
+      const otp = generateOTP();
+      otpStore.set(`reset:${email}`, { otp, expires: Date.now() + 10 * 60 * 1000 });
+      console.log(`[OTP] Resend Reset OTP for ${email}: ${otp}`);
+    } else {
+      return res.status(400).json({ error: 'Loại OTP không hợp lệ' });
+    }
+
+    res.json({ message: 'Mã OTP mới đã được gửi (kiểm tra console)' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;

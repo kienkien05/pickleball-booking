@@ -163,7 +163,7 @@ export default function VouchersPage() {
                       </div>
                       {/* Mức giảm: hiển thị % nếu là percentage, hoặc số tiền nếu là fixed */}
                       <div className="text-sm font-bold text-primary italic">
-                         Giảm {v.loaiGiamGia === 'percentage' ? `${v.mucGiamGia}%` : formatPrice(Number(v.mucGiamGia))}
+                        Giảm {v.loaiGiamGia === 'percentage' ? `${v.mucGiamGia}%` : formatPrice(Number(v.mucGiamGia))}
                       </div>
                     </div>
                     {/* Nút copy mã code */}
@@ -194,6 +194,10 @@ export default function VouchersPage() {
       <div className="bg-muted/30 border border-border rounded-xl p-6 space-y-4 mt-8">
         <h2 className="text-lg font-bold">Làm sao để nhận thêm mã?</h2>
         <ul className="space-y-3 text-sm text-muted-foreground">
+          <li className="flex items-start gap-2">
+            <div className="size-1.5 rounded-full bg-primary mt-1.5 shrink-0" />
+            <span><strong className="text-foreground">Đăng ký tài khoản:</strong> Nhận ngay voucher mới.</span>
+          </li>
           <li className="flex items-start gap-2">
             <div className="size-1.5 rounded-full bg-primary mt-1.5 shrink-0" />
             <span><strong className="text-foreground">Tích cực đặt sân:</strong> Cứ mỗi 3 lần đặt sân thành công bạn sẽ nhận ngay 1 mã giảm giá 10%.</span>

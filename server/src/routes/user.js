@@ -130,10 +130,29 @@ router.patch('/:id/toggle-status', authenticate, requireAdmin, async (req, res) 
  */
 router.patch('/:id/toggle-vip', authenticate, requireAdmin, async (req, res) => {
   try {
-    const result = await pool.query('SELECT isVIP FROM users WHERE id = $1', [req.params.id]);
+    const userId = req.params.id;
+    const result = await pool.query('SELECT isVIP FROM users WHERE id = $1', [userId]);
     if (result.rows.length === 0) return res.status(404).json({ error: 'Không tìm thấy' });
     const newVip = !result.rows[0].isVIP;
-    await pool.query('UPDATE users SET isVIP = $1 WHERE id = $2', [newVip, req.params.id]);
+    await pool.query('UPDATE users SET isVIP = $1 WHERE id = $2', [newVip, userId]);
+
+    // Khi bật VIP: tặng voucher ưu đãi 15%, tối đa giảm 200k, hiệu lực 30 ngày
+    if (newVip) {
+      const vipCode = `VIP-${userId}-${String(Math.floor(1000 + Math.random() * 9000))}`;
+      await pool.query(
+        `INSERT INTO discounts (code, noiDung, moTa, loaiGiamGia, mucGiamGia, giamToiDa, ngayBatDau, ngayKetThuc, soLuongBanDau, nguoiDungId, trangThai)
+         VALUES ($1, $2, $3, 'percentage', 15, 200000, NOW(), NOW() + INTERVAL '30 days', 1, $4, 'Active')`,
+        [vipCode, 'Ưu đãi VIP', 'Giảm 15% (tối đa 200k) chào mừng thành viên VIP', userId]
+      );
+
+      // Gửi thông báo cho user
+      await pool.query(
+        `INSERT INTO notifications (nguoiDungId, tieuDe, noiDung, loaiThongBao)
+         VALUES ($1, $2, $3, 'vip')`,
+        [userId, 'Chúc mừng bạn đã trở thành VIP!', `Bạn được tặng mã giảm giá ${vipCode} giảm 15% (tối đa 200k). Mã có hiệu lực trong 30 ngày.`]
+      );
+    }
+
     res.json({ message: 'Đã thay đổi VIP', data: { isVIP: newVip } });
   } catch (err) {
     res.status(500).json({ error: err.message });
