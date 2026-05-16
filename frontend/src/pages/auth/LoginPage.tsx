@@ -23,8 +23,8 @@
  *   - / hoặc /admin (sau khi xác thực thành công)
  */
 
-import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Sun, Moon, Eye, EyeOff, Mail, Lock, User, Phone } from 'lucide-react'
 import { toast } from 'sonner'
@@ -61,6 +61,16 @@ export default function LoginPage() {
 
   // Hook điều hướng
   const navigate = useNavigate()
+  // Đọc redirect query param để quay lại trang trước sau khi đăng nhập
+  const [searchParams] = useSearchParams()
+  const redirectTo = searchParams.get('redirect')
+
+  // Hiển thị thông báo khi người dùng được chuyển hướng đến trang đăng nhập từ một trang yêu cầu đăng nhập
+  useEffect(() => {
+    if (redirectTo) {
+      toast.info('Vui lòng đăng nhập để tiếp tục')
+    }
+  }, [])
 
   // Lấy theme hiện tại và hàm toggle theme để chuyển đổi sáng/tối
   const { theme, toggleTheme } = useThemeStore()
@@ -84,11 +94,11 @@ export default function LoginPage() {
         // Trường hợp server trả về token ngay -> lưu vào authStore và chuyển hướng
         useAuthStore.getState().login({ token: data.data.token, user: data.data.user })
         toast.success('Đăng nhập thành công!')
-        // Admin -> /admin, user thường -> /
-        navigate(data.data.user.role === 'admin' ? '/admin' : '/')
+        // Nếu có redirect param thì quay lại trang đó, nếu không thì admin -> /admin, user -> /
+        navigate(redirectTo || (data.data.user.role === 'admin' ? '/admin' : '/'))
       } else {
         // Trường hợp cần xác thực OTP -> chuyển sang trang OTP
-        navigate('/verify-otp', { state: { email, type: 'login' } })
+        navigate('/verify-otp', { state: { email, type: 'login', redirect: redirectTo } })
         toast.info('Vui lòng nhập mã OTP đã gửi vào email')
       }
     } catch (err: any) {

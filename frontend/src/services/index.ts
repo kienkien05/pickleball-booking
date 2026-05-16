@@ -259,7 +259,7 @@ export const discountService = {
  */
 export const adminService = {
   /** Lấy dữ liệu thống kê dashboard (tổng quan + biểu đồ 7 ngày) */
-  getDashboard: () => api.get('/admin/dashboard'),
+  getDashboard: (params?: { month?: string }) => api.get('/admin/dashboard', { params }),
 
   /** Lấy báo cáo doanh thu theo khoảng ngày */
   getReports: (params?: { startDate?: string; endDate?: string }) =>

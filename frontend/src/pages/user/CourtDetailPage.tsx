@@ -181,6 +181,7 @@ export default function CourtDetailPage() {
   const { data: servicesData } = useQuery({
     queryKey: ['services'],
     queryFn: () => serviceService.getAll().then(r => r.data.data ?? r.data ?? []),
+    enabled: isAuthenticated,
   })
 
   /**
@@ -614,34 +615,32 @@ export default function CourtDetailPage() {
                   {timeSlots.map((slot: any) => {
                     const isSelected = selectedSlots.includes(String(slot.id))
                     const isBooked = slot.isBooked
+                    const isExpired = slot.isExpired
 
-                    // Real-time locking logic:
-                    // Xác định xem khung giờ có bị khóa không dựa trên thời gian thực
+                    // Real-time locking logic cho ngày hôm nay
                     const todayStr = new Date().toISOString().slice(0, 10)
                     const currentTimeStr = now.toTimeString().slice(0, 5)
 
-                    let isLocked = isBooked
-                    if (!isLocked && selectedDate === todayStr) {
-                      // Kiểm tra nếu đã qua giờ kết thúc
+                    let isRealTimeLocked = false
+                    if (selectedDate === todayStr) {
                       const isPastEnd = (slot.gioKetThuc || '').substring(0, 5) <= currentTimeStr
-                      // Kiểm tra nếu đã vượt ngưỡng khóa (tính bằng phút từ giờ bắt đầu)
                       const [h, m] = (slot.gioBatDau || '00:00').split(':').map(Number)
                       const startTotal = h * 60 + m
                       const nowTotal = now.getHours() * 60 + now.getMinutes()
                       const isPastThreshold = nowTotal >= startTotal + BOOKING_LOCK_THRESHOLD_MINS
-                      isLocked = isPastEnd || isPastThreshold
-                    } else if (selectedDate < todayStr) {
-                      // Ngày trong quá khứ -> luôn khóa
-                      isLocked = true
+                      isRealTimeLocked = isPastEnd || isPastThreshold
                     }
 
+                    const isPastDate = selectedDate < todayStr
+                    const isLocked = isBooked || isExpired || isRealTimeLocked || isPastDate
+
                     return (
-                      <button key={slot.id} disabled={isLocked} onClick={() => handleSlotToggle(String(slot.id))}
-                        className={`p-3 rounded-lg border text-sm font-medium transition-all ${isLocked ? 'border-border bg-muted/50 text-muted-foreground cursor-not-allowed' :
+                      <button key={slot.id} disabled={isLocked || !isAuthenticated} onClick={() => { if (!isAuthenticated) { navigate(`/login?redirect=/courts/${id}`); return } handleSlotToggle(String(slot.id)) }}
+                        className={`p-3 rounded-lg border text-sm font-medium transition-all ${isLocked || !isAuthenticated ? 'border-border bg-muted/50 text-muted-foreground cursor-not-allowed' :
                             isSelected ? 'border-primary bg-primary/10 text-primary' : 'border-border hover:border-primary/50 hover:bg-accent'}`}>
                         <div>{(slot.gioBatDau || '').substring(0, 5)} - {(slot.gioKetThuc || '').substring(0, 5)}</div>
                         <div className="text-xs text-muted-foreground mt-1">{formatPrice(Number(slot.mucGia || 0))}</div>
-                        {isLocked && <div className="text-xs text-destructive mt-1">{isBooked ? 'Đã đặt' : 'Đã khóa'}</div>}
+                        {isLocked && <div className="text-xs text-destructive mt-1">{isBooked ? 'Đã đặt' : 'Đã quá giờ'}</div>}
                       </button>
                     )
                   })}
@@ -649,87 +648,63 @@ export default function CourtDetailPage() {
               )}
             </div>
 
-            {/* ---- DỊCH VỤ ĐI KÈM ---- */}
-            {/*
-             * Danh sách dịch vụ đi kèm có thể đặt thêm.
-             * Chỉ hiển thị các dịch vụ có trạng thái "Còn hàng".
-             * Mỗi dịch vụ có nút +/- để tăng/giảm số lượng.
-             * Khi số lượng = 0, dịch vụ bị loại khỏi object selectedServices.
-             */}
-            {services.length > 0 && (
+            {isAuthenticated ? (<>
+              {/* ---- DỊCH VỤ ĐI KÈM ---- */}
+              {services.length > 0 && (
+                <div className="rounded-xl border border-border bg-card p-6">
+                  <h2 className="font-semibold mb-4">Dịch vụ đi kèm</h2>
+                  <div className="space-y-3">
+                    {services.filter((s: any) => s.trangThai === 'Còn hàng').map((svc: any) => (
+                      <div key={svc.id} className="flex items-center justify-between p-3 rounded-lg border border-border">
+                        <div>
+                          <p className="font-medium text-sm">{svc.tenDichVu}</p>
+                          <p className="text-xs text-muted-foreground">{formatPrice(Number(svc.donGia))}</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button onClick={() => setSelectedServices(prev => {
+                            const cur = prev[String(svc.id)] || 0
+                            if (cur <= 1) { const { [String(svc.id)]: _, ...rest } = prev; return rest }
+                            return { ...prev, [String(svc.id)]: cur - 1 }
+                          })} className="size-8 rounded-md border border-input flex items-center justify-center hover:bg-muted">-</button>
+                          <span className="w-8 text-center text-sm">{selectedServices[String(svc.id)] || 0}</span>
+                          <button onClick={() => setSelectedServices(prev => ({
+                            ...prev, [String(svc.id)]: (prev[String(svc.id)] || 0) + 1
+                          }))} className="size-8 rounded-md border border-input flex items-center justify-center hover:bg-muted">+</button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* ---- PHƯƠNG THỨC THANH TOÁN ---- */}
               <div className="rounded-xl border border-border bg-card p-6">
-                <h2 className="font-semibold mb-4">Dịch vụ đi kèm</h2>
-                <div className="space-y-3">
-                  {services.filter((s: any) => s.trangThai === 'Còn hàng').map((svc: any) => (
-                    <div key={svc.id} className="flex items-center justify-between p-3 rounded-lg border border-border">
-                      <div>
-                        <p className="font-medium text-sm">{svc.tenDichVu}</p>
-                        <p className="text-xs text-muted-foreground">{formatPrice(Number(svc.donGia))}</p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {/* Nút giảm số lượng: nếu số lượng <= 1 thì xóa khỏi object */}
-                        <button onClick={() => setSelectedServices(prev => {
-                          const cur = prev[String(svc.id)] || 0
-                          if (cur <= 1) { const { [String(svc.id)]: _, ...rest } = prev; return rest }
-                          return { ...prev, [String(svc.id)]: cur - 1 }
-                        })} className="size-8 rounded-md border border-input flex items-center justify-center hover:bg-muted">-</button>
-                        <span className="w-8 text-center text-sm">{selectedServices[String(svc.id)] || 0}</span>
-                        {/* Nút tăng số lượng */}
-                        <button onClick={() => setSelectedServices(prev => ({
-                          ...prev, [String(svc.id)]: (prev[String(svc.id)] || 0) + 1
-                        }))} className="size-8 rounded-md border border-input flex items-center justify-center hover:bg-muted">+</button>
-                      </div>
-                    </div>
+                <h2 className="font-semibold mb-4">Phương thức thanh toán</h2>
+                <div className="grid grid-cols-2 gap-3">
+                  {[
+                    { key: 'cash' as const, label: 'Tiền mặt tại sân', desc: 'Thanh toán khi đến chơi', icon: '💵' },
+                    { key: 'transfer' as const, label: 'Chuyển khoản NH', desc: 'MB Bank, Vietcombank...', icon: '🏦' },
+                    { key: 'momo' as const, label: 'Ví MoMo', desc: 'Quét mã QR qua MoMo', icon: '📱' },
+                    { key: 'visa' as const, label: 'Visa/Mastercard', desc: 'Thẻ tín dụng quốc tế', icon: '💳' },
+                  ].map(pm => (
+                    <button key={pm.key} onClick={() => setPaymentMethod(pm.key)}
+                      className={`p-3 rounded-lg border text-sm text-left transition-all ${paymentMethod === pm.key ? 'border-primary bg-primary/10 text-primary' : 'border-border hover:bg-accent'}`}>
+                      <span className="text-lg">{pm.icon}</span>
+                      <p className="font-medium mt-1">{pm.label}</p>
+                      <p className="text-xs text-muted-foreground">{pm.desc}</p>
+                    </button>
                   ))}
                 </div>
               </div>
-            )}
 
-            {/* ---- PHƯƠNG THỨC THANH TOÁN ---- */}
-            {/*
-             * Grid 2x2 các phương thức thanh toán.
-             * Người dùng chọn 1 trong 4: tiền mặt, chuyển khoản, MoMo, Visa/Mastercard.
-             * Phương thức đang chọn được highlight với border primary.
-             */}
-            <div className="rounded-xl border border-border bg-card p-6">
-              <h2 className="font-semibold mb-4">Phương thức thanh toán</h2>
-              <div className="grid grid-cols-2 gap-3">
-                {[
-                  { key: 'cash' as const, label: 'Tiền mặt tại sân', desc: 'Thanh toán khi đến chơi', icon: '💵' },
-                  { key: 'transfer' as const, label: 'Chuyển khoản NH', desc: 'MB Bank, Vietcombank...', icon: '🏦' },
-                  { key: 'momo' as const, label: 'Ví MoMo', desc: 'Quét mã QR qua MoMo', icon: '📱' },
-                  { key: 'visa' as const, label: 'Visa/Mastercard', desc: 'Thẻ tín dụng quốc tế', icon: '💳' },
-                ].map(pm => (
-                  <button key={pm.key} onClick={() => setPaymentMethod(pm.key)}
-                    className={`p-3 rounded-lg border text-sm text-left transition-all ${paymentMethod === pm.key ? 'border-primary bg-primary/10 text-primary' : 'border-border hover:bg-accent'}`}>
-                    <span className="text-lg">{pm.icon}</span>
-                    <p className="font-medium mt-1">{pm.label}</p>
-                    <p className="text-xs text-muted-foreground">{pm.desc}</p>
-                  </button>
-                ))}
-              </div>
-            </div>
+              {/* ---- TÓM TẮT ĐẶT SÂN ---- */}
+              {selectedSlots.length > 0 && (
+                <div className="rounded-xl border border-border bg-card p-6 sticky bottom-20 sm:bottom-0 z-10">
+                  <h2 className="font-semibold mb-4 text-primary flex items-center gap-2">
+                    <Ticket className="size-5" /> Mã giảm giá
+                  </h2>
 
-            {/* ---- TÓM TẮT ĐẶT SÂN ---- */}
-            {/*
-             * Phần tóm tắt chỉ hiển thị khi người dùng đã chọn ít nhất 1 khung giờ.
-             * Bao gồm:
-             * - Ô nhập mã giảm giá + nút Áp dụng.
-             * - Danh sách voucher có sẵn (dạng tag có thể click để áp dụng nhanh).
-             * - Thông báo trạng thái áp dụng voucher thành công.
-             * - Bảng giá: tiền sân, tiền dịch vụ, giảm giá, tổng tiền.
-             * - Toggle tự động đặt lịch (chỉ cho VIP).
-             * - Nút "Đặt sân" để mở modal xác nhận.
-             */}
-            {selectedSlots.length > 0 && (
-              <div className="rounded-xl border border-border bg-card p-6 sticky bottom-20 sm:bottom-0 z-10">
-                <h2 className="font-semibold mb-4 text-primary flex items-center gap-2">
-                  <Ticket className="size-5" /> Mã giảm giá
-                </h2>
-
-                {isAuthenticated ? (
                   <div className="space-y-3 mb-6">
-                    {/* Ô nhập mã giảm giá + nút Áp dụng */}
                     <div className="flex gap-2">
                       <input
                         type="text"
@@ -750,15 +725,10 @@ export default function CourtDetailPage() {
                       </Button>
                     </div>
 
-                    {/* Danh sách voucher có sẵn của người dùng */}
                     {myDiscounts && myDiscounts.length > 0 && (
                       <div className="space-y-2">
                         <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Voucher của bạn</p>
                         <div className="flex flex-wrap gap-2">
-                          {/*
-                           * Lọc voucher: chỉ hiển thị các voucher không giới hạn số lượng
-                           * (soLuongBanDau === 0) hoặc còn lượt sử dụng (soLuongDaDung < soLuongBanDau).
-                           */}
                           {myDiscounts.filter((d: any) => d.soLuongBanDau === 0 || d.soLuongDaDung < d.soLuongBanDau).map((disc: any) => (
                             <button
                               key={disc.id}
@@ -779,66 +749,72 @@ export default function CourtDetailPage() {
                                 <p className="text-xs font-bold truncate">{disc.code}</p>
                                 <p className="text-[10px] text-muted-foreground truncate">{disc.noiDung}</p>
                               </div>
-                              {/* Removed confusing quantity badge */}
                             </button>
                           ))}
                         </div>
                       </div>
                     )}
                   </div>
-                ) : (
-                  <p className="text-xs text-muted-foreground mb-4 italic">Đăng nhập để xem kho voucher của bạn</p>
-                )}
 
-                {/* Thông báo đã áp dụng mã giảm giá thành công */}
-                {appliedDiscount && (
-                  <div className="mb-4 p-3 rounded-lg bg-success/5 border border-success/20 text-xs text-success flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="size-2 rounded-full bg-success animate-pulse" />
-                      <span>Đã giảm <strong>{appliedDiscount.loaiGiamGia === 'percentage' ? `${appliedDiscount.mucGiamGia}%` : formatPrice(appliedDiscount.mucGiamGia)}</strong> từ mã <strong>{appliedDiscount.code}</strong></span>
-                    </div>
-                    <button onClick={() => { setAppliedDiscount(null); setDiscountCode('') }} className="font-bold hover:underline">Gỡ</button>
-                  </div>
-                )}
-
-                {/* Bảng tóm tắt giá */}
-                <h2 className="font-semibold mb-4">Tóm tắt đặt sân</h2>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between"><span>Tiền sân</span><span>{formatPrice(courtPrice)}</span></div>
-                  {servicesPrice > 0 && <div className="flex justify-between"><span>Dịch vụ</span><span>{formatPrice(servicesPrice)}</span></div>}
-                  {discountAmount > 0 && (
-                    <div className="flex justify-between text-success">
-                      <span>Giảm giá</span>
-                      <span>-{formatPrice(discountAmount)}</span>
-                    </div>
-                  )}
-                  <div className="flex justify-between font-semibold text-base border-t border-border pt-2">
-                    <span>Tổng tiền</span><span>{formatPrice(totalPrice)}</span>
-                  </div>
-                </div>
-                <div className="mt-4 space-y-3">
-                  {/* Toggle tự động đặt lịch - chỉ hiển thị cho người dùng VIP */}
-                  {isVIP && (
-                    <div className="flex items-center justify-between p-3 rounded-lg border border-amber-500/30 bg-amber-500/5">
+                  {appliedDiscount && (
+                    <div className="mb-4 p-3 rounded-lg bg-success/5 border border-success/20 text-xs text-success flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <RefreshCw className="size-4 text-amber-500" />
-                        <div>
-                          <p className="text-sm font-medium">Tự động đặt lịch tuần sau</p>
-                          <p className="text-xs text-muted-foreground">Tự động đặt lại khung giờ này cho tuần kế tiếp</p>
-                        </div>
+                        <div className="size-2 rounded-full bg-success animate-pulse" />
+                        <span>Đã giảm <strong>{appliedDiscount.loaiGiamGia === 'percentage' ? `${appliedDiscount.mucGiamGia}%` : formatPrice(appliedDiscount.mucGiamGia)}</strong> từ mã <strong>{appliedDiscount.code}</strong></span>
                       </div>
-                      {/* Custom toggle switch */}
-                      <button onClick={() => setAutoBooking(!autoBooking)}
-                        className={`relative w-11 h-6 rounded-full transition-colors duration-200 flex items-center px-0.5 ${autoBooking ? 'bg-amber-500' : 'bg-muted-foreground/30'}`}>
-                        <span className={`size-5 rounded-full bg-white shadow transition-transform duration-200 ${autoBooking ? 'translate-x-5' : 'translate-x-0'}`} />
-                      </button>
+                      <button onClick={() => { setAppliedDiscount(null); setDiscountCode('') }} className="font-bold hover:underline">Gỡ</button>
                     </div>
                   )}
-                  {/* Nút đặt sân -> mở modal xác nhận */}
-                  <Button className="w-full" size="lg" onClick={() => setConfirmOpen(true)}>
-                    <ShoppingCart className="size-4 mr-2" /> Đặt sân
-                  </Button>
+
+                  <h2 className="font-semibold mb-4">Tóm tắt đặt sân</h2>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between"><span>Tiền sân</span><span>{formatPrice(courtPrice)}</span></div>
+                    {servicesPrice > 0 && <div className="flex justify-between"><span>Dịch vụ</span><span>{formatPrice(servicesPrice)}</span></div>}
+                    {discountAmount > 0 && (
+                      <div className="flex justify-between text-success">
+                        <span>Giảm giá</span>
+                        <span>-{formatPrice(discountAmount)}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between font-semibold text-base border-t border-border pt-2">
+                      <span>Tổng tiền</span><span>{formatPrice(totalPrice)}</span>
+                    </div>
+                  </div>
+                  <div className="mt-4 space-y-3">
+                    {isVIP && (
+                      <div className="flex items-center justify-between p-3 rounded-lg border border-amber-500/30 bg-amber-500/5">
+                        <div className="flex items-center gap-2">
+                          <RefreshCw className="size-4 text-amber-500" />
+                          <div>
+                            <p className="text-sm font-medium">Tự động đặt lịch tuần sau</p>
+                            <p className="text-xs text-muted-foreground">Tự động đặt lại khung giờ này cho tuần kế tiếp</p>
+                          </div>
+                        </div>
+                        <button onClick={() => setAutoBooking(!autoBooking)}
+                          className={`relative w-11 h-6 rounded-full transition-colors duration-200 flex items-center px-0.5 ${autoBooking ? 'bg-amber-500' : 'bg-muted-foreground/30'}`}>
+                          <span className={`size-5 rounded-full bg-white shadow transition-transform duration-200 ${autoBooking ? 'translate-x-5' : 'translate-x-0'}`} />
+                        </button>
+                      </div>
+                    )}
+                    <Button className="w-full" size="lg" onClick={() => setConfirmOpen(true)}>
+                      <ShoppingCart className="size-4 mr-2" /> Đặt sân
+                    </Button>
+                  </div>
                 </div>
+              )}
+            </>) : (
+              /* ---- ĐĂNG NHẬP ĐỂ ĐẶT SÂN ---- */
+              <div className="rounded-xl border border-primary/30 bg-primary/5 p-8 text-center space-y-4">
+                <ShoppingCart className="size-12 mx-auto text-primary/60" />
+                <div>
+                  <h3 className="text-lg font-bold">Đăng nhập để đặt sân</h3>
+                  <p className="text-sm text-muted-foreground mt-2 max-w-sm mx-auto">
+                    Vui lòng đăng nhập để đặt sân, chọn dịch vụ đi kèm và nhận ưu đãi từ voucher.
+                  </p>
+                </div>
+                <Button className="mx-auto" size="lg" onClick={() => navigate(`/login?redirect=/courts/${id}`)}>
+                  Đăng nhập ngay
+                </Button>
               </div>
             )}
             </>)}

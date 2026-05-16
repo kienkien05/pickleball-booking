@@ -37,15 +37,88 @@ const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'
  */
 export default function ReportsPage() {
   const now = new Date()
-  /** Chuỗi ngày hôm nay định dạng YYYY-MM-DD - dùng làm giá trị mặc định cho bộ lọc */
+  /** Chuỗi ngày hôm nay định dạng YYYY-MM-DD */
   const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
 
   /** Ngày bắt đầu của khoảng thời gian báo cáo (mặc định: hôm nay) */
   const [startDate, setStartDate] = useState(todayStr)
   /** Ngày kết thúc của khoảng thời gian báo cáo (mặc định: hôm nay) */
   const [endDate, setEndDate] = useState(todayStr)
+  /** Tháng được chọn từ dropdown (null = không chọn) */
+  const [quickMonth, setQuickMonth] = useState('')
   /** Trạng thái đang xuất file Excel */
   const [exporting, setExporting] = useState(false)
+
+  /**
+   * Danh sách các tháng gần đây cho dropdown chọn nhanh
+   */
+  const monthOptions = (() => {
+    const months: { value: string; label: string }[] = []
+    for (let i = 0; i < 12; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+      const value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+      const label = `Tháng ${d.getMonth() + 1}/${d.getFullYear()}`
+      months.push({ value, label })
+    }
+    return months
+  })()
+
+  /**
+   * Đặt khoảng ngày theo tháng được chọn
+   */
+  const handleMonthSelect = (value: string) => {
+    setQuickMonth(value)
+    if (!value) return
+    const [y, m] = value.split('-').map(Number)
+    const daysInMonth = new Date(y, m, 0).getDate()
+    setStartDate(`${value}-01`)
+    setEndDate(`${value}-${String(daysInMonth).padStart(2, '0')}`)
+  }
+
+  /**
+   * Các nút chọn nhanh khoảng thời gian
+   */
+  const quickRanges = [
+    {
+      label: 'Hôm nay',
+      get: () => { setStartDate(todayStr); setEndDate(todayStr); setQuickMonth('') }
+    },
+    {
+      label: '7 ngày qua',
+      get: () => {
+        const d = new Date(now); d.setDate(d.getDate() - 6)
+        setStartDate(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`)
+        setEndDate(todayStr); setQuickMonth('')
+      }
+    },
+    {
+      label: '30 ngày qua',
+      get: () => {
+        const d = new Date(now); d.setDate(d.getDate() - 29)
+        setStartDate(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`)
+        setEndDate(todayStr); setQuickMonth('')
+      }
+    },
+    {
+      label: 'Tháng này',
+      get: () => {
+        const value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+        const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()
+        setStartDate(`${value}-01`); setEndDate(`${value}-${String(daysInMonth).padStart(2, '0')}`)
+        setQuickMonth('')
+      }
+    },
+    {
+      label: 'Tháng trước',
+      get: () => {
+        const d = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+        const value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+        const daysInMonth = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate()
+        setStartDate(`${value}-01`); setEndDate(`${value}-${String(daysInMonth).padStart(2, '0')}`)
+        setQuickMonth('')
+      }
+    },
+  ]
 
   /**
    * Lấy dữ liệu báo cáo từ API.
@@ -108,22 +181,49 @@ export default function ReportsPage() {
         </Button>
       </div>
 
-      {/* Bộ lọc khoảng thời gian: Từ ngày - Đến ngày */}
-      <div className="bg-card p-6 rounded-[2rem] border border-border shadow-sm flex flex-wrap items-end gap-6">
-        <div className="space-y-2">
-          <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Từ ngày</label>
-          <div className="relative">
-            <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-            <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)}
-              className="h-12 pl-12 pr-6 rounded-2xl border border-border bg-muted/30 outline-none focus:border-primary transition-all font-bold text-sm" />
-          </div>
+      {/* Bộ lọc khoảng thời gian */}
+      <div className="bg-card p-6 rounded-[2rem] border border-border shadow-sm space-y-5">
+        {/* Nút chọn nhanh */}
+        <div className="flex flex-wrap items-center gap-2">
+          {quickRanges.map((range, i) => (
+            <button
+              key={i}
+              onClick={range.get}
+              className="px-4 py-2 rounded-xl text-xs font-bold bg-muted/50 hover:bg-muted border border-border transition-colors"
+            >
+              {range.label}
+            </button>
+          ))}
+          {/* Dropdown chọn tháng cụ thể */}
+          <select
+            value={quickMonth}
+            onChange={e => handleMonthSelect(e.target.value)}
+            className="h-9 px-3 rounded-xl border border-border bg-muted/50 text-xs font-bold outline-none focus:border-primary transition-colors"
+          >
+            <option value="">Chọn tháng...</option>
+            {monthOptions.map(m => (
+              <option key={m.value} value={m.value}>{m.label}</option>
+            ))}
+          </select>
         </div>
-        <div className="space-y-2">
-          <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Đến ngày</label>
-          <div className="relative">
-            <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-            <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)}
-              className="h-12 pl-12 pr-6 rounded-2xl border border-border bg-muted/30 outline-none focus:border-primary transition-all font-bold text-sm" />
+
+        {/* Date inputs: Từ ngày - Đến ngày */}
+        <div className="flex flex-wrap items-end gap-6">
+          <div className="space-y-2">
+            <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Từ ngày</label>
+            <div className="relative">
+              <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+              <input type="date" value={startDate} onChange={e => { setStartDate(e.target.value); setQuickMonth('') }}
+                className="h-12 pl-12 pr-6 rounded-2xl border border-border bg-muted/30 outline-none focus:border-primary transition-all font-bold text-sm" />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Đến ngày</label>
+            <div className="relative">
+              <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+              <input type="date" value={endDate} onChange={e => { setEndDate(e.target.value); setQuickMonth('') }}
+                className="h-12 pl-12 pr-6 rounded-2xl border border-border bg-muted/30 outline-none focus:border-primary transition-all font-bold text-sm" />
+            </div>
           </div>
         </div>
       </div>

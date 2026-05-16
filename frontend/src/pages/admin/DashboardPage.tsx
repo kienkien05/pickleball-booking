@@ -18,9 +18,10 @@
  *   - Animation fade-in + slide-up tuần tự cho từng card (dùng framer-motion)
  */
 
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
-import { MapPin, Users, ClipboardList, DollarSign } from 'lucide-react'
+import { MapPin, Users, ClipboardList, DollarSign, Calendar } from 'lucide-react'
 import { adminService } from '@/services'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { formatPrice } from '@/lib/utils'
@@ -28,18 +29,38 @@ import { formatPrice } from '@/lib/utils'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 
 /**
+ * Tạo danh sách các tháng gần đây để chọn (6 tháng gần nhất)
+ */
+function getRecentMonths(): { value: string; label: string }[] {
+  const months: { value: string; label: string }[] = []
+  const now = new Date()
+  for (let i = 0; i < 6; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+    const value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+    const label = `Tháng ${d.getMonth() + 1}/${d.getFullYear()}`
+    months.push({ value, label })
+  }
+  return months
+}
+
+const MONTH_OPTIONS = getRecentMonths()
+
+/**
  * Trang tổng quan admin
  * @description Hiển thị các chỉ số thống kê quan trọng và biểu đồ doanh thu
  * @returns Giao diện dashboard với cards thống kê và biểu đồ cột
  */
 export default function DashboardPage() {
+  // null = 7 ngày qua, string = tháng cụ thể
+  const [selectedMonth, setSelectedMonth] = useState<string | null>(null)
+
   /**
    * Truy vấn dữ liệu dashboard từ API admin
-   * @description Lấy đồng thời stats (số liệu tổng quan) và revenueByDay (dữ liệu 7 ngày)
+   * Khi selectedMonth khác null -> lấy doanh thu theo tháng, ngược lại lấy 7 ngày qua
    */
   const { data, isLoading } = useQuery({
-    queryKey: ['admin', 'dashboard'],
-    queryFn: () => adminService.getDashboard().then(r => r.data.data ?? r.data),
+    queryKey: ['admin', 'dashboard', selectedMonth],
+    queryFn: () => adminService.getDashboard(selectedMonth ? { month: selectedMonth } : undefined).then(r => r.data.data ?? r.data),
   })
 
   // Dữ liệu thống kê tổng quan: { totalCourts, totalUsers, todayBookings, monthlyRevenue }
@@ -82,9 +103,29 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      {/* Biểu đồ doanh thu 7 ngày qua */}
+      {/* Biểu đồ doanh thu */}
       <div className="rounded-xl border border-border bg-card p-5">
-        <h2 className="font-semibold mb-4">Doanh thu 7 ngày qua</h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="font-semibold">{selectedMonth ? `Doanh thu ${MONTH_OPTIONS.find(m => m.value === selectedMonth)?.label}` : 'Doanh thu 7 ngày qua'}</h2>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setSelectedMonth(null)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${!selectedMonth ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'}`}
+            >
+              7 ngày
+            </button>
+            <select
+              value={selectedMonth || ''}
+              onChange={e => setSelectedMonth(e.target.value || null)}
+              className="h-8 px-3 rounded-lg border border-input bg-background text-xs font-medium focus:ring-2 focus:ring-ring outline-none"
+            >
+              <option value="">Chọn tháng...</option>
+              {MONTH_OPTIONS.map(m => (
+                <option key={m.value} value={m.value}>{m.label}</option>
+              ))}
+            </select>
+          </div>
+        </div>
         {isLoading ? (
           // Trạng thái loading: skeleton chiếm toàn bộ chiều cao biểu đồ
           <div className="h-[300px] flex items-center justify-center"><Skeleton className="h-full w-full" /></div>
@@ -95,7 +136,7 @@ export default function DashboardPage() {
               {/* Lưới ngang (không có lưới dọc), nét đứt */}
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
               {/* Trục X: ngày, font size 12 */}
-              <XAxis dataKey="date" tick={{ fontSize: 12 }} stroke="hsl(var(--muted-foreground))" />
+              <XAxis dataKey="date" tick={{ fontSize: 12 }} stroke="hsl(var(--muted-foreground))" interval={chartData.length > 15 ? 2 : 0} />
               {/* Trục Y: doanh thu, hiển thị dạng k (nghìn), vd: 500k */}
               <YAxis tick={{ fontSize: 12 }} stroke="hsl(var(--muted-foreground))" tickFormatter={(v) => `${v/1000}k`} />
               {/* Tooltip khi hover vào cột: hiển thị doanh thu đã format ra VND */}
@@ -110,7 +151,7 @@ export default function DashboardPage() {
         ) : (
           // Trạng thái không có dữ liệu
           <div className="flex items-center justify-center h-[300px] text-muted-foreground">
-            <p>Chưa có dữ liệu doanh thu trong 7 ngày qua</p>
+            <p>{selectedMonth ? 'Chưa có dữ liệu doanh thu trong tháng này' : 'Chưa có dữ liệu doanh thu trong 7 ngày qua'}</p>
           </div>
         )}
       </div>

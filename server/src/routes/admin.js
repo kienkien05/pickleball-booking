@@ -66,6 +66,8 @@ const router = express.Router();
  */
 router.get('/dashboard', authenticate, requireAdmin, async (req, res) => {
   try {
+    const { month } = req.query; // YYYY-MM, vd: "2026-05"
+
     // Lấy các chỉ số thống kê cơ bản từ database
     const totalCourts = await pool.query('SELECT COUNT(*) FROM courts');
     const totalUsers = await pool.query("SELECT COUNT(*) FROM users WHERE vaiTro != 'Admin'");
@@ -74,9 +76,50 @@ router.get('/dashboard', authenticate, requireAdmin, async (req, res) => {
       "SELECT COALESCE(SUM(soTien), 0) as total FROM payments WHERE ngayGiaoDich >= date_trunc('month', CURRENT_DATE)"
     );
 
-    // Lấy doanh thu 7 ngày gần nhất từ DB (đã convert sang múi giờ VN)
-    // Dùng AT TIME ZONE để chuyển từ UTC sang Asia/Ho_Chi_Minh
-    const dbRevenue = await pool.query(
+    let dbRevenue;
+    if (month && /^\d{4}-\d{2}$/.test(month)) {
+      // Lấy doanh thu theo ngày cho tháng được chọn
+      const [y, m] = month.split('-').map(Number);
+      const daysInMonth = new Date(y, m, 0).getDate(); // m là 1-based, Date constructor nhận 0-based month
+      dbRevenue = await pool.query(
+        `SELECT TO_CHAR(ngayGiaoDich AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh', 'DD/MM') as date, SUM(soTien) as revenue
+         FROM payments
+         WHERE (ngayGiaoDich AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh')::date >= $1::date
+           AND (ngayGiaoDich AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh')::date <= $2::date
+         GROUP BY 1`,
+        [`${month}-01`, `${month}-${String(daysInMonth).padStart(2, '0')}`]
+      );
+
+      // Tạo mảng đủ tất cả các ngày trong tháng
+      const revenueLookup = {};
+      dbRevenue.rows.forEach(row => {
+        revenueLookup[row.date] = parseFloat(row.revenue);
+      });
+
+      const revenueByDay = [];
+      for (let d = 1; d <= daysInMonth; d++) {
+        const dateStr = `${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}`;
+        revenueByDay.push({
+          date: dateStr,
+          revenue: revenueLookup[dateStr] || 0
+        });
+      }
+
+      return res.json({
+        data: {
+          stats: {
+            totalCourts: parseInt(totalCourts.rows[0].count) || 0,
+            totalUsers: parseInt(totalUsers.rows[0].count) || 0,
+            todayBookings: parseInt(todayBookings.rows[0].count) || 0,
+            monthlyRevenue: parseFloat(monthlyRevenue.rows[0].total) || 0,
+          },
+          revenueByDay
+        }
+      });
+    }
+
+    // Mặc định: lấy doanh thu 7 ngày gần nhất
+    dbRevenue = await pool.query(
       `SELECT TO_CHAR(ngayGiaoDich AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh', 'DD/MM') as date, SUM(soTien) as revenue
        FROM payments
        WHERE (ngayGiaoDich AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh')::date >= (CURRENT_DATE AT TIME ZONE 'Asia/Ho_Chi_Minh') - INTERVAL '7 days'
@@ -84,25 +127,24 @@ router.get('/dashboard', authenticate, requireAdmin, async (req, res) => {
     );
 
     // Tạo map tra cứu nhanh doanh thu theo ngày (key = "DD/MM")
-    const revenueLookup = {};
+    const revenueLookup7 = {};
     dbRevenue.rows.forEach(row => {
-      revenueLookup[row.date] = parseFloat(row.revenue);
+      revenueLookup7[row.date] = parseFloat(row.revenue);
     });
 
     // Tạo mảng đủ 7 ngày (dùng giờ local server), đảm bảo ngày nào cũng có dữ liệu
-    // Ngay cả khi không có doanh thu cũng hiển thị revenue = 0
-    const revenueByDay = [];
+    const revenueByDay7 = [];
     for (let i = 6; i >= 0; i--) {
-      const d = new Date(); // Giờ local của server
+      const d = new Date();
       d.setDate(d.getDate() - i);
 
       const day = String(d.getDate()).padStart(2, '0');
-      const month = String(d.getMonth() + 1).padStart(2, '0');
-      const dateStr = `${day}/${month}`;
+      const monthStr = String(d.getMonth() + 1).padStart(2, '0');
+      const dateStr = `${day}/${monthStr}`;
 
-      revenueByDay.push({
+      revenueByDay7.push({
         date: dateStr,
-        revenue: revenueLookup[dateStr] || 0
+        revenue: revenueLookup7[dateStr] || 0
       });
     }
 
@@ -114,7 +156,7 @@ router.get('/dashboard', authenticate, requireAdmin, async (req, res) => {
           todayBookings: parseInt(todayBookings.rows[0].count) || 0,
           monthlyRevenue: parseFloat(monthlyRevenue.rows[0].total) || 0,
         },
-        revenueByDay
+        revenueByDay: revenueByDay7
       }
     });
   } catch (err) {
@@ -212,7 +254,7 @@ router.get('/reports', authenticate, requireAdmin, async (req, res) => {
  * Sắp xếp theo created_at giảm dần (mới nhất lên trước).
  * Yêu cầu: authenticate (cả admin và user đều xem được danh sách dịch vụ)
  */
-router.get('/services', authenticate, async (req, res) => {
+router.get('/services', async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM services ORDER BY created_at DESC');
     res.json({ data: result.rows });

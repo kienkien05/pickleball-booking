@@ -176,7 +176,7 @@ router.get('/:id/timeslots', async (req, res) => {
         isPast = true;
       }
 
-      return { ...s, isBooked: bookedSlotIds.has(s.id) || isPast };
+      return { ...s, isBooked: bookedSlotIds.has(s.id), isExpired: !bookedSlotIds.has(s.id) && isPast };
     });
     res.json({ data });
   } catch (err) {

@@ -61,7 +61,7 @@ export default function OTPVerifyPage() {
   // Hook lấy thông tin được truyền qua state từ trang trước
   const location = useLocation()
   // Ép kiểu state từ location, chứa email, password, full_name, type
-  const state = location.state as { email?: string; password?: string; full_name?: string; type?: 'login' | 'register' } | null
+  const state = location.state as { email?: string; password?: string; full_name?: string; type?: 'login' | 'register'; redirect?: string } | null
 
   /**
    * Bảo vệ trang khỏi truy cập trực tiếp
@@ -162,15 +162,15 @@ export default function OTPVerifyPage() {
         // Lưu token và thông tin user vào authStore
         useAuthStore.getState().login({ token: data.data.token, user: data.data.user })
         toast.success('Đăng ký thành công!')
-        navigate('/')
+        navigate(state.redirect || '/')
       } else {
         // Xác thực OTP cho đăng nhập - chỉ gửi email và OTP
         const { data } = await authService.verifyLogin({ email: state.email, otp: code })
         // Lưu token và thông tin user vào authStore
         useAuthStore.getState().login({ token: data.data.token, user: data.data.user })
         toast.success('Đăng nhập thành công!')
-        // Admin -> /admin, user thường -> /
-        navigate(data.data.user.role === 'admin' ? '/admin' : '/')
+        // Nếu có redirect param thì quay lại trang đó, nếu không thì admin -> /admin, user -> /
+        navigate(state.redirect || (data.data.user.role === 'admin' ? '/admin' : '/'))
       }
     } catch (err: any) {
       toast.error(err.response?.data?.message || err.response?.data?.error || 'Mã OTP không chính xác')
