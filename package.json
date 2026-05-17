@@ -8,9 +8,11 @@
     "dev:frontend": "cd frontend && npm run dev",
     "build": "cd frontend && npm run build",
     "seed": "cd server && npm run seed",
-    "install:all": "npm install && cd server && npm install && cd ../frontend && npm install"
+    "install:all": "npm install && cd server && npm install && cd ../frontend && npm install",
+    "test:e2e": "playwright test"
   },
   "devDependencies": {
+    "@playwright/test": "^1.60.0",
     "concurrently": "^9.0.1"
   }
 }
