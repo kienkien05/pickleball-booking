@@ -25,6 +25,7 @@
  */
 
 import axios from 'axios'
+import { toast } from 'sonner'
 import { useAuthStore } from '@/stores/authStore'
 
 // API base URL - ưu tiên biến môi trường, fallback về '/api'
@@ -72,10 +73,18 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    // Tự động logout khi token hết hạn (401) hoặc không có quyền (403)
-    // Nhưng không logout khi lỗi đến từ chính API login/verify (đó là lỗi đăng nhập sai)
-    if (error.response?.status === 401 || error.response?.status === 403) {
-      if (!error.config?.url?.includes('/auth/login') && !error.config?.url?.includes('/auth/verify')) {
+    const url = error.config?.url || ''
+    const status = error.response?.status
+    const isAuthEndpoint = url.includes('/auth/login') || url.includes('/auth/verify')
+
+    if (!isAuthEndpoint) {
+      if (status === 401) {
+        // Token hết hạn -> logout
+        useAuthStore.getState().logout()
+      } else if (status === 403 && url.includes('/auth/profile')) {
+        // Tài khoản bị khóa trong lúc đang dùng app -> thông báo rồi logout
+        const errMsg = error.response?.data?.error || 'Tài khoản đã bị khóa. Vui lòng liên hệ Admin'
+        toast.error(errMsg, { duration: 5000 })
         useAuthStore.getState().logout()
       }
     }

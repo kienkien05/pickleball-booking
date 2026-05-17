@@ -108,14 +108,17 @@ function ProtectedRoute({ children, requireAdmin = false }: { children: React.Re
 export default function App() {
   const { isAuthenticated } = useAuthStore()
 
-  // Kiểm tra token còn hiệu lực mỗi 15 giây
-  // Nếu token đã hết hạn, interceptor của axios sẽ bắt lỗi 401 và gọi logout()
+  // Kiểm tra trạng thái tài khoản mỗi 5 giây
+  // - Nếu token hết hạn (401): interceptor tự động logout
+  // - Nếu tài khoản bị khóa (403 từ /auth/profile): interceptor hiển thị toast + logout
   useEffect(() => {
     if (!isAuthenticated) return
     const checkActive = async () => {
       try { await authService.getProfile() } catch (_) { /* intercepted by axios */ }
     }
-    const interval = setInterval(checkActive, 15000)
+    // Kiểm tra ngay lập tức khi đăng nhập, sau đó mỗi 5 giây
+    checkActive()
+    const interval = setInterval(checkActive, 5000)
     return () => clearInterval(interval)
   }, [isAuthenticated])
 

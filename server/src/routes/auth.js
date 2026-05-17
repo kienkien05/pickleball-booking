@@ -262,6 +262,10 @@ router.get('/profile', authenticate, async (req, res, next) => {
     const result = await pool.query('SELECT id, hoTen, email, soDienThoai, vaiTro, isVIP, gioiTinh, diaChi, avatar_url, trangThai FROM users WHERE id = $1', [req.user.id]);
     if (result.rows.length === 0) return res.status(404).json({ error: 'Không tìm thấy' });
     const u = result.rows[0];
+    // Nếu tài khoản bị khóa -> trả về 403 để frontend tự động logout ngay lập tức
+    if (u.trangThai === 'Locked') {
+      return res.status(403).json({ error: 'Tài khoản đã bị khóa. Vui lòng liên hệ Admin' });
+    }
     res.json({
       data: {
         id: String(u.id), email: u.email, full_name: u.hoTen, phone_number: u.soDienThoai,
