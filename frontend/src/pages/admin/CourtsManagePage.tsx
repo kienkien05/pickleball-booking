@@ -118,6 +118,21 @@ export default function CourtsManagePage() {
     setShowForm(true)
   }
 
+  /**
+   * Kiểm tra tính hợp lệ của dữ liệu form và gửi yêu cầu lưu sân.
+   * Yêu cầu tên sân không được để trống hoặc chỉ có khoảng trắng.
+   */
+  const handleSave = () => {
+    if (!form.tenSan || form.tenSan.trim() === '') {
+      toast.error('Vui lòng nhập tên sân')
+      return
+    }
+    saveMutation.mutate({
+      ...form,
+      tenSan: form.tenSan.trim(),
+    })
+  }
+
   return (
     <div className="space-y-6">
       {/* Tiêu đề và nút thêm sân */}
@@ -204,7 +219,7 @@ export default function CourtsManagePage() {
         </div>
         <ModalFooter>
           <Button variant="outline" onClick={() => setShowForm(false)}>Hủy</Button>
-          <Button onClick={() => saveMutation.mutate(form)} loading={saveMutation.isPending}>Lưu</Button>
+          <Button onClick={handleSave} loading={saveMutation.isPending}>Lưu</Button>
         </ModalFooter>
       </Modal>
 

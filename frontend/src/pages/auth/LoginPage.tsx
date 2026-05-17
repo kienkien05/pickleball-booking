@@ -97,9 +97,8 @@ export default function LoginPage() {
         // Nếu có redirect param thì quay lại trang đó, nếu không thì admin -> /admin, user -> /
         navigate(redirectTo || (data.data.user.role === 'admin' ? '/admin' : '/'))
       } else {
-        // Trường hợp cần xác thực OTP -> chuyển sang trang OTP
-        navigate('/verify-otp', { state: { email, type: 'login', redirect: redirectTo } })
-        toast.info('Vui lòng nhập mã OTP đã gửi vào email')
+        // Đăng nhập không thành công hoặc phản hồi không hợp lệ từ máy chủ
+        toast.error('Đăng nhập thất bại. Phản hồi không hợp lệ từ hệ thống.')
       }
     } catch (err: any) {
       // Hiển thị lỗi từ server hoặc thông báo mặc định

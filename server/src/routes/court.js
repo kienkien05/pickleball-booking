@@ -269,12 +269,17 @@ router.delete('/:courtId/timeslots/:id', authenticate, requireAdmin, async (req,
 router.post('/', authenticate, requireAdmin, async (req, res) => {
   try {
     const { tenSan, moTa, hinhAnh, trangThai } = req.body;
-    if (!tenSan) return res.status(400).json({ error: 'Vui lòng nhập tên sân' });
-    const dup = await pool.query('SELECT id FROM courts WHERE tenSan = $1', [tenSan]);
-    if (dup.rows.length > 0) return res.status(400).json({ error: 'Tên sân này đã có trong hệ thống, vui lòng chọn tên khác' });
+    if (!tenSan || tenSan.trim() === '') {
+      return res.status(400).json({ error: 'Vui lòng nhập tên sân' });
+    }
+    const trimmedName = tenSan.trim();
+    const dup = await pool.query('SELECT id FROM courts WHERE tenSan = $1', [trimmedName]);
+    if (dup.rows.length > 0) {
+      return res.status(400).json({ error: 'Tên sân này đã có trong hệ thống, vui lòng chọn tên khác' });
+    }
     const result = await pool.query(
       'INSERT INTO courts (tenSan, moTa, hinhAnh, trangThai) VALUES ($1, $2, $3, $4) RETURNING *',
-      [tenSan, moTa, hinhAnh, trangThai || 'Sẵn sàng']
+      [trimmedName, moTa, hinhAnh, trangThai || 'Sẵn sàng']
     );
     res.status(201).json({ data: result.rows[0] });
   } catch (err) {
@@ -289,9 +294,24 @@ router.post('/', authenticate, requireAdmin, async (req, res) => {
 router.put('/:id', authenticate, requireAdmin, async (req, res) => {
   try {
     const { tenSan, moTa, hinhAnh, trangThai } = req.body;
+
+    // Kiểm tra tên sân trống (nếu có truyền lên trong body)
+    if (tenSan !== undefined && (!tenSan || tenSan.trim() === '')) {
+      return res.status(400).json({ error: 'Tên sân không được để trống' });
+    }
+
+    // Nếu có đổi tên sân, kiểm tra xem tên mới có trùng với sân khác không
+    if (tenSan) {
+      const trimmedName = tenSan.trim();
+      const dup = await pool.query('SELECT id FROM courts WHERE tenSan = $1 AND id != $2', [trimmedName, req.params.id]);
+      if (dup.rows.length > 0) {
+        return res.status(400).json({ error: 'Tên sân này đã có trong hệ thống, vui lòng chọn tên khác' });
+      }
+    }
+
     const result = await pool.query(
       'UPDATE courts SET tenSan = COALESCE($1, tenSan), moTa = COALESCE($2, moTa), hinhAnh = COALESCE($3, hinhAnh), trangThai = COALESCE($4, trangThai), updated_at = NOW() WHERE id = $5 RETURNING *',
-      [tenSan, moTa, hinhAnh, trangThai, req.params.id]
+      [tenSan ? tenSan.trim() : tenSan, moTa, hinhAnh, trangThai, req.params.id]
     );
     if (result.rows.length === 0) return res.status(404).json({ error: 'Không tìm thấy sân' });
     res.json({ data: result.rows[0] });
