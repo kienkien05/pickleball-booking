@@ -132,7 +132,7 @@ export const authService = {
  */
 export const courtService = {
   /** Lấy danh sách sân (có phân trang, tìm kiếm, lọc trạng thái) */
-  getCourts: (params?: { page?: number; limit?: number; search?: string; status?: string }) =>
+  getCourts: (params?: { page?: number; limit?: number; search?: string; status?: string; isAdmin?: boolean }) =>
     api.get('/courts', { params }),
 
   /** Lấy chi tiết 1 sân (kèm ảnh, avgRating, reviewCount) */

@@ -5,16 +5,16 @@
  *
  * 1. handleBookingStatus() - Chạy mỗi phút (* * * * *):
  *    - Tự động check-out: các đơn 'Đang sử dụng' mà đã quá giờ kết thúc -> chuyển thành 'Hoàn thành'
- *    - Hủy vắng mặt (no-show): các đơn 'Đã thanh toán' hoặc 'Đã đặt' mà quá 15 phút
- *      sau giờ bắt đầu vẫn chưa check-in -> tự động hủy với ghi chú 'No-show (tự động)'
+ *    - Hủy vắng mặt (no-show): các đơn 'Đã thanh toán', 'Đã cọc' hoặc 'Đã đặt'
+ *      mà quá 15 phút sau giờ bắt đầu vẫn chưa check-in -> tự động hủy có lý do rõ ràng
  *
  * 2. autoCancelPastBookings() - Chạy hàng ngày lúc 00:05 (5 0 * * *):
  *    - Hủy các đơn auto-booking của VIP mà đã quá ngày chơi nhưng chưa thanh toán
  *    - Chỉ hủy nếu trạng thái không phải 'Đã hủy', 'Hoàn thành', 'Đang sử dụng'
  *
  * 3. processVipAutoBooking(force) - Chạy mỗi thứ 2 lúc 00:01 (1 0 * * 1):
- *    - Dành cho khách VIP: mỗi thứ 2, hệ thống tự động tạo booking cho tuần kế tiếp
- *      dựa trên lịch sử auto-booking của VIP
+ *    - Luồng legacy cho dữ liệu VIP cũ chưa có autoBookingSeriesId.
+ *      Luồng VIP mới tạo đủ booking 30 ngày ngay tại API /bookings.
  *    - Nếu khung giờ đã có người đặt -> gửi thông báo xung đột và tắt auto-booking
  *    - Nếu khung giờ trống -> tự động tạo đơn mới với trạng thái 'Đã cọc' (cọc 10%)
  *    - Tham số force: nếu true thì bỏ qua kiểm tra thứ 2 (dùng cho testing/admin trigger)
@@ -27,13 +27,18 @@
  */
 
 const { pool } = require('../config/database');
+const { cancelBookingWithReason, getField } = require('../utils/bookingCancellation');
+
+function formatDateLocal(date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
 
 /**
  * Xử lý tự động trạng thái booking: check-out khi hết giờ, hủy no-show khi quá hạn.
  *
  * Chạy mỗi phút để kiểm tra:
  * - Tìm các booking 'Đang sử dụng' có giờ kết thúc <= thời gian hiện tại -> tự động check-out
- * - Tìm các booking 'Đã thanh toán'/'Đã đặt' quá 15 phút sau giờ bắt đầu -> hủy vắng mặt
+ * - Tìm các booking 'Đã thanh toán'/'Đã cọc'/'Đã đặt' quá 15 phút sau giờ bắt đầu -> hủy vắng mặt
  *
  * Mỗi lần cập nhật trạng thái đều gửi thông báo (notification) cho người dùng liên quan.
  */
@@ -41,8 +46,11 @@ async function handleBookingStatus() {
   const client = await pool.connect();
   try {
     const now = new Date();
-    const today = now.toISOString().slice(0, 10);
+    const today = formatDateLocal(now);
     const currentTime = now.toTimeString().slice(0, 5);
+    const noShowCutoff = new Date(now.getTime() - 15 * 60 * 1000);
+    const noShowCutoffDate = formatDateLocal(noShowCutoff);
+    const noShowCutoffTime = noShowCutoff.toTimeString().slice(0, 5);
     console.log(`[Scheduler] Checking status at ${today} ${currentTime}`);
 
     // 1. Tự động check-out: tìm các booking 'Đang sử dụng' đã hết giờ
@@ -51,30 +59,54 @@ async function handleBookingStatus() {
       `SELECT b.* FROM bookings b
        JOIN timeslots t ON b.khungGioId = t.id
        WHERE b.trangThai = 'Đang sử dụng'
-       AND b.ngayChoi = $1
-       AND t.gioKetThuc <= $2::time`,
+       AND (
+         b.ngayChoi < $1::date
+         OR (b.ngayChoi = $1::date AND t.gioKetThuc <= $2::time)
+       )`,
       [today, currentTime]
     );
 
     for (const booking of checkoutResult.rows) {
+      const bookingId = getField(booking, 'id');
+      const userId = getField(booking, 'nguoiDungId', 'nguoidungid');
       await client.query(
         "UPDATE bookings SET trangThai = 'Hoàn thành', updated_at = NOW() WHERE id = $1",
-        [booking.id]
+        [bookingId]
       );
       await client.query(
         "INSERT INTO notifications (nguoiDungId, tieuDe, noiDung, loaiThongBao, maDonDat) VALUES ($1, $2, $3, 'auto_checkout', $4)",
-        [booking.nguoidungid, 'Tự động Check-out', `Hệ thống đã tự động check-out cho đơn #${booking.id}`, booking.id]
+        [userId, 'Tự động Check-out', `Hệ thống đã tự động check-out cho đơn #${bookingId}`, bookingId]
       );
     }
 
-    // 2. Hủy vắng mặt (no-show): tìm booking đã thanh toán/đã đặt nhưng quá 15 phút chưa check-in
+    // 2. Hủy quá hạn thanh toán: chỉ áp dụng cho đơn đã cọc/pending online, không hủy tiền mặt Đã đặt theo thời điểm tạo đơn
+    const paymentTimeoutResult = await client.query(
+      `SELECT DISTINCT b.*
+       FROM bookings b
+       JOIN payments p ON p.donDatId = b.id
+       WHERE b.trangThai = 'Đã cọc'
+       AND p.trangThai IN ('Chờ thanh toán', 'Chờ xác nhận')
+       AND p.ngayGiaoDich <= NOW() - INTERVAL '15 minutes'`
+    );
+
+    if (paymentTimeoutResult.rows.length > 0) {
+      console.log(`[Scheduler] Found ${paymentTimeoutResult.rows.length} payment-timeout bookings to cancel`);
+    }
+
+    for (const booking of paymentTimeoutResult.rows) {
+      await cancelBookingWithReason(client, booking, 'PAYMENT_TIMEOUT');
+    }
+
+    // 3. Hủy vắng mặt (no-show): tìm booking đã thanh toán/đã đặt/đã cọc nhưng quá 15 phút chưa check-in
     const noShowResult = await client.query(
       `SELECT b.* FROM bookings b
        JOIN timeslots t ON b.khungGioId = t.id
-       WHERE b.trangThai IN ('Đã thanh toán', 'Đã đặt')
-       AND b.ngayChoi = $1
-       AND t.gioBatDau <= ($2::time - INTERVAL '15 minutes')`,
-      [today, currentTime]
+       WHERE b.trangThai IN ('Đã thanh toán', 'Đã đặt', 'Đã cọc')
+       AND (
+         b.ngayChoi < $1::date
+         OR (b.ngayChoi = $1::date AND t.gioBatDau <= $2::time)
+       )`,
+      [noShowCutoffDate, noShowCutoffTime]
     );
 
     if (noShowResult.rows.length > 0) {
@@ -82,14 +114,7 @@ async function handleBookingStatus() {
     }
 
     for (const booking of noShowResult.rows) {
-      await client.query(
-        "UPDATE bookings SET trangThai = 'Đã hủy', ghiChu = 'No-show (tự động)', updated_at = NOW() WHERE id = $1",
-        [booking.id]
-      );
-      await client.query(
-        "INSERT INTO notifications (nguoiDungId, tieuDe, noiDung, loaiThongBao, maDonDat) VALUES ($1, $2, $3, 'noshow', $4)",
-        [booking.nguoidungid, 'Hủy vắng mặt', `Đơn #${booking.id} đã bị hủy do không đến đúng giờ.`, booking.id]
-      );
+      await cancelBookingWithReason(client, booking, 'AUTO_NOSHOW');
     }
   } catch (err) {
     console.error('Booking status handler error:', err);
@@ -110,19 +135,18 @@ async function handleBookingStatus() {
 async function autoCancelPastBookings() {
   const client = await pool.connect();
   try {
+    const today = formatDateLocal(new Date());
     const result = await client.query(
-      `UPDATE bookings SET trangThai = 'Đã hủy', ghiChu = 'Tự động hủy (quá hạn)', updated_at = NOW()
+      `SELECT * FROM bookings
        WHERE isAutoBooking = TRUE
-       AND ngayChoi < CURRENT_DATE
+       AND ngayChoi < $1
        AND trangThai NOT IN ('Đã hủy', 'Hoàn thành', 'Đang sử dụng')
-       RETURNING id, nguoiDungId`
+       ORDER BY ngayChoi ASC`,
+      [today]
     );
 
     for (const booking of result.rows) {
-      await client.query(
-        "INSERT INTO notifications (nguoiDungId, tieuDe, noiDung, loaiThongBao, maDonDat) VALUES ($1, $2, $3, 'auto_cancel', $4)",
-        [booking.nguoidungid, 'Tự động hủy đơn quá hạn', `Đơn tự động #${booking.id} đã bị hủy do quá ngày chơi mà chưa thanh toán.`, booking.id]
-      );
+      await cancelBookingWithReason(client, booking, 'AUTO_BOOKING_EXPIRED');
     }
   } catch (err) {
     console.error('Auto cancel past bookings error:', err);
@@ -132,10 +156,10 @@ async function autoCancelPastBookings() {
 }
 
 /**
- * Tự động đặt lịch cho khách VIP - chạy mỗi thứ 2 lúc 00:01.
+ * Tự động đặt lịch cho khách VIP legacy - chạy mỗi thứ 2 lúc 00:01.
  *
  * Logic:
- * 1. Lấy danh sách tất cả VIP có lịch sử auto-booking (isAutoBooking = TRUE)
+ * 1. Lấy danh sách tất cả VIP có lịch sử auto-booking cũ (isAutoBooking = TRUE, chưa có autoBookingSeriesId)
  * 2. Với mỗi VIP, lấy lịch đặt gần nhất và tính ngày tiếp theo (cách 7 ngày)
  * 3. Nếu ngày đó đã có booking trùng -> gửi thông báo xung đột và tắt auto-booking
  * 4. Nếu khung giờ còn trống -> tự động tạo booking mới trạng thái 'Đã cọc' (cọc 10%),
@@ -157,6 +181,7 @@ async function processVipAutoBooking(force = false) {
        JOIN users u ON b.nguoiDungId = u.id
        WHERE u.isVIP = TRUE
        AND b.isAutoBooking = TRUE
+       AND b.autoBookingSeriesId IS NULL
        AND b.trangThai NOT IN ('Đã hủy')
        ORDER BY b.nguoiDungId, b.sanId, b.khungGioId, b.ngayChoi DESC`
     );
@@ -171,7 +196,7 @@ async function processVipAutoBooking(force = false) {
         nextDate.setDate(nextDate.getDate() + 7);
       }
 
-      const targetDate = nextDate.toISOString().slice(0, 10);
+      const targetDate = formatDateLocal(nextDate);
 
       // Kiểm tra đã có booking cho ngày đó chưa
       const existing = await client.query(

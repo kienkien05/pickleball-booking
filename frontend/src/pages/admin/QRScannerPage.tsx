@@ -7,11 +7,11 @@
  * - Nhập mã đơn hàng thủ công để tra cứu.
  * - Hiển thị chi tiết đơn đặt sân sau khi quét/tra cứu thành công
  *   (tên sân, khách hàng, ngày chơi, trạng thái, dịch vụ đi kèm, tổng tiền).
- * - Thực hiện check-in cho đơn đã thanh toán (chuyển trạng thái "Đã thanh toán" -> "Đang sử dụng").
+ * - Thực hiện check-in cho đơn đang hợp lệ (Đã đặt/Đã cọc/Đã thanh toán -> Đang sử dụng).
  *
  * Luồng hoạt động:
  * 1. Admin quét QR hoặc nhập mã đơn -> tìm thông tin đơn đặt sân.
- * 2. Hiển thị chi tiết đơn và cho phép check-in nếu trạng thái là "Đã thanh toán".
+ * 2. Hiển thị chi tiết đơn và cho phép check-in nếu trạng thái là "Đã đặt", "Đã cọc" hoặc "Đã thanh toán".
  * 3. Sau khi check-in, trạng thái đơn cập nhật thành "Đang sử dụng".
  */
 
@@ -161,6 +161,8 @@ export default function QRScannerPage() {
             {/* Trạng thái đơn với màu sắc tương ứng */}
             <p><strong>Trạng thái:</strong> <span className={
               result.trangThai === 'Đã thanh toán' ? 'text-blue-600 font-medium' :
+              result.trangThai === 'Đã cọc' ? 'text-purple-600 font-medium' :
+              result.trangThai === 'Đã đặt' ? 'text-amber-600 font-medium' :
               result.trangThai === 'Đang sử dụng' ? 'text-success font-medium' :
               result.trangThai === 'Hoàn thành' ? 'text-muted-foreground' : 'text-destructive'
             }>{result.trangThai}</span></p>
@@ -197,8 +199,8 @@ export default function QRScannerPage() {
               </div>
             </div>
           </div>
-          {/* Nút check-in - chỉ hiển thị khi đơn ở trạng thái "Đã thanh toán" */}
-          {result.trangThai === 'Đã thanh toán' && (
+          {/* Nút check-in - hiển thị khi đơn còn hợp lệ trước giờ chơi */}
+          {(result.trangThai === 'Đã thanh toán' || result.trangThai === 'Đã cọc' || result.trangThai === 'Đã đặt') && (
             <Button className="w-full mt-4" onClick={() => checkinMutation.mutate(result.id)} loading={checkinMutation.isPending}>
               <LogIn className="size-4 mr-2" />Check-in ngay
             </Button>

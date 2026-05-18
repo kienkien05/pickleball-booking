@@ -15,10 +15,11 @@ import { useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { ArrowLeft, MapPin, Clock, CreditCard, Star, QrCode } from 'lucide-react'
+import { ArrowLeft, MapPin, Clock, CreditCard, Star, QrCode, AlertCircle, XCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import { bookingService, reviewService } from '@/services'
 import { Button } from '@/components/ui/Button'
+import { Modal, ModalFooter } from '@/components/ui/Modal'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { formatPrice, formatDate, formatTime } from '@/lib/utils'
 
@@ -35,6 +36,7 @@ export default function BookingDetailPage() {
   // state cho form đánh giá: số sao (1-5) và nội dung bình luận
   const [rating, setRating] = useState(0)
   const [comment, setComment] = useState('')
+  const [cancelOpen, setCancelOpen] = useState(false)
   const queryClient = useQueryClient()
 
   /**
@@ -91,6 +93,22 @@ export default function BookingDetailPage() {
     onError: (err: any) => toast.error(err.response?.data?.error || 'Gửi đánh giá thất bại'),
   })
 
+  /**
+   * Mutation hủy đơn từ trang chi tiết.
+   * Dùng chung API với lịch sử đặt sân nên VIP/user thường có cùng policy hủy.
+   */
+  const cancelMutation = useMutation({
+    mutationFn: () => bookingService.cancelBooking(id!),
+    onSuccess: () => {
+      toast.success('Hủy đặt sân thành công!')
+      setCancelOpen(false)
+      queryClient.invalidateQueries({ queryKey: ['bookings', id] })
+      queryClient.invalidateQueries({ queryKey: ['bookings', 'my'] })
+      queryClient.invalidateQueries({ queryKey: ['notifications'] })
+    },
+    onError: (err: any) => toast.error(err.response?.data?.message || err.response?.data?.error || 'Không thể hủy đặt sân'),
+  })
+
   // --- Trạng thái loading: hiển thị skeleton placeholder ---
   if (isLoading) {
     return <div className="max-w-2xl mx-auto px-4 py-8 space-y-4">
@@ -108,6 +126,9 @@ export default function BookingDetailPage() {
       </div>
     )
   }
+
+  const isAutoBooking = booking.isAutoBooking === true || booking.autoBookingSeriesId
+  const canCancel = booking.trangThai === 'Đã thanh toán' || booking.trangThai === 'Đã cọc' || booking.trangThai === 'Đã đặt'
 
   // --- Giao diện chính của chi tiết đơn đặt sân ---
   return (
@@ -141,14 +162,20 @@ export default function BookingDetailPage() {
         {/* Chi tiết đơn: mã đơn, hình thức thanh toán, trạng thái */}
         <div className="pt-4 border-t border-border space-y-3">
           <div className="flex justify-between text-sm"><span>Mã đơn</span><span className="font-mono">{booking.id}</span></div>
+          {isAutoBooking && (
+            <div className="flex justify-between text-sm"><span>Loại lịch</span><span className="font-medium text-amber-600">VIP tự động 30 ngày</span></div>
+          )}
           <div className="flex justify-between text-sm"><span>Hình thức thanh toán</span><span className="font-medium">{booking.loaiThanhToan || 'N/A'}</span></div>
           {/* Hiển thị trạng thái với màu sắc tương ứng:
+              - Đã cọc: màu tím
               - Đã thanh toán: màu xanh dương
               - Đang sử dụng: màu success (xanh lá)
               - Hoàn thành: màu xám
               - Các trạng thái khác (Đã hủy, ...): màu đỏ */}
           <div className="flex justify-between text-sm"><span>Trạng thái</span><span className={`font-medium ${
             booking.trangThai === 'Đã thanh toán' ? 'text-blue-600' :
+            booking.trangThai === 'Đã cọc' ? 'text-purple-600' :
+            booking.trangThai === 'Đã đặt' ? 'text-amber-600' :
             booking.trangThai === 'Đang sử dụng' ? 'text-success' :
             booking.trangThai === 'Hoàn thành' ? 'text-muted-foreground' : 'text-destructive'
           }`}>{booking.trangThai}</span></div>
@@ -188,12 +215,20 @@ export default function BookingDetailPage() {
               </div>
             )}
             {/* Dòng tổng thanh toán cuối cùng, in đậm */}
-            <div className="flex justify-between text-lg font-bold pt-2 border-t border-dashed border-border text-primary">
+          <div className="flex justify-between text-lg font-bold pt-2 border-t border-dashed border-border text-primary">
               <span>Tổng thanh toán:</span>
               <span>{formatPrice(Number(booking.tongTien || 0))}</span>
             </div>
           </div>
         </div>
+
+        {canCancel && (
+          <div className="pt-4 border-t border-border">
+            <Button variant="outline" className="w-full border-destructive/40 text-destructive hover:bg-destructive/5" onClick={() => setCancelOpen(true)}>
+              <XCircle className="size-4 mr-2" /> {isAutoBooking ? 'Hủy buổi VIP này' : 'Hủy đặt sân'}
+            </Button>
+          </div>
+        )}
 
         {/* Mã QR Check-in (chỉ hiển thị khi có dữ liệu QR từ API) */}
         {qrData?.qr && (
@@ -249,6 +284,26 @@ export default function BookingDetailPage() {
           </div>
         )}
       </div>
+
+      <Modal isOpen={cancelOpen} onClose={() => setCancelOpen(false)} title={isAutoBooking ? 'Xác nhận hủy buổi VIP' : 'Xác nhận hủy sân'}>
+        <div className="space-y-3 text-sm">
+          <div className="flex items-start gap-2 p-3 rounded-lg bg-destructive/10 text-destructive">
+            <AlertCircle className="size-4 shrink-0 mt-0.5" />
+            <span>
+              {isAutoBooking
+                ? 'Bạn đang hủy buổi VIP đã được khóa trong chuỗi 30 ngày. Đơn đã thanh toán/cọc khi hủy sẽ không hoàn tiền; đơn tiền mặt chưa thanh toán chỉ chuyển sang Đã hủy.'
+                : 'Bạn có thể hủy trước 3 tiếng. Đơn đã thanh toán/cọc khi hủy sẽ không hoàn tiền; đơn tiền mặt chưa thanh toán chỉ chuyển sang Đã hủy.'}
+            </span>
+          </div>
+          <p>Bạn có chắc chắn muốn hủy lịch đặt sân này?</p>
+        </div>
+        <ModalFooter>
+          <Button variant="outline" onClick={() => setCancelOpen(false)}>Giữ lịch</Button>
+          <Button variant="destructive" onClick={() => cancelMutation.mutate()} loading={cancelMutation.isPending}>
+            Xác nhận hủy
+          </Button>
+        </ModalFooter>
+      </Modal>
     </div>
   )
 }

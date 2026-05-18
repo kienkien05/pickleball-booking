@@ -33,6 +33,10 @@ const { pool } = require('../config/database');
 const { authenticate, requireAdmin } = require('../middleware/auth');
 const router = express.Router();
 
+function formatDateLocal(date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
 /**
  * GET / - Lấy danh sách sân Pickleball.
  *
@@ -144,7 +148,7 @@ router.get('/:id/timeslots', async (req, res) => {
       [courtId]
     );
     let bookedSlotIds = new Set();
-    const todayStr = new Date().toISOString().slice(0, 10);
+    const todayStr = formatDateLocal(new Date());
     if (date) {
       const bookings = await pool.query(
         "SELECT khungGioId FROM bookings WHERE sanId = $1 AND ngayChoi = $2 AND trangThai NOT IN ('Đã hủy')",
@@ -154,7 +158,7 @@ router.get('/:id/timeslots', async (req, res) => {
     }
     const data = slots.rows.map(s => {
       const now = new Date();
-      const todayStr = now.toISOString().slice(0, 10);
+      const todayStr = formatDateLocal(now);
       const currentTimeStr = now.toTimeString().slice(0, 5);
 
       let isPast = false;
@@ -209,8 +213,16 @@ router.get('/:id/timeslots/all', authenticate, requireAdmin, async (req, res) =>
 router.post('/:id/timeslots', authenticate, requireAdmin, async (req, res) => {
   try {
     const { gioBatDau, gioKetThuc, mucGia } = req.body;
-    if (!gioBatDau || !gioKetThuc || !mucGia) {
+    if (!gioBatDau || !gioKetThuc || mucGia === undefined || mucGia === null) {
       return res.status(400).json({ error: 'Vui lòng nhập đầy đủ thông tin' });
+    }
+    // Validate gioKetThuc > gioBatDau
+    if (gioKetThuc <= gioBatDau) {
+      return res.status(400).json({ error: 'Giờ kết thúc phải sau giờ bắt đầu' });
+    }
+    // Validate price not negative or zero
+    if (Number(mucGia) <= 0) {
+      return res.status(400).json({ error: 'Giá phải lớn hơn 0' });
     }
     // Kiểm tra trùng lặp khung giờ
     const overlap = await pool.query(

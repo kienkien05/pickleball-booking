@@ -268,7 +268,7 @@ export default function ScheduleBoardPage() {
           </div>
           {/* Hiển thị phạm vi ngày của tuần đang xem */}
           <div className="px-4 py-2 bg-card rounded-xl border border-border shadow-sm text-xs font-black tabular-nums">
-            {weekDays[0]?.getDate()}/{weekDays[0]?.getMonth() + 1} — {weekDays[6]?.getDate()}/{weekDays[6]?.getMonth() + 1}
+            {weekDays[0]?.getDate()}/{(weekDays[0]?.getMonth() ?? 0) + 1} — {weekDays[6]?.getDate()}/{(weekDays[6]?.getMonth() ?? 0) + 1}
           </div>
         </div>
       </div>

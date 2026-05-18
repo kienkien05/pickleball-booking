@@ -10,11 +10,11 @@
  * @access Admin (yêu cầu quyền admin)
  *
  * @businessLogic
- *   - Bộ lọc trạng thái: Tất cả, Đã đặt, Đã thanh toán, Đang dùng, Hoàn thành, Đã hủy
+ *   - Bộ lọc trạng thái: Tất cả, Đã đặt, Đã cọc, Đã thanh toán, Đang dùng, Hoàn thành, Đã hủy
  *   - Tìm kiếm: theo tên sân, tên khách hàng, hoặc mã đơn
  *   - Lọc theo ngày cụ thể
  *   - Các thao tác khả dụng phụ thuộc vào trạng thái hiện tại của đơn:
- *     + "Đã đặt" / "Đã thanh toán": có thể Check-in hoặc đánh dấu vắng mặt
+ *     + "Đã đặt" / "Đã cọc" / "Đã thanh toán": có thể Check-in hoặc đánh dấu vắng mặt
  *     + "Đang sử dụng": có thể Check-out
  *     + Các trạng thái khác: không có thao tác nào
  *   - Mỗi thao tác cần xác nhận trước khi thực hiện
@@ -39,6 +39,7 @@ import { cn } from '@/lib/utils'
 const statusTabs = [
   { key: '', label: 'Tất cả' },
   { key: 'Đã đặt', label: 'Đã đặt' },
+  { key: 'Đã cọc', label: 'Đã cọc' },
   { key: 'Đã thanh toán', label: 'Đã thanh toán' },
   { key: 'Đang sử dụng', label: 'Đang dùng' },
   { key: 'Hoàn thành', label: 'Hoàn thành' },
@@ -133,14 +134,14 @@ export default function BookingsManagePage() {
    * @param b - Đối tượng đơn đặt sân
    * @returns Mảng các thao tác { type, label, icon, variant }
    * @logic
-   *   - "Đã đặt" / "Đã thanh toán": Check-in + Vắng mặt
+   *   - "Đã đặt" / "Đã cọc" / "Đã thanh toán": Check-in + Vắng mặt
    *   - "Đang sử dụng": Check-out
    *   - Các trạng thái khác: không có thao tác nào (mảng rỗng)
    */
   const getActions = (b: any) => {
     const actions: { type: 'checkin' | 'checkout' | 'noshow'; label: string; icon: any; variant: any }[] = []
-    if (b.trangThai === 'Đã thanh toán' || b.trangThai === 'Đã đặt') {
-      // Đơn đã đặt hoặc đã thanh toán: có thể check-in hoặc đánh dấu vắng mặt
+    if (b.trangThai === 'Đã thanh toán' || b.trangThai === 'Đã cọc' || b.trangThai === 'Đã đặt') {
+      // Đơn đã đặt/đã cọc/đã thanh toán: có thể check-in hoặc đánh dấu vắng mặt
       actions.push({ type: 'checkin', label: 'Check-in', icon: LogIn, variant: 'success' })
       actions.push({ type: 'noshow', label: 'Vắng mặt', icon: UserX, variant: 'destructive' })
     } else if (b.trangThai === 'Đang sử dụng') {
@@ -164,7 +165,7 @@ export default function BookingsManagePage() {
         </div>
         {/* Bộ lọc ngày: nút "Tất cả các ngày" + input date picker */}
         <div className="flex gap-2">
-          <Button variant={dateFilter === '' ? 'primary' : 'outline'} onClick={() => setDateFilter('')} className="h-11 px-4">
+          <Button variant={dateFilter === '' ? 'default' : 'outline'} onClick={() => setDateFilter('')} className="h-11 px-4">
             Tất cả các ngày
           </Button>
           <input type="date" value={dateFilter} onChange={e => setDateFilter(e.target.value)}
@@ -223,6 +224,7 @@ export default function BookingsManagePage() {
                     <td className="px-4 py-3 text-xs text-muted-foreground">{booking.loaiThanhToan || 'N/A'}</td>
                     {/* Trạng thái với badge màu tương ứng:
                         - Đã đặt: vàng/cam
+                        - Đã cọc: tím
                         - Đã thanh toán: xanh dương
                         - Đang sử dụng: xanh lá
                         - Hoàn thành: xám
@@ -230,6 +232,7 @@ export default function BookingsManagePage() {
                     <td className="px-4 py-3">
                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                         booking.trangThai === 'Đã đặt' ? 'bg-amber-500/10 text-amber-600' :
+                        booking.trangThai === 'Đã cọc' ? 'bg-purple-500/10 text-purple-600' :
                         booking.trangThai === 'Đã thanh toán' ? 'bg-blue-500/10 text-blue-600' :
                         booking.trangThai === 'Đang sử dụng' ? 'bg-success/10 text-success' :
                         booking.trangThai === 'Hoàn thành' ? 'bg-muted text-muted-foreground' :
@@ -252,7 +255,7 @@ export default function BookingsManagePage() {
               })}
               {/* Hàng trống khi không có kết quả */}
               {filtered.length === 0 && (
-                <tr><td colSpan={6} className="px-4 py-12 text-center text-muted-foreground">Không có đơn đặt sân nào</td></tr>
+                <tr><td colSpan={7} className="px-4 py-12 text-center text-muted-foreground">Không có đơn đặt sân nào</td></tr>
               )}
             </tbody>
           </table>

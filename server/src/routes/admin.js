@@ -49,6 +49,10 @@ const { pool } = require('../config/database');
 const { authenticate, requireAdmin } = require('../middleware/auth');
 const router = express.Router();
 
+function formatDateLocal(date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
 /**
  * GET /admin/dashboard - Lấy dữ liệu thống kê tổng quan cho trang Dashboard Admin.
  *
@@ -189,13 +193,23 @@ router.get('/reports', authenticate, requireAdmin, async (req, res) => {
 
     const start = startDate || todayStr;
     const end = endDate || todayStr;
+    const countedRevenueCase = `CASE
+          WHEN p.trangThai = 'Thành công'
+            OR b.trangThai IN ('Đã thanh toán', 'Đã cọc', 'Đang sử dụng', 'Hoàn thành')
+            OR (b.trangThai = 'Đã hủy' AND b.ghiChu ILIKE '%không được hoàn lại%')
+          THEN p.soTien
+          ELSE 0
+        END`;
 
-    // Tổng hợp doanh thu: tổng tiền, tổng đơn, doanh thu đơn hủy (không tính no-show)
+    // Tổng hợp doanh thu: chỉ tính doanh thu giữ lại của đơn hủy khi ghi chú có policy không hoàn tiền
     const summary = await pool.query(
       `SELECT
-        COALESCE(SUM(p.soTien), 0) as totalRevenue,
+        COALESCE(SUM(${countedRevenueCase}), 0) as totalRevenue,
         COUNT(DISTINCT b.id) as totalBookings,
-        COALESCE(SUM(CASE WHEN b.trangThai = 'Đã hủy' AND b.ghiChu != 'No-show' THEN p.soTien ELSE 0 END), 0) as cancelRevenue
+        COALESCE(SUM(CASE
+          WHEN b.trangThai = 'Đã hủy' AND b.ghiChu ILIKE '%không được hoàn lại%' THEN p.soTien
+          ELSE 0
+        END), 0) as cancelRevenue
        FROM payments p JOIN bookings b ON p.donDatId = b.id
        WHERE (p.ngayGiaoDich AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh')::date BETWEEN $1 AND $2`,
       [start, end]
@@ -207,7 +221,7 @@ router.get('/reports', authenticate, requireAdmin, async (req, res) => {
       `SELECT
         TO_CHAR(p.ngayGiaoDich AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh', 'DD/MM') as date,
         c.tenSan as court_name,
-        SUM(p.soTien) as revenue
+        SUM(${countedRevenueCase}) as revenue
        FROM payments p
        JOIN bookings b ON p.donDatId = b.id
        JOIN courts c ON b.sanId = c.id
@@ -228,7 +242,7 @@ router.get('/reports', authenticate, requireAdmin, async (req, res) => {
 
     // Tổng doanh thu theo từng sân (dùng LEFT JOIN để hiển thị cả sân không có doanh thu)
     const revenueByCourt = await pool.query(
-      `SELECT c.tenSan as name, COALESCE(SUM(p.soTien), 0) as revenue
+      `SELECT c.tenSan as name, COALESCE(SUM(${countedRevenueCase}), 0) as revenue
        FROM courts c LEFT JOIN bookings b ON c.id = b.sanId
        LEFT JOIN payments p ON b.id = p.donDatId AND (p.ngayGiaoDich AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh')::date BETWEEN $1 AND $2
        GROUP BY c.id, c.tenSan ORDER BY revenue DESC`,
@@ -277,7 +291,16 @@ router.get('/services', async (req, res) => {
 router.post('/services', authenticate, requireAdmin, async (req, res) => {
   try {
     const { tenDichVu, donGia, loaiDichVu, soLuongTon, trangThai } = req.body;
-    if (!tenDichVu || !donGia) return res.status(400).json({ error: 'Vui lòng nhập đầy đủ thông tin' });
+    if (!tenDichVu || donGia === undefined || donGia === null || donGia === '') {
+      return res.status(400).json({ error: 'Vui lòng nhập đầy đủ thông tin' });
+    }
+    // Validate negative values
+    if (Number(donGia) < 0) {
+      return res.status(400).json({ error: 'Đơn giá không được âm' });
+    }
+    if (soLuongTon !== undefined && soLuongTon !== null && Number(soLuongTon) < 0) {
+      return res.status(400).json({ error: 'Số lượng tồn kho không được âm' });
+    }
     const result = await pool.query(
       'INSERT INTO services (tenDichVu, donGia, loaiDichVu, soLuongTon, trangThai) VALUES ($1, $2, $3, $4, $5) RETURNING *',
       [tenDichVu, donGia, loaiDichVu, soLuongTon || 0, trangThai || 'Còn hàng']
@@ -301,6 +324,13 @@ router.post('/services', authenticate, requireAdmin, async (req, res) => {
 router.put('/services/:id', authenticate, requireAdmin, async (req, res) => {
   try {
     const { tenDichVu, donGia, loaiDichVu, soLuongTon, trangThai } = req.body;
+    // Validate negative values
+    if (donGia !== undefined && donGia !== null && Number(donGia) < 0) {
+      return res.status(400).json({ error: 'Đơn giá không được âm' });
+    }
+    if (soLuongTon !== undefined && soLuongTon !== null && Number(soLuongTon) < 0) {
+      return res.status(400).json({ error: 'Số lượng tồn kho không được âm' });
+    }
     const result = await pool.query(
       'UPDATE services SET tenDichVu = COALESCE($1, tenDichVu), donGia = COALESCE($2, donGia), loaiDichVu = COALESCE($3, loaiDichVu), soLuongTon = COALESCE($4, soLuongTon), trangThai = COALESCE($5, trangThai) WHERE id = $6 RETURNING *',
       [tenDichVu, donGia, loaiDichVu, soLuongTon !== undefined ? parseInt(soLuongTon) : null, trangThai, req.params.id]
@@ -387,6 +417,19 @@ router.get('/notifications/unread-count', authenticate, async (req, res, next) =
  */
 router.patch('/notifications/:id/read', authenticate, async (req, res) => {
   try {
+    // Check notification exists first
+    const check = await pool.query(
+      'SELECT id, nguoiDungId FROM notifications WHERE id = $1',
+      [req.params.id]
+    );
+    if (check.rows.length === 0) {
+      return res.status(404).json({ error: 'Thông báo không tồn tại' });
+    }
+    // Check ownership - dùng loose equality để tránh type mismatch (DB number vs JWT string)
+    const ownerId = check.rows[0].nguoidungid ?? check.rows[0].nguoiDungId;
+    if (String(ownerId) !== String(req.user.id)) {
+      return res.status(403).json({ error: 'Bạn không có quyền truy cập thông báo này' });
+    }
     await pool.query('UPDATE notifications SET daDoc = TRUE WHERE id = $1 AND nguoiDungId = $2', [req.params.id, req.user.id]);
     res.json({ message: 'Đã đọc' });
   } catch (err) {
@@ -494,14 +537,31 @@ router.get('/discounts/my', authenticate, async (req, res) => {
 router.post('/discounts', authenticate, requireAdmin, async (req, res) => {
   try {
     const { code, noiDung, moTa, loaiGiamGia, mucGiamGia, ngayBatDau, ngayKetThuc, soLuongBanDau, trangThai } = req.body;
-    if (!code || !mucGiamGia) return res.status(400).json({ error: 'Vui lòng nhập mã và mức giảm giá' });
+    if (!code || mucGiamGia === undefined || mucGiamGia === null || mucGiamGia === '') {
+      return res.status(400).json({ error: 'Vui lòng nhập mã và mức giảm giá' });
+    }
+    // Validate mức giảm
+    if (Number(mucGiamGia) < 0) {
+      return res.status(400).json({ error: 'Mức giảm giá không được âm' });
+    }
+    const type = loaiGiamGia || 'percentage';
+    if (type === 'percentage' && Number(mucGiamGia) > 100) {
+      return res.status(400).json({ error: 'Mức giảm phần trăm không được vượt quá 100%' });
+    }
+    if (soLuongBanDau !== undefined && soLuongBanDau !== null && Number(soLuongBanDau) < 0) {
+      return res.status(400).json({ error: 'Số lượng không được âm' });
+    }
     const result = await pool.query(
       `INSERT INTO discounts (code, noiDung, moTa, loaiGiamGia, mucGiamGia, ngayBatDau, ngayKetThuc, soLuongBanDau, trangThai)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
-      [code, noiDung, moTa, loaiGiamGia || 'percentage', mucGiamGia, ngayBatDau, ngayKetThuc, soLuongBanDau || 0, trangThai || 'Active']
+      [code, noiDung, moTa, type, mucGiamGia, ngayBatDau, ngayKetThuc, soLuongBanDau || 0, trangThai || 'Active']
     );
     res.status(201).json({ data: result.rows[0] });
   } catch (err) {
+    // PostgreSQL unique violation: code = 23505
+    if (err.code === '23505') {
+      return res.status(409).json({ error: 'Mã giảm giá đã tồn tại' });
+    }
     res.status(500).json({ error: err.message });
   }
 });
@@ -518,6 +578,16 @@ router.post('/discounts', authenticate, requireAdmin, async (req, res) => {
 router.put('/discounts/:id', authenticate, requireAdmin, async (req, res) => {
   try {
     const { code, noiDung, moTa, loaiGiamGia, mucGiamGia, ngayBatDau, ngayKetThuc, soLuongBanDau, trangThai } = req.body;
+    // Validate
+    if (mucGiamGia !== undefined && mucGiamGia !== null && Number(mucGiamGia) < 0) {
+      return res.status(400).json({ error: 'Mức giảm giá không được âm' });
+    }
+    if (loaiGiamGia === 'percentage' && mucGiamGia !== undefined && Number(mucGiamGia) > 100) {
+      return res.status(400).json({ error: 'Mức giảm phần trăm không được vượt quá 100%' });
+    }
+    if (soLuongBanDau !== undefined && soLuongBanDau !== null && Number(soLuongBanDau) < 0) {
+      return res.status(400).json({ error: 'Số lượng không được âm' });
+    }
     const result = await pool.query(
       `UPDATE discounts SET code = COALESCE($1, code), noiDung = COALESCE($2, noiDung), moTa = COALESCE($3, moTa),
        loaiGiamGia = COALESCE($4, loaiGiamGia), mucGiamGia = COALESCE($5, mucGiamGia),
@@ -529,6 +599,9 @@ router.put('/discounts/:id', authenticate, requireAdmin, async (req, res) => {
     if (result.rows.length === 0) return res.status(404).json({ error: 'Không tìm thấy' });
     res.json({ data: result.rows[0] });
   } catch (err) {
+    if (err.code === '23505') {
+      return res.status(409).json({ error: 'Mã giảm giá đã tồn tại' });
+    }
     res.status(500).json({ error: err.message });
   }
 });
@@ -566,8 +639,9 @@ router.delete('/discounts/:id', authenticate, requireAdmin, async (req, res) => 
 router.get('/reports/export', authenticate, requireAdmin, async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
-    const start = startDate || new Date().toISOString().slice(0, 10);
-    const end = endDate || new Date().toISOString().slice(0, 10);
+    const todayStr = formatDateLocal(new Date());
+    const start = startDate || todayStr;
+    const end = endDate || todayStr;
 
     // Tạo workbook Excel với thư viện exceljs
     const ExcelJS = require('exceljs');

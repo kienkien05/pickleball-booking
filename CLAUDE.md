@@ -63,3 +63,24 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 ---
 
 **These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.
+
+
+# Project Rules
+
+- Backend: Flask
+- Frontend: HTML/CSS/JS
+- Database: MongoDB
+
+# Testing Rules
+
+- Every feature must have:
+  - Positive tests
+  - Negative tests
+  - Boundary tests
+  - Permission tests
+
+# Coding Standards
+
+- Avoid over-engineering
+- Prefer simple CRUD services
+- Validate all user input

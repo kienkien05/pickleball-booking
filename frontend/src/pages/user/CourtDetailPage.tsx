@@ -24,7 +24,8 @@
  *   + Hỗ trợ 2 loại giảm giá: phần trăm (percentage) và số tiền cố định (fixed).
  *   + Hiển thị số tiền được giảm và tổng tiền sau giảm giá.
  * - Tính năng tự động đặt lịch (auto-booking) dành cho người dùng VIP:
- *   + Hệ thống sẽ tự động đặt lại khung giờ tương tự cho tuần kế tiếp.
+ *   + Hệ thống khóa lịch cùng thứ/khung giờ trong 30 ngày và thanh toán một lần.
+ *   + Nếu chọn dịch vụ, người dùng chọn rõ dịch vụ chỉ áp dụng buổi đầu hay tất cả buổi.
  * - Modal xác nhận đặt sân hiển thị tóm tắt thông tin trước khi gửi.
  * - Nếu sân đang bảo trì: hiển thị thông báo không thể đặt.
  *
@@ -51,6 +52,39 @@ import { BOOKING_LOCK_THRESHOLD_MINS } from '@/lib/constants'
  * Khi có nhiều hơn REVIEW_PAGE_SIZE đánh giá, phân trang sẽ xuất hiện.
  */
 const REVIEW_PAGE_SIZE = 5
+const AUTO_BOOKING_DAYS = 30
+
+function formatDateInput(date: Date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+}
+
+function parseDateInput(dateStr: string) {
+  const parts = dateStr.split('-').map(Number)
+  const year = parts[0] || new Date().getFullYear()
+  const month = parts[1] || new Date().getMonth() + 1
+  const day = parts[2] || new Date().getDate()
+  return new Date(year, month - 1, day)
+}
+
+function addDaysToDateString(dateStr: string, days: number) {
+  const date = parseDateInput(dateStr)
+  date.setDate(date.getDate() + days)
+  return formatDateInput(date)
+}
+
+function buildAutoBookingDates(startDate: string) {
+  const dates: string[] = []
+  const current = parseDateInput(startDate)
+  const end = parseDateInput(startDate)
+  end.setDate(end.getDate() + AUTO_BOOKING_DAYS)
+
+  while (current <= end) {
+    dates.push(formatDateInput(current))
+    current.setDate(current.getDate() + 7)
+  }
+
+  return dates
+}
 
 /**
  * CourtDetailPage Component
@@ -80,7 +114,7 @@ export default function CourtDetailPage() {
    * Ngày được chọn để đặt sân, mặc định là hôm nay.
    * Định dạng: YYYY-MM-DD (chuỗi ISO date).
    */
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().slice(0, 10))
+  const [selectedDate, setSelectedDate] = useState(formatDateInput(new Date()))
   /**
    * Danh sách ID các khung giờ đã chọn.
    * Mỗi phần tử là một chuỗi ID của timeslot.
@@ -99,9 +133,14 @@ export default function CourtDetailPage() {
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'transfer' | 'momo' | 'visa'>('cash')
   /**
    * Cờ tự động đặt lịch. Chỉ khả dụng cho người dùng VIP.
-   * Khi bật: hệ thống sẽ tự động đặt lại khung giờ tương tự cho tuần sau.
+   * Khi bật: hệ thống tạo booking thật cho cùng thứ/khung giờ trong 30 ngày.
    */
   const [autoBooking, setAutoBooking] = useState(false)
+  /**
+   * Policy dịch vụ cho VIP auto-booking.
+   * false: dịch vụ chỉ áp dụng buổi đầu. true: dịch vụ áp dụng cho tất cả buổi trong 30 ngày.
+   */
+  const [repeatServices, setRepeatServices] = useState(false)
   /** Trạng thái mở/đóng modal xác nhận đặt sân */
   const [confirmOpen, setConfirmOpen] = useState(false)
   /** Trạng thái loading của nút đặt sân (ngăn click nhiều lần) */
@@ -265,8 +304,17 @@ export default function CourtDetailPage() {
     return sum + (svc ? (Number(svc.donGia) || 0) * qty : 0)
   }, 0)
 
-  /** Tổng tiền trước khi áp dụng mã giảm giá = tiền sân + tiền dịch vụ */
-  const subTotal = courtPrice + servicesPrice
+  /** Các buổi sẽ được tạo nếu VIP bật auto-booking 30 ngày. */
+  const fullAutoBookingDates = buildAutoBookingDates(selectedDate)
+  const autoBookingDates = autoBooking ? fullAutoBookingDates : [selectedDate]
+  const autoBookingSessionCount = autoBookingDates.length
+  const autoBookingPreviewCount = fullAutoBookingDates.length
+  const serviceSessionCount = autoBooking && repeatServices ? autoBookingSessionCount : 1
+  const billableCourtPrice = courtPrice * autoBookingSessionCount
+  const billableServicesPrice = servicesPrice * serviceSessionCount
+
+  /** Tổng tiền trước khi áp dụng mã giảm giá = tiền sân toàn chuỗi + tiền dịch vụ theo policy */
+  const subTotal = billableCourtPrice + billableServicesPrice
 
   /**
    * Tính số tiền được giảm giá dựa trên mã giảm giá đã áp dụng.
@@ -378,7 +426,8 @@ export default function CourtDetailPage() {
    *    - khungGioIds: danh sách ID khung giờ đã chọn.
    *    - dichVu: danh sách dịch vụ kèm theo (id + số lượng).
    *    - phuongThuc: phương thức thanh toán.
-   *    - isAutoBooking: có tự động đặt lịch tuần sau không.
+   *    - isAutoBooking: có khóa lịch VIP 30 ngày không.
+   *    - repeatServices: dịch vụ áp dụng tất cả buổi hay chỉ buổi đầu.
    *    - maGiamGia: mã giảm giá (nếu có).
    * 3. Khi thành công:
    *    - Hiển thị toast thành công.
@@ -397,9 +446,10 @@ export default function CourtDetailPage() {
         dichVu: Object.entries(selectedServices).map(([id, qty]) => ({ dichVuId: id, soLuong: qty })),
         phuongThuc: paymentMethod,
         isAutoBooking: autoBooking,
+        repeatServices,
         maGiamGia: appliedDiscount?.code
       })
-      toast.success(autoBooking ? 'Đặt sân thành công! Hệ thống sẽ tự động đặt lịch cho tuần sau.' : 'Đặt sân thành công!')
+      toast.success(autoBooking ? 'Đặt sân thành công! Hệ thống đã khóa lịch VIP trong 30 ngày.' : 'Đặt sân thành công!')
       queryClient.invalidateQueries({ queryKey: ['notifications'] })
       queryClient.invalidateQueries({ queryKey: ['my-vouchers'] })
       queryClient.invalidateQueries({ queryKey: ['bookings'] })
@@ -435,7 +485,7 @@ export default function CourtDetailPage() {
   }
 
   /** Ngày hôm nay dạng YYYY-MM-DD, dùng làm giá trị min cho date picker */
-  const today = new Date().toISOString().slice(0, 10)
+  const today = formatDateInput(now)
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
@@ -584,7 +634,7 @@ export default function CourtDetailPage() {
               <div className="rounded-xl border border-border bg-card p-6">
                 <h2 className="font-semibold mb-4">Chọn ngày</h2>
                 <input type="date" value={selectedDate} min={today}
-                  onChange={e => { setSelectedDate(e.target.value); setSelectedSlots([]) }}
+                  onChange={e => { setSelectedDate(e.target.value); setSelectedSlots([]); setAppliedDiscount(null) }}
                   className="w-full sm:w-auto h-11 px-4 rounded-lg border border-input bg-background focus:ring-2 focus:ring-ring outline-none" />
               </div>
 
@@ -618,7 +668,7 @@ export default function CourtDetailPage() {
                     const isExpired = slot.isExpired
 
                     // Real-time locking logic cho ngày hôm nay
-                    const todayStr = new Date().toISOString().slice(0, 10)
+                    const todayStr = formatDateInput(now)
                     const currentTimeStr = now.toTimeString().slice(0, 5)
 
                     let isRealTimeLocked = false
@@ -717,7 +767,7 @@ export default function CourtDetailPage() {
                         type="button"
                         variant="outline"
                         size="sm"
-                        onClick={handleApplyDiscount}
+                        onClick={() => handleApplyDiscount()}
                         loading={validatingDiscount}
                         disabled={!discountCode}
                       >
@@ -768,8 +818,16 @@ export default function CourtDetailPage() {
 
                   <h2 className="font-semibold mb-4">Tóm tắt đặt sân</h2>
                   <div className="space-y-2 text-sm">
-                    <div className="flex justify-between"><span>Tiền sân</span><span>{formatPrice(courtPrice)}</span></div>
-                    {servicesPrice > 0 && <div className="flex justify-between"><span>Dịch vụ</span><span>{formatPrice(servicesPrice)}</span></div>}
+                    <div className="flex justify-between">
+                      <span>Tiền sân{autoBooking ? ` (${autoBookingSessionCount} buổi)` : ''}</span>
+                      <span>{formatPrice(billableCourtPrice)}</span>
+                    </div>
+                    {servicesPrice > 0 && (
+                      <div className="flex justify-between">
+                        <span>Dịch vụ{autoBooking ? (repeatServices ? ' (tất cả buổi)' : ' (buổi đầu)') : ''}</span>
+                        <span>{formatPrice(billableServicesPrice)}</span>
+                      </div>
+                    )}
                     {discountAmount > 0 && (
                       <div className="flex justify-between text-success">
                         <span>Giảm giá</span>
@@ -782,18 +840,37 @@ export default function CourtDetailPage() {
                   </div>
                   <div className="mt-4 space-y-3">
                     {isVIP && (
-                      <div className="flex items-center justify-between p-3 rounded-lg border border-amber-500/30 bg-amber-500/5">
-                        <div className="flex items-center gap-2">
-                          <RefreshCw className="size-4 text-amber-500" />
-                          <div>
-                            <p className="text-sm font-medium">Tự động đặt lịch tuần sau</p>
-                            <p className="text-xs text-muted-foreground">Tự động đặt lại khung giờ này cho tuần kế tiếp</p>
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between p-3 rounded-lg border border-amber-500/30 bg-amber-500/5">
+                          <div className="flex items-center gap-2">
+                            <RefreshCw className="size-4 text-amber-500" />
+                            <div>
+                              <p className="text-sm font-medium">Tự động đặt lịch 30 ngày</p>
+                              <p className="text-xs text-muted-foreground">Khóa cùng thứ và khung giờ trong {autoBookingPreviewCount} buổi</p>
+                            </div>
                           </div>
+                          <button onClick={() => {
+                            const next = !autoBooking
+                            setAutoBooking(next)
+                            if (!next) setRepeatServices(false)
+                            setAppliedDiscount(null)
+                          }}
+                            className={`relative w-11 h-6 rounded-full transition-colors duration-200 flex items-center px-0.5 ${autoBooking ? 'bg-amber-500' : 'bg-muted-foreground/30'}`}>
+                            <span className={`size-5 rounded-full bg-white shadow transition-transform duration-200 ${autoBooking ? 'translate-x-5' : 'translate-x-0'}`} />
+                          </button>
                         </div>
-                        <button onClick={() => setAutoBooking(!autoBooking)}
-                          className={`relative w-11 h-6 rounded-full transition-colors duration-200 flex items-center px-0.5 ${autoBooking ? 'bg-amber-500' : 'bg-muted-foreground/30'}`}>
-                          <span className={`size-5 rounded-full bg-white shadow transition-transform duration-200 ${autoBooking ? 'translate-x-5' : 'translate-x-0'}`} />
-                        </button>
+                        {autoBooking && servicesPrice > 0 && (
+                          <div className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/30">
+                            <div>
+                              <p className="text-sm font-medium">Dùng dịch vụ cho các tuần sau</p>
+                              <p className="text-xs text-muted-foreground">Tắt: chỉ tính dịch vụ cho buổi đầu tiên</p>
+                            </div>
+                            <button onClick={() => { setRepeatServices(v => !v); setAppliedDiscount(null) }}
+                              className={`relative w-11 h-6 rounded-full transition-colors duration-200 flex items-center px-0.5 ${repeatServices ? 'bg-primary' : 'bg-muted-foreground/30'}`}>
+                              <span className={`size-5 rounded-full bg-white shadow transition-transform duration-200 ${repeatServices ? 'translate-x-5' : 'translate-x-0'}`} />
+                            </button>
+                          </div>
+                        )}
                       </div>
                     )}
                     <Button className="w-full" size="lg" onClick={() => setConfirmOpen(true)}>
@@ -830,8 +907,8 @@ export default function CourtDetailPage() {
        * - Mã giảm giá (nếu có) và số tiền được giảm.
        * - Tổng tiền cuối cùng.
        * - Phương thức thanh toán.
-       * - Cảnh báo: có thể hủy trước 3 tiếng.
-       * - Nếu bật auto-booking: thông báo hệ thống sẽ tự động đặt lịch tuần sau.
+       * - Cảnh báo: có thể hủy trước 3 tiếng, no-show quá 15 phút sẽ bị hủy.
+       * - Nếu bật auto-booking: thông báo hệ thống khóa toàn bộ lịch 30 ngày và policy dịch vụ.
        * Nút: Hủy (đóng modal) | Xác nhận đặt sân (gọi handleBooking).
        */}
       <Modal isOpen={confirmOpen} onClose={() => setConfirmOpen(false)} title="Xác nhận đặt sân">
@@ -839,6 +916,14 @@ export default function CourtDetailPage() {
           <p><strong>Sân:</strong> {court.tenSan}</p>
           <p><strong>Ngày:</strong> {formatDate(selectedDate)}</p>
           <p><strong>Khung giờ:</strong> {selectedSlotObjects.map((s: any) => `${s.gioBatDau?.substring(0, 5)}-${s.gioKetThuc?.substring(0, 5)}`).join(', ')}</p>
+          {autoBooking && (
+            <>
+              <p><strong>Số buổi VIP:</strong> {autoBookingSessionCount} buổi, từ {formatDate(selectedDate)} đến {formatDate(addDaysToDateString(selectedDate, AUTO_BOOKING_DAYS))}</p>
+              {servicesPrice > 0 && (
+                <p><strong>Dịch vụ:</strong> {repeatServices ? 'Áp dụng cho tất cả buổi trong 30 ngày' : 'Chỉ áp dụng cho buổi đầu tiên'}</p>
+              )}
+            </>
+          )}
           {appliedDiscount && (
             <div className="flex justify-between text-success">
               <span><strong>Mã giảm giá:</strong> {appliedDiscount.code}</span>
@@ -850,13 +935,17 @@ export default function CourtDetailPage() {
           {/* Cảnh báo chính sách hủy */}
           <div className="flex items-start gap-2 p-3 rounded-lg bg-warning/10 text-warning text-xs">
             <AlertCircle className="size-4 shrink-0 mt-0.5" />
-            <span>Bạn có thể hủy trước 3 tiếng. Hủy sau thời gian này sẽ không được chấp nhận.</span>
+            <span>
+              {paymentMethod === 'cash'
+                ? 'Bạn có thể hủy trước 3 tiếng. Nếu không đến/check-in trong 15 phút từ giờ bắt đầu, sân sẽ bị hủy.'
+                : 'Bạn có thể hủy trước 3 tiếng. Đơn đã thanh toán/cọc khi hủy hoặc no-show sẽ không hoàn tiền.'}
+            </span>
           </div>
           {/* Thông báo auto-booking nếu được bật */}
           {autoBooking && (
             <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-500/10 text-amber-600 text-xs">
               <RefreshCw className="size-4 shrink-0 mt-0.5" />
-              <span>Hệ thống sẽ tự động đặt lịch khung giờ này cho cùng ngày tuần sau.</span>
+              <span>Hệ thống sẽ tạo booking thật và khóa {autoBookingSessionCount} buổi trong 30 ngày. Bạn thanh toán một lần cho toàn bộ lịch này.</span>
             </div>
           )}
         </div>

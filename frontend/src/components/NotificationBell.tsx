@@ -17,7 +17,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Bell, CheckCheck, CalendarCheck, Ban, CreditCard, Info } from 'lucide-react'
+import { AlertTriangle, Bell, CheckCheck, CalendarCheck, Ban, CreditCard, Gift, Info, LogIn, LogOut, RefreshCw, Star, UserX } from 'lucide-react'
 import { notificationService } from '@/services'
 import { useAuthStore } from '@/stores/authStore'
 import { cn } from '@/lib/utils'
@@ -30,6 +30,17 @@ const typeIcons: Record<string, any> = {
   booking_confirmed: CalendarCheck, // Đặt sân thành công
   booking_cancelled: Ban,           // Hủy sân
   payment_received: CreditCard,     // Thanh toán
+  auto_checkin: LogIn,               // Check-in tự động/thành công
+  auto_checkout: LogOut,             // Check-out tự động/thành công
+  auto_cancel: Ban,                  // Hủy tự động
+  noshow: UserX,                     // Khách vắng mặt
+  promotion: Gift,                   // Khuyến mãi / voucher
+  vip: Star,                         // VIP
+  vip_auto_enabled: RefreshCw,       // Bật tự động đặt lịch
+  vip_auto_success: CalendarCheck,   // VIP auto-book thành công
+  vip_auto_conflict: AlertTriangle,  // VIP auto-book bị trùng
+  booking_completed: CheckCheck,     // Hoàn thành đơn
+  warning: AlertTriangle,            // Cảnh báo
   system: Info,                     // Hệ thống
 }
 
@@ -40,6 +51,17 @@ const typeLabels: Record<string, string> = {
   booking_confirmed: 'Đặt sân',
   booking_cancelled: 'Hủy sân',
   payment_received: 'Thanh toán',
+  auto_checkin: 'Check-in',
+  auto_checkout: 'Check-out',
+  auto_cancel: 'Hủy tự động',
+  noshow: 'Vắng mặt',
+  promotion: 'Ưu đãi',
+  vip: 'VIP',
+  vip_auto_enabled: 'VIP tự động',
+  vip_auto_success: 'VIP tự động',
+  vip_auto_conflict: 'Xung đột VIP',
+  booking_completed: 'Hoàn thành',
+  warning: 'Cảnh báo',
   system: 'Hệ thống',
 }
 
@@ -157,7 +179,9 @@ export default function NotificationBell() {
             ) : (
               // Mỗi thông báo: icon + tiêu đề + nội dung + thời gian
               notifications.map((n: any) => {
-                const Icon = typeIcons[n.loaiThongBao || n.type] || Info
+                const type = n.loaiThongBao || n.type || 'system'
+                const Icon = typeIcons[type] || Info
+                const label = typeLabels[type] || typeLabels.system
                 return (
                   <div key={n.id} onClick={() => { if (!(n.daDoc !== undefined ? n.daDoc : n.is_read)) markReadMutation.mutate(n.id) }}
                     className={cn('flex gap-3 px-4 py-3 border-b border-border last:border-0 cursor-pointer hover:bg-muted/50 transition-colors',
@@ -175,7 +199,11 @@ export default function NotificationBell() {
                         {!(n.daDoc !== undefined ? n.daDoc : n.is_read) && <div className="size-2 bg-primary rounded-full shrink-0" />}
                       </div>
                       <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">{(n.noiDung || n.message)}</p>
-                      <p className="text-[10px] text-muted-foreground mt-1">{timeAgo((n.thoiGianTao || n.created_at))}</p>
+                      <div className="flex items-center gap-2 mt-1 text-[10px] text-muted-foreground">
+                        <span>{label}</span>
+                        <span className="size-1 rounded-full bg-muted-foreground/40" />
+                        <span>{timeAgo((n.thoiGianTao || n.created_at))}</span>
+                      </div>
                     </div>
                   </div>
                 )

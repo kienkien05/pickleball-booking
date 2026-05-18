@@ -3,7 +3,7 @@
  * người dùng hiện tại và cho phép hủy đặt sân.
  *
  * Trang này cung cấp:
- * - Thanh tabs lọc theo trạng thái đặt sân: Tất cả, Đã đặt, Đã thanh toán,
+ * - Thanh tabs lọc theo trạng thái đặt sân: Tất cả, Đã đặt, Đã cọc, Đã thanh toán,
  *   Đang sử dụng, Hoàn thành, Đã hủy.
  * - Danh sách booking dưới dạng card, mỗi card hiển thị:
  *   + Tên sân (link đến trang chi tiết booking).
@@ -12,7 +12,7 @@
  *   + Tổng tiền.
  *   + Badge trạng thái với màu sắc tương ứng.
  *   + Nút "Xem hóa đơn & QR check-in" cho các booking đang hoạt động.
- *   + Nút "Hủy" cho các booking ở trạng thái Đã thanh toán hoặc Đã đặt.
+ *   + Nút "Hủy" cho các booking ở trạng thái Đã thanh toán, Đã cọc hoặc Đã đặt.
  *   + Danh sách dịch vụ đi kèm (nếu có).
  * - Modal xác nhận hủy với cảnh báo chính sách hủy (trước 3 tiếng).
  *
@@ -41,6 +41,7 @@ import { formatPrice, formatDate, formatTime } from '@/lib/utils'
 const statusTabs = [
   { key: '', label: 'Tất cả' },
   { key: 'Đã đặt', label: 'Đã đặt' },
+  { key: 'Đã cọc', label: 'Đã cọc' },
   { key: 'Đã thanh toán', label: 'Đã thanh toán' },
   { key: 'Đang sử dụng', label: 'Đang dùng' },
   { key: 'Hoàn thành', label: 'Hoàn thành' },
@@ -51,6 +52,7 @@ const statusTabs = [
  * Bảng màu sắc cho từng trạng thái booking.
  * Dùng để hiển thị badge trạng thái với màu nền (bg) và màu chữ (text) tương ứng.
  * - Đã đặt: vàng (amber).
+ * - Đã cọc: tím (purple).
  * - Đã thanh toán: xanh dương (blue).
  * - Đang sử dụng: xanh lá (success).
  * - Hoàn thành: xám (muted).
@@ -58,6 +60,7 @@ const statusTabs = [
  */
 const statusColors: Record<string, string> = {
   'Đã đặt': 'bg-amber-500/10 text-amber-600',
+  'Đã cọc': 'bg-purple-500/10 text-purple-600',
   'Đã thanh toán': 'bg-blue-500/10 text-blue-600',
   'Đang sử dụng': 'bg-success/10 text-success',
   'Hoàn thành': 'bg-muted text-muted-foreground',
@@ -182,9 +185,9 @@ export default function MyBookingsPage() {
          * - Tổng tiền (format VND).
          * - Badge trạng thái với màu tương ứng.
          * - Nút "Xem hóa đơn & QR check-in" cho các booking còn hiệu lực:
-         *   + Đã thanh toán, Đã đặt, Đang sử dụng, Hoàn thành.
+         *   + Đã thanh toán, Đã cọc, Đã đặt, Đang sử dụng, Hoàn thành.
          * - Nút "Hủy" cho các booking có thể hủy:
-         *   + Chỉ Đã thanh toán và Đã đặt (không hủy được Đang sử dụng hay Hoàn thành).
+         *   + Chỉ Đã thanh toán, Đã cọc và Đã đặt (không hủy được Đang sử dụng hay Hoàn thành).
          * - Danh sách dịch vụ đi kèm (nếu có).
          */}
         {isLoading ? (
@@ -232,7 +235,7 @@ export default function MyBookingsPage() {
                       </span>
 
                       {/* Nút "Xem hóa đơn & QR check-in": hiển thị cho các booking còn hiệu lực */}
-                      {(booking.trangThai === 'Đã thanh toán' || booking.trangThai === 'Đã đặt' || booking.trangThai === 'Đang sử dụng' || booking.trangThai === 'Hoàn thành') && (
+                      {(booking.trangThai === 'Đã thanh toán' || booking.trangThai === 'Đã cọc' || booking.trangThai === 'Đã đặt' || booking.trangThai === 'Đang sử dụng' || booking.trangThai === 'Hoàn thành') && (
                         <Link to={`/booking/${booking.id}`}>
                           <Button variant="outline" size="sm" className="text-[10px] h-8 px-3 border-primary/30 text-primary hover:bg-primary/5">
                             <QrCode className="size-3 mr-1" /> Xem hóa đơn & QR check-in
@@ -240,8 +243,8 @@ export default function MyBookingsPage() {
                         </Link>
                       )}
 
-                      {/* Nút "Hủy": chỉ hiển thị cho booking ở trạng thái Đã thanh toán hoặc Đã đặt */}
-                      {(booking.trangThai === 'Đã thanh toán' || booking.trangThai === 'Đã đặt') && (
+                      {/* Nút "Hủy": chỉ hiển thị cho booking ở trạng thái Đã thanh toán, Đã cọc hoặc Đã đặt */}
+                      {(booking.trangThai === 'Đã thanh toán' || booking.trangThai === 'Đã cọc' || booking.trangThai === 'Đã đặt') && (
                         <Button variant="outline" size="sm" onClick={() => setCancelId(booking.id)}>
                           <XCircle className="size-3 mr-1" /> Hủy
                         </Button>
@@ -276,7 +279,7 @@ export default function MyBookingsPage() {
           {/* Cảnh báo chính sách hủy */}
           <div className="flex items-start gap-2 p-3 rounded-lg bg-destructive/10 text-destructive">
             <AlertCircle className="size-4 shrink-0 mt-0.5" />
-            <span>Bạn có thể hủy trước 3 tiếng. Hủy sau thời gian này sẽ không được chấp nhận.</span>
+            <span>Bạn có thể hủy trước 3 tiếng. Đơn đã thanh toán/cọc khi hủy sẽ không hoàn tiền; đơn tiền mặt chưa thanh toán chỉ chuyển sang Đã hủy.</span>
           </div>
           <p>Bạn có chắc chắn muốn hủy lịch đặt sân này?</p>
         </div>

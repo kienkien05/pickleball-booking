@@ -63,7 +63,7 @@ const FIELD_MAP = {
   // bookings - bảng đơn đặt sân
   nguoidungid: 'nguoiDungId', khunggioid: 'khungGioId', ngaychoi: 'ngayChoi',
   tongtien: 'tongTien', tiendacoc: 'tienDaCoc', giagoc: 'giaGoc', tiengiam: 'tienGiam',
-  isautobooking: 'isAutoBooking', ghichu: 'ghiChu',
+  isautobooking: 'isAutoBooking', autobookingseriesid: 'autoBookingSeriesId', ghichu: 'ghiChu',
   // booking_services - bảng dịch vụ trong đơn
   dondatid: 'donDatId', dichvuid: 'dichVuId', soluong: 'soLuong',
   // payments - bảng thanh toán
@@ -94,6 +94,8 @@ const FIELD_MAP = {
   deposit: 'deposit', full_name: 'full_name', phone_number: 'phone_number',
   is_active: 'is_active', role: 'role', email: 'email',
   magiamgia: 'maGiamGia',
+  khunggioids: 'khungGioIds', repeatservices: 'repeatServices', servicepolicy: 'servicePolicy',
+  startdate: 'startDate', enddate: 'endDate', totalamount: 'totalAmount',
 };
 
 /**
@@ -202,7 +204,23 @@ async function initDatabase() {
         tienGiam DECIMAL(15,2) DEFAULT 0,
         trangThai VARCHAR(50) DEFAULT 'Đã cọc',
         isAutoBooking BOOLEAN DEFAULT FALSE,
+        autoBookingSeriesId INTEGER,
         ghiChu TEXT,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS auto_booking_series (
+        id SERIAL PRIMARY KEY,
+        nguoiDungId INTEGER NOT NULL REFERENCES users(id),
+        sanId INTEGER NOT NULL REFERENCES courts(id),
+        khungGioIds JSONB NOT NULL,
+        startDate DATE NOT NULL,
+        endDate DATE NOT NULL,
+        repeatServices BOOLEAN DEFAULT FALSE,
+        servicePolicy VARCHAR(50) DEFAULT 'first_only',
+        totalAmount DECIMAL(15,2) DEFAULT 0,
+        trangThai VARCHAR(50) DEFAULT 'Active',
         created_at TIMESTAMP DEFAULT NOW(),
         updated_at TIMESTAMP DEFAULT NOW()
       );
@@ -286,6 +304,11 @@ async function initDatabase() {
 
     // Thêm cột mã giảm giá vào bảng bookings để theo dõi mã đã dùng
     await client.query("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS maGiamGia VARCHAR(50)").catch(() => {});
+
+    // Thêm liên kết series cho VIP auto-booking 30 ngày
+    await client.query("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS autoBookingSeriesId INTEGER REFERENCES auto_booking_series(id)").catch(() => {});
+    await client.query("CREATE INDEX IF NOT EXISTS idx_bookings_auto_series ON bookings(autoBookingSeriesId)").catch(() => {});
+    await client.query("CREATE INDEX IF NOT EXISTS idx_auto_booking_series_user_status ON auto_booking_series(nguoiDungId, trangThai)").catch(() => {});
 
     // Thêm cột is_hidden vào bảng discounts để ẩn mã bí mật/fanpage
     await client.query("ALTER TABLE discounts ADD COLUMN IF NOT EXISTS is_hidden BOOLEAN DEFAULT FALSE").catch(() => {});

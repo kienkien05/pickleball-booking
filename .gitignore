@@ -28,4 +28,10 @@ package-lock.json
 
 CLAUDE.md
 
-docker-compose.yml   
+docker-compose.yml
+
+# Test automation files
+tests/
+ManualTestCases.xlsx
+KLTN_*.docx
+.spreadsheet_work/

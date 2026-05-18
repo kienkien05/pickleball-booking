@@ -32,6 +32,16 @@
 const { pool, initDatabase } = require('./config/database');
 const bcrypt = require('bcryptjs');
 
+function formatDateLocal(date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+function addDays(date, days) {
+  const next = new Date(date);
+  next.setDate(next.getDate() + days);
+  return next;
+}
+
 /**
  * Hàm seed() - Nạp toàn bộ dữ liệu mẫu vào database.
  *
@@ -58,7 +68,7 @@ async function seed() {
     await client.query(`
       TRUNCATE TABLE
         booking_services, payments, reviews, notifications,
-        bookings, court_images, discounts,
+        bookings, auto_booking_series, court_images, discounts,
         timeslots, services, users, courts
       RESTART IDENTITY CASCADE
     `);
@@ -179,11 +189,12 @@ async function seed() {
 
     // ── Bookings (9 đơn đặt sân với nhiều trạng thái) ────────────────────────
     // Tính toán ngày tương đối để dữ liệu luôn có ý nghĩa khi chạy
-    const today = new Date().toISOString().slice(0, 10);
-    const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
-    const dayAfter = new Date(Date.now() + 2 * 86400000).toISOString().slice(0, 10);
-    const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
-    const twoDaysAgo = new Date(Date.now() - 2 * 86400000).toISOString().slice(0, 10);
+    const baseDate = new Date();
+    const today = formatDateLocal(baseDate);
+    const tomorrow = formatDateLocal(addDays(baseDate, 1));
+    const dayAfter = formatDateLocal(addDays(baseDate, 2));
+    const yesterday = formatDateLocal(addDays(baseDate, -1));
+    const twoDaysAgo = formatDateLocal(addDays(baseDate, -2));
 
     // Booking 1-2: user1 đặt sân Landmark ngày mai (tiền mặt, chưa thanh toán)
     await client.query(`

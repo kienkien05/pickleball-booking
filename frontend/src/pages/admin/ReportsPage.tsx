@@ -4,7 +4,7 @@
  * Trang báo cáo doanh thu dành cho admin.
  * Chức năng chính:
  * - Chọn khoảng thời gian (từ ngày - đến ngày) để xem báo cáo.
- * - Hiển thị 3 thẻ thống kê tổng quan: Tổng doanh thu, Tổng đơn hàng, Doanh thu hủy cọc.
+ * - Hiển thị 3 thẻ thống kê tổng quan: Tổng doanh thu, Tổng đơn hàng, Doanh thu giữ lại từ đơn hủy.
  * - Biểu đồ cột (BarChart) thể hiện doanh thu theo ngày, phân tách theo từng sân
  *   (stacked bar chart - các sân xếp chồng lên nhau).
  * - Biểu đồ tròn (PieChart) thể hiện tỉ trọng doanh thu của từng sân.
@@ -69,8 +69,9 @@ export default function ReportsPage() {
   const handleMonthSelect = (value: string) => {
     setQuickMonth(value)
     if (!value) return
-    const [y, m] = value.split('-').map(Number)
-    const daysInMonth = new Date(y, m, 0).getDate()
+    const [year, month] = value.split('-').map(Number)
+    if (!year || !month) return
+    const daysInMonth = new Date(year, month, 0).getDate()
     setStartDate(`${value}-01`)
     setEndDate(`${value}-${String(daysInMonth).padStart(2, '0')}`)
   }
@@ -165,7 +166,7 @@ export default function ReportsPage() {
   const statCards = [
     { label: 'Tổng doanh thu', value: formatPrice(Number(stats.totalRevenue ?? 0)), icon: DollarSign, color: 'bg-emerald-500', text: 'text-emerald-500' },
     { label: 'Tổng đơn hàng', value: stats.totalBookings ?? 0, icon: ClipboardList, color: 'bg-blue-500', text: 'text-blue-500' },
-    { label: 'Doanh thu hủy cọc', value: formatPrice(Number(stats.cancelRevenue ?? 0)), icon: ArrowUpRight, color: 'bg-red-500', text: 'text-red-500' },
+    { label: 'Giữ lại từ đơn hủy', value: formatPrice(Number(stats.cancelRevenue ?? 0)), icon: ArrowUpRight, color: 'bg-red-500', text: 'text-red-500' },
   ]
 
   return (
