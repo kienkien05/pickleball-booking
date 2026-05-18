@@ -30,7 +30,10 @@ CLAUDE.md
 
 docker-compose.yml
 
-# Test automation files
+# Playwright test results (from upstream)
+test-results
+
+# Test automation files (local only)
 tests/
 ManualTestCases.xlsx
 KLTN_*.docx

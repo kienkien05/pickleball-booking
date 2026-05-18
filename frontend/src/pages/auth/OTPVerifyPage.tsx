@@ -112,10 +112,11 @@ export default function OTPVerifyPage() {
   const handleChange = (index: number, value: string) => {
     // Chỉ cho phép ký tự số (0-9)
     if (!/^\d*$/.test(value)) return
-    const newOtp = [...otp]
-    // Chỉ lấy ký tự cuối cùng nếu người dùng nhập nhiều ký tự
-    newOtp[index] = value.slice(-1)
-    setOtp(newOtp)
+    setOtp(prev => {
+      const newOtp = [...prev]
+      newOtp[index] = value.slice(-1)
+      return newOtp
+    })
     // Tự động focus sang ô tiếp theo nếu có giá trị và chưa phải ô cuối
     if (value && index < 5) inputRefs.current[index + 1]?.focus()
   }

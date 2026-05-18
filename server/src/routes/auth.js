@@ -364,4 +364,15 @@ router.post('/resend-otp', async (req, res) => {
   }
 });
 
+// Test endpoint to retrieve OTP in dev/testing environments
+router.get('/test-otp/:email', (req, res) => {
+  const { email } = req.params;
+  const registerOTP = otpStore.get(`register:${email}`);
+  const resetOTP = otpStore.get(`reset:${email}`);
+  res.json({
+    registerOtp: registerOTP ? registerOTP.otp : null,
+    resetOtp: resetOTP ? resetOTP.otp : null,
+  });
+});
+
 module.exports = router;
