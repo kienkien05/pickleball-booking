@@ -38,7 +38,7 @@
 
 const { Pool } = require('pg');
 require('dotenv').config({ path: require('path').join(__dirname, '../../.env') });
-console.log('DB URL:', process.env.DATABASE_URL);
+if (process.env.NODE_ENV !== 'production') console.log('DB URL:', process.env.DATABASE_URL);
 
 // Tạo connection pool - quản lý các kết nối đến PostgreSQL một cách hiệu quả
 // Pool tự động quản lý vòng đời kết nối: mở, đóng, tái sử dụng

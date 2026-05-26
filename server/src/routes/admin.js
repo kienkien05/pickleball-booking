@@ -268,7 +268,7 @@ router.get('/reports', authenticate, requireAdmin, async (req, res) => {
  * Sắp xếp theo created_at giảm dần (mới nhất lên trước).
  * Yêu cầu: authenticate (cả admin và user đều xem được danh sách dịch vụ)
  */
-router.get('/services', async (req, res) => {
+router.get('/services', authenticate, async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM services ORDER BY created_at DESC');
     res.json({ data: result.rows });
@@ -350,6 +350,10 @@ router.put('/services/:id', authenticate, requireAdmin, async (req, res) => {
  */
 router.delete('/services/:id', authenticate, requireAdmin, async (req, res) => {
   try {
+    const used = await pool.query('SELECT id FROM booking_services WHERE dichVuId = $1 LIMIT 1', [req.params.id]);
+    if (used.rows.length > 0) {
+      return res.status(400).json({ error: 'Không thể xóa dịch vụ đã có trong đơn đặt. Vui lòng vô hiệu hóa thay vì xóa.' });
+    }
     await pool.query('DELETE FROM services WHERE id = $1', [req.params.id]);
     res.json({ message: 'Xóa thành công' });
   } catch (err) {
@@ -460,7 +464,7 @@ router.patch('/notifications/read-all', authenticate, async (req, res) => {
  * Sắp xếp theo created_at giảm dần.
  * Yêu cầu: authenticate (admin dùng để quản lý, user cũng xem được để biết mã nào đang có)
  */
-router.get('/discounts', authenticate, async (req, res) => {
+router.get('/discounts', authenticate, requireAdmin, async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM discounts ORDER BY created_at DESC');
     res.json({ data: result.rows });
@@ -614,6 +618,12 @@ router.put('/discounts/:id', authenticate, requireAdmin, async (req, res) => {
  */
 router.delete('/discounts/:id', authenticate, requireAdmin, async (req, res) => {
   try {
+    const discount = await pool.query('SELECT code FROM discounts WHERE id = $1', [req.params.id]);
+    if (discount.rows.length === 0) return res.status(404).json({ error: 'Không tìm thấy' });
+    const used = await pool.query("SELECT id FROM bookings WHERE maGiamGia = $1 AND trangThai != 'Đã hủy' LIMIT 1", [discount.rows[0].code]);
+    if (used.rows.length > 0) {
+      return res.status(400).json({ error: 'Không thể xóa mã giảm giá đang được sử dụng bởi đơn đặt chưa hủy.' });
+    }
     await pool.query('DELETE FROM discounts WHERE id = $1', [req.params.id]);
     res.json({ message: 'Xóa thành công' });
   } catch (err) {
@@ -751,7 +761,7 @@ router.post('/discounts/validate', authenticate, async (req, res) => {
     // Kiểm tra ngày hiệu lực
     const now = new Date();
     if (discount.ngayBatDau && new Date(discount.ngayBatDau) > now) {
-      return res.status(400).json({ error: `Mã giảm giá chưa đến ngày hiệu lực (Bắt đầu từ ${formatDate(discount.ngayBatDau)})` });
+      return res.status(400).json({ error: `Mã giảm giá chưa đến ngày hiệu lực (Bắt đầu từ ${formatDateLocal(new Date(discount.ngayBatDau))})` });
     }
     if (discount.ngayKetThuc && new Date(discount.ngayKetThuc) < now) {
       return res.status(400).json({ error: 'Mã giảm giá đã hết hạn sử dụng' });

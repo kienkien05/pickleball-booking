@@ -150,6 +150,7 @@ router.post('/', authenticate, async (req, res) => {
     const autoBookingEndDate = autoBook ? addDaysToDateString(ngayChoi, AUTO_BOOKING_DAYS) : null;
 
     // Kiểm tra xung đột cho toàn bộ chuỗi 30 ngày: booking được tạo ngay để khóa slot
+    // Dùng SELECT ... FOR UPDATE để khóa row, ngăn race condition 2 user đặt cùng slot
     const conflictCheck = await client.query(
       `SELECT b.id, b.ngayChoi AS "ngayChoi", t.gioBatDau AS "gioBatDau", t.gioKetThuc AS "gioKetThuc"
        FROM bookings b
@@ -158,7 +159,8 @@ router.post('/', authenticate, async (req, res) => {
        AND b.ngayChoi = ANY($2::date[])
        AND b.khungGioId = ANY($3::int[])
        AND b.trangThai NOT IN ('Đã hủy')
-       ORDER BY b.ngayChoi, t.gioBatDau`,
+       ORDER BY b.ngayChoi, t.gioBatDau
+       FOR UPDATE`,
       [sanId, bookingDates, slotIds]
     );
     if (conflictCheck.rows.length > 0) {

@@ -109,10 +109,21 @@ router.put('/:id', authenticate, requireAdmin, async (req, res) => {
  */
 router.patch('/:id/toggle-status', authenticate, requireAdmin, async (req, res) => {
   try {
-    const result = await pool.query('SELECT trangThai FROM users WHERE id = $1', [req.params.id]);
+    const result = await pool.query('SELECT id, trangThai, hoTen FROM users WHERE id = $1', [req.params.id]);
     if (result.rows.length === 0) return res.status(404).json({ error: 'Không tìm thấy' });
     const newStatus = result.rows[0].trangThai === 'Locked' ? 'Active' : 'Locked';
     await pool.query('UPDATE users SET trangThai = $1 WHERE id = $2', [newStatus, req.params.id]);
+
+    // Gửi thông báo cho user bị khóa/mở khóa
+    const notiTitle = newStatus === 'Locked' ? 'Tài khoản bị khóa' : 'Tài khoản được mở khóa';
+    const notiBody = newStatus === 'Locked'
+      ? 'Tài khoản của bạn đã bị khóa bởi quản trị viên. Vui lòng liên hệ admin để được hỗ trợ.'
+      : 'Tài khoản của bạn đã được mở khóa. Bạn có thể đăng nhập và sử dụng dịch vụ bình thường.';
+    await pool.query(
+      "INSERT INTO notifications (nguoiDungId, tieuDe, noiDung, loaiThongBao) VALUES ($1, $2, $3, 'system')",
+      [req.params.id, notiTitle, notiBody]
+    );
+
     res.json({ message: 'Đã thay đổi trạng thái', data: { trangThai: newStatus } });
   } catch (err) {
     res.status(500).json({ error: err.message });

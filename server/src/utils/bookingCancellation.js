@@ -69,6 +69,7 @@ async function cancelBookingWithReason(client, booking, reasonKey, overrides = {
   const title = overrides.title || reason.title;
   const message = overrides.message || reason.message(bookingId, booking);
   const type = overrides.type || reason.type;
+  const discountCode = getField(booking, 'maGiamGia', 'magiamgia');
 
   if (!bookingId || !userId) {
     throw new Error('Thiếu thông tin booking để hủy');
@@ -78,6 +79,27 @@ async function cancelBookingWithReason(client, booking, reasonKey, overrides = {
     "UPDATE bookings SET trangThai = 'Đã hủy', ghiChu = $2, updated_at = NOW() WHERE id = $1",
     [bookingId, note]
   );
+
+  // Hoàn lại stock dịch vụ khi hủy đơn
+  const bookingServices = await client.query(
+    'SELECT dichVuId, soLuong FROM booking_services WHERE donDatId = $1',
+    [bookingId]
+  );
+  for (const bs of bookingServices.rows) {
+    await client.query(
+      'UPDATE services SET soLuongTon = soLuongTon + $1 WHERE id = $2',
+      [bs.soluong, bs.dichvuid]
+    );
+  }
+
+  // Hoàn lại lượt dùng mã giảm giá khi hủy đơn
+  if (discountCode) {
+    await client.query(
+      'UPDATE discounts SET soLuongDaDung = GREATEST(soLuongDaDung - 1, 0) WHERE code = $1 AND soLuongDaDung > 0',
+      [discountCode]
+    );
+  }
+
   await client.query(
     "INSERT INTO notifications (nguoiDungId, tieuDe, noiDung, loaiThongBao, maDonDat) VALUES ($1, $2, $3, $4, $5)",
     [userId, title, message, type, bookingId]

@@ -37,12 +37,19 @@ const { authenticate } = require('../middleware/auth');
 const crypto = require('crypto');
 const router = express.Router();
 
-const JWT_SECRET = process.env.JWT_SECRET || 'pickleball_jwt_secret_key_2026';
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  console.error('[SECURITY] JWT_SECRET chưa được cấu hình trong .env. Server sẽ không khởi động.');
+  process.exit(1);
+}
 
 // Store OTPs temporarily (in production, use Redis or DB)
 // Bộ nhớ tạm lưu OTP - key: "register:email" hoặc "reset:email", value: { otp, expires, ...data }
 // Lưu ý: Map sẽ bị xóa khi server restart, trong production nên dùng Redis
 const otpStore = new Map();
+
+// Rate limiting đơn giản cho login: 5 lần/phút/email
+const loginAttempts = new Map();
 
 /**
  * Sinh mã OTP ngẫu nhiên 6 chữ số.
@@ -88,7 +95,7 @@ router.post('/register', async (req, res) => {
     }
     const otp = generateOTP();
     otpStore.set(`register:${email}`, { otp, password, full_name, phone_number, expires: Date.now() + 10 * 60 * 1000 });
-    console.log(`[OTP] Register OTP for ${email}: ${otp}`);
+    if (process.env.NODE_ENV !== 'production') console.log(`[OTP] Register OTP for ${email}: ${otp}`);
     res.json({ message: 'Mã OTP đã được gửi (kiểm tra console)' });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -168,6 +175,17 @@ router.post('/login', async (req, res) => {
     if (!email || !password) {
       return res.status(400).json({ error: 'Vui lòng nhập email và mật khẩu' });
     }
+
+    // Rate limiting: tối đa 5 lần/phút/email
+    const now = Date.now();
+    const entry = loginAttempts.get(email) || { count: 0, resetAt: now + 60000 };
+    if (now > entry.resetAt) { entry.count = 0; entry.resetAt = now + 60000; }
+    entry.count++;
+    loginAttempts.set(email, entry);
+    if (entry.count > 5) {
+      return res.status(429).json({ error: 'Quá nhiều lần thử đăng nhập. Vui lòng đợi 1 phút.' });
+    }
+
     const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
     if (result.rows.length === 0) {
       return res.status(401).json({ error: 'Email hoặc mật khẩu không đúng' });
@@ -216,7 +234,7 @@ router.post('/forgot-password', async (req, res) => {
     }
     const otp = generateOTP();
     otpStore.set(`reset:${email}`, { otp, expires: Date.now() + 10 * 60 * 1000 });
-    console.log(`[OTP] Reset password OTP for ${email}: ${otp}`);
+    if (process.env.NODE_ENV !== 'production') console.log(`[OTP] Reset password OTP for ${email}: ${otp}`);
     res.json({ message: 'Mã OTP đã được gửi (kiểm tra console)' });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -345,7 +363,7 @@ router.post('/resend-otp', async (req, res) => {
       }
       const otp = generateOTP();
       otpStore.set(`register:${email}`, { ...stored, otp, expires: Date.now() + 10 * 60 * 1000 });
-      console.log(`[OTP] Resend Register OTP for ${email}: ${otp}`);
+      if (process.env.NODE_ENV !== 'production') console.log(`[OTP] Resend Register OTP for ${email}: ${otp}`);
     } else if (type === 'reset') {
       const result = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
       if (result.rows.length === 0) {
@@ -353,7 +371,7 @@ router.post('/resend-otp', async (req, res) => {
       }
       const otp = generateOTP();
       otpStore.set(`reset:${email}`, { otp, expires: Date.now() + 10 * 60 * 1000 });
-      console.log(`[OTP] Resend Reset OTP for ${email}: ${otp}`);
+      if (process.env.NODE_ENV !== 'production') console.log(`[OTP] Resend Reset OTP for ${email}: ${otp}`);
     } else {
       return res.status(400).json({ error: 'Loại OTP không hợp lệ' });
     }

@@ -265,9 +265,19 @@ router.put('/:courtId/timeslots/:id', authenticate, requireAdmin, async (req, re
  */
 router.delete('/:courtId/timeslots/:id', authenticate, requireAdmin, async (req, res) => {
   try {
+    const futureBookings = await pool.query(
+      "SELECT id FROM bookings WHERE khungGioId = $1 AND ngayChoi >= CURRENT_DATE AND trangThai NOT IN ('Đã hủy') LIMIT 1",
+      [req.params.id]
+    );
+    if (futureBookings.rows.length > 0) {
+      return res.status(400).json({ error: 'Không thể xóa khung giờ đang có đơn đặt trong tương lai. Vui lòng hủy các đơn đặt trước.' });
+    }
     await pool.query('DELETE FROM timeslots WHERE id = $1 AND sanId = $2', [req.params.id, req.params.courtId]);
     res.json({ message: 'Xóa thành công' });
   } catch (err) {
+    if (err.code === '23503') {
+      return res.status(400).json({ error: 'Không thể xóa khung giờ đang có đơn đặt liên quan.' });
+    }
     res.status(500).json({ error: err.message });
   }
 });
@@ -365,7 +375,20 @@ router.put('/:courtId/images/:imageId/main', authenticate, requireAdmin, async (
  */
 router.delete('/:id', authenticate, requireAdmin, async (req, res) => {
   try {
+    // Lấy danh sách user có booking tương lai trên sân này để gửi thông báo
+    const affectedUsers = await pool.query(
+      "SELECT DISTINCT nguoiDungId FROM bookings WHERE sanId = $1 AND ngayChoi >= CURRENT_DATE AND trangThai NOT IN ('Đã hủy')",
+      [req.params.id]
+    );
     await pool.query("UPDATE courts SET trangThai = 'Ẩn', updated_at = NOW() WHERE id = $1", [req.params.id]);
+
+    // Gửi thông báo cho từng user bị ảnh hưởng
+    for (const row of affectedUsers.rows) {
+      await pool.query(
+        "INSERT INTO notifications (nguoiDungId, tieuDe, noiDung, loaiThongBao) VALUES ($1, $2, $3, 'system')",
+        [row.nguoidungid, 'Sân tạm ngừng hoạt động', `Sân bạn đã đặt lịch trong tương lai đã tạm ngừng hoạt động. Vui lòng liên hệ admin để được hỗ trợ.`]
+      );
+    }
     res.json({ message: 'Đã ẩn sân thành công' });
   } catch (err) {
     res.status(500).json({ error: err.message });

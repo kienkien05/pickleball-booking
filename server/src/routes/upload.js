@@ -18,7 +18,7 @@
 const express = require('express');
 const multer = require('multer');
 const path = require('path');
-const { authenticate } = require('../middleware/auth');
+const { authenticate, requireAdmin } = require('../middleware/auth');
 const router = express.Router();
 
 /**
@@ -100,7 +100,7 @@ router.post('/', authenticate, upload.single('file'), (req, res) => {
  * Trả về: 201 { data: [...court_images] }
  * Yêu cầu: authenticate (nên có quyền admin, hiện tại chưa kiểm tra requireAdmin)
  */
-router.post('/court-images', authenticate, upload.array('files', 10), async (req, res) => {
+router.post('/court-images', authenticate, requireAdmin, upload.array('files', 10), async (req, res) => {
   try {
     const { pool } = require('../config/database');
     const { sanId } = req.body;

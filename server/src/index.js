@@ -70,11 +70,11 @@ app.get('*', (req, res) => {
 });
 
 // Global error handler: bắt tất cả lỗi không được xử lý trong các route
-// Ghi log lỗi vào file debug.log và trả về response 500 cho client
+// Ghi log lỗi vào file debug.log (async) và trả về response 500 cho client
 app.use((err, req, res, next) => {
   const fs = require('fs');
   const logMsg = `${new Date().toISOString()} - ${req.method} ${req.url} - ${err.stack}\n`;
-  fs.appendFileSync(path.join(__dirname, '../debug.log'), logMsg);
+  fs.promises.appendFile(path.join(__dirname, '../debug.log'), logMsg).catch(() => {});
   console.error('Unhandled error:', err);
   res.status(500).json({ error: err.message || 'Lỗi server' });
 });
