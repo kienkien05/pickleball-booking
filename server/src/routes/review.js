@@ -18,7 +18,7 @@
 
 const express = require('express');
 const { pool } = require('../config/database');
-const { authenticate } = require('../middleware/auth');
+const { authenticate, requireAdmin } = require('../middleware/auth');
 const router = express.Router();
 
 /**
@@ -94,11 +94,13 @@ router.get('/court/:courtId', async (req, res) => {
 router.post('/', authenticate, async (req, res) => {
   try {
     const { booking_id, rating, comment, courtId } = req.body;
-    if (!rating) {
+    const parsedRating = Number(rating);
+    if (!Number.isInteger(parsedRating) || parsedRating < 1 || parsedRating > 5) {
       return res.status(400).json({ error: 'Vui lòng chọn số sao' });
     }
 
     let donDatId = null;
+    let finalCourtId = courtId || null;
     if (booking_id && booking_id !== '0') {
       // ── Đánh giá theo đơn đặt sân ──
       const booking = await pool.query('SELECT * FROM bookings WHERE id = $1 AND nguoiDungId = $2', [booking_id, req.user.id]);
@@ -113,8 +115,13 @@ router.post('/', authenticate, async (req, res) => {
         return res.status(400).json({ error: 'Bạn đã đánh giá đơn này rồi' });
       }
       donDatId = booking_id;
+      finalCourtId = booking.rows[0].sanId || booking.rows[0].sanid || null;
     } else if (courtId) {
       // ── Đánh giá trực tiếp sân (không qua đơn) ──
+      const court = await pool.query("SELECT id FROM courts WHERE id = $1 AND trangThai != 'Ẩn'", [courtId]);
+      if (court.rows.length === 0) {
+        return res.status(404).json({ error: 'Không tìm thấy sân để đánh giá' });
+      }
       // Giới hạn 1 lần/24 giờ để chống spam đánh giá
       const recent = await pool.query(
         'SELECT id FROM reviews WHERE nguoiDungId = $1 AND donDatId IS NULL AND ngayTao > NOW() - INTERVAL \'1 day\'',
@@ -130,9 +137,23 @@ router.post('/', authenticate, async (req, res) => {
     // Lưu review vào database
     const result = await pool.query(
       'INSERT INTO reviews (donDatId, nguoiDungId, diemSao, binhLuan, sanId) VALUES ($1, $2, $3, $4, $5) RETURNING *',
-      [donDatId, req.user.id, rating, comment || null, courtId || null]
+      [donDatId, req.user.id, parsedRating, comment || null, finalCourtId]
     );
     res.status(201).json({ data: result.rows[0] });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * DELETE /reviews/:id - Admin xóa đánh giá để kiểm duyệt spam (Admin only).
+ */
+router.delete('/:id', authenticate, requireAdmin, async (req, res) => {
+  try {
+    const check = await pool.query('SELECT id FROM reviews WHERE id = $1', [req.params.id]);
+    if (check.rows.length === 0) return res.status(404).json({ error: 'Không tìm thấy đánh giá' });
+    await pool.query('DELETE FROM reviews WHERE id = $1', [req.params.id]);
+    res.json({ message: 'Xóa đánh giá thành công' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

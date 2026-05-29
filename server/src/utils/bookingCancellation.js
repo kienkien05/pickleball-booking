@@ -1,4 +1,5 @@
 const DEFAULT_NO_REFUND_TEXT = 'Theo chính sách mặc định, khoản đã thanh toán/cọc không được hoàn lại.';
+const { notifyAdmins } = require('./notifications');
 
 function getField(row, ...keys) {
   for (const key of keys) {
@@ -14,6 +15,10 @@ function isPaidBooking(booking) {
 
 function withNoRefundIfPaid(booking, message) {
   return isPaidBooking(booking) ? `${message} ${DEFAULT_NO_REFUND_TEXT}` : message;
+}
+
+function withRefundOptionIfPaid(booking, message) {
+  return isPaidBooking(booking) ? `${message} Khoản thanh toán/cọc của bạn sẽ được hệ thống hoàn trả hoặc bảo lưu.` : message;
 }
 
 const CANCELLATION_REASONS = {
@@ -50,14 +55,14 @@ const CANCELLATION_REASONS = {
   VIP_CONFLICT: {
     type: 'vip_auto_conflict',
     title: 'Hủy lịch VIP tự động',
-    note: (booking) => withNoRefundIfPaid(booking, 'Lịch VIP tự động bị hủy do khung giờ đã có người đặt trước.'),
-    message: (id, booking) => withNoRefundIfPaid(booking, `Đơn VIP tự động #${id} đã bị hủy do khung giờ đã có người đặt trước.`),
+    note: (booking) => withRefundOptionIfPaid(booking, 'Lịch VIP tự động bị hủy do khung giờ đã có người đặt trước.'),
+    message: (id, booking) => withRefundOptionIfPaid(booking, `Đơn VIP tự động #${id} đã bị hủy do khung giờ đã có người đặt trước.`),
   },
   SYSTEM_CHANGE: {
     type: 'auto_cancel',
     title: 'Hủy do thay đổi từ hệ thống',
-    note: (booking) => withNoRefundIfPaid(booking, 'Đơn bị hủy do sân/khung giờ có thay đổi từ hệ thống.'),
-    message: (id, booking) => withNoRefundIfPaid(booking, `Đơn #${id} đã bị hủy do sân/khung giờ có thay đổi từ hệ thống.`),
+    note: (booking) => withRefundOptionIfPaid(booking, 'Đơn bị hủy do sân/khung giờ có thay đổi từ hệ thống.'),
+    message: (id, booking) => withRefundOptionIfPaid(booking, `Đơn #${id} đã bị hủy do sân/khung giờ có thay đổi từ hệ thống.`),
   },
 };
 
@@ -80,6 +85,11 @@ async function cancelBookingWithReason(client, booking, reasonKey, overrides = {
     [bookingId, note]
   );
 
+  await client.query(
+    "UPDATE payments SET trangThai = 'Đã hủy' WHERE donDatId = $1 AND trangThai IN ('Chờ thanh toán', 'Chờ xác nhận')",
+    [bookingId]
+  );
+
   // Hoàn lại stock dịch vụ khi hủy đơn
   const bookingServices = await client.query(
     'SELECT dichVuId, soLuong FROM booking_services WHERE donDatId = $1',
@@ -98,12 +108,57 @@ async function cancelBookingWithReason(client, booking, reasonKey, overrides = {
       'UPDATE discounts SET soLuongDaDung = GREATEST(soLuongDaDung - 1, 0) WHERE code = $1 AND soLuongDaDung > 0',
       [discountCode]
     );
+    // Khôi phục trạng thái voucher cá nhân sang Active
+    const discountRes = await client.query('SELECT id FROM discounts WHERE code = $1', [discountCode]);
+    if (discountRes.rows.length > 0) {
+      await client.query(
+        "UPDATE user_vouchers SET trangThai = 'Active', usedAt = NULL WHERE nguoiDungId = $1 AND discountId = $2",
+        [userId, discountRes.rows[0].id]
+      );
+    }
   }
 
   await client.query(
     "INSERT INTO notifications (nguoiDungId, tieuDe, noiDung, loaiThongBao, maDonDat) VALUES ($1, $2, $3, $4, $5)",
     [userId, title, message, type, bookingId]
   );
+
+  await notifyAdmins(client, {
+    title: `Đơn #${bookingId}: ${title}`,
+    message: note,
+    type,
+    bookingId,
+  });
+}
+
+async function checkAndRewardLoyalty(client, userId) {
+  const countRes = await client.query(
+    "SELECT COUNT(*)::int as count FROM bookings WHERE nguoiDungId = $1 AND trangThai = 'Hoàn thành'",
+    [userId]
+  );
+  const totalCompleted = countRes.rows[0].count || 0;
+
+  if (totalCompleted > 0 && totalCompleted % 3 === 0) {
+    const randomStr = Math.random().toString(36).substring(2, 6).toUpperCase();
+    const rewardCode = `LTY10-${randomStr}`;
+    
+    await client.query(
+      `INSERT INTO discounts (code, noiDung, moTa, loaiGiamGia, mucGiamGia, ngayBatDau, ngayKetThuc, soLuongBanDau, soLuongDaDung, trangThai, nguoiDungId)
+       VALUES ($1, 'Quà tặng đặt sân', 'Mã giảm giá 10% tri ân mỗi 3 đơn đặt sân hoàn thành', 'percentage', 10, NOW(), '2026-12-31', 1, 0, 'Active', $2)`,
+      [rewardCode, userId]
+    );
+
+    await client.query(
+      "INSERT INTO notifications (nguoiDungId, tieuDe, noiDung, loaiThongBao) VALUES ($1, $2, $3, 'promotion')",
+      [userId, 'Quà tặng tri ân!', `Bạn vừa hoàn thành thêm đơn đặt sân thứ ${totalCompleted}! Hệ thống tặng bạn mã giảm giá 10% tri ân: ${rewardCode}`]
+    );
+    
+    await notifyAdmins(client, {
+      title: 'Tặng quà tri ân loyalty',
+      message: `User #${userId} đạt mốc ${totalCompleted} đơn đặt sân hoàn thành. Đã tặng mã ${rewardCode}.`,
+      type: 'promotion'
+    });
+  }
 }
 
 module.exports = {
@@ -112,4 +167,5 @@ module.exports = {
   cancelBookingWithReason,
   getField,
   isPaidBooking,
+  checkAndRewardLoyalty,
 };

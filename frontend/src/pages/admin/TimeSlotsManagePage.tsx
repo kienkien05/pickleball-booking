@@ -219,7 +219,19 @@ export default function TimeSlotsManagePage() {
         </div>
         <ModalFooter>
           <Button variant="outline" onClick={() => setShowForm(false)}>Hủy</Button>
-          <Button onClick={() => saveMutation.mutate(form)} loading={saveMutation.isPending}>Lưu</Button>
+          <Button onClick={() => {
+            if (!form.gioBatDau || !form.gioKetThuc) {
+              return toast.error('Vui lòng chọn giờ bắt đầu và kết thúc');
+            }
+            if (form.gioBatDau >= form.gioKetThuc) {
+              return toast.error('Giờ kết thúc phải sau giờ bắt đầu');
+            }
+            const price = Number(form.mucGia);
+            if (isNaN(price) || price <= 0) {
+              return toast.error('Mức giá phải là số lớn hơn 0');
+            }
+            saveMutation.mutate(form);
+          }} loading={saveMutation.isPending}>Lưu</Button>
         </ModalFooter>
       </Modal>
 

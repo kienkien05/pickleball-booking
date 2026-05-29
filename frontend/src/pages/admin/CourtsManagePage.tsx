@@ -23,6 +23,20 @@ import { Button } from '@/components/ui/Button'
 import { Modal, ModalFooter } from '@/components/ui/Modal'
 import { Skeleton } from '@/components/ui/Skeleton'
 
+type CourtForm = {
+  tenSan: string
+  moTa: string
+  hinhAnh: string
+  trangThai: string
+}
+
+const createEmptyCourtForm = (): CourtForm => ({
+  tenSan: '',
+  moTa: '',
+  hinhAnh: '',
+  trangThai: 'Sẵn sàng',
+})
+
 /**
  * Component trang quản lý sân.
  * Cho phép admin thực hiện đầy đủ các thao tác CRUD (Tạo, Đọc, Sửa, Xóa)
@@ -40,7 +54,7 @@ export default function CourtsManagePage() {
    * Bao gồm: tên sân, mô tả, URL hình ảnh, trạng thái sân.
    * Mặc định trạng thái là "Sẵn sàng" khi tạo mới.
    */
-  const [form, setForm] = useState({ tenSan: '', moTa: '', hinhAnh: '', trangThai: 'Sẵn sàng' })
+  const [form, setForm] = useState<CourtForm>(createEmptyCourtForm)
   /** ID của sân đang được chọn để xóa (null nếu không có xác nhận xóa nào đang mở) */
   const [deleteId, setDeleteId] = useState<string | null>(null)
   /** QueryClient để làm mới cache sau khi thực hiện mutation */
@@ -76,9 +90,9 @@ export default function CourtsManagePage() {
       queryClient.invalidateQueries({ queryKey: ['admin', 'courts'] })
       setShowForm(false); setEditCourt(null)
       // Reset form về giá trị mặc định sau khi lưu thành công
-      setForm({ tenSan: '', moTa: '', hinhAnh: '', trangThai: 'Sẵn sàng' })
+      setForm(createEmptyCourtForm())
     },
-    onError: (err: any) => toast.error(err.response?.data?.message || 'Thao tác thất bại'),
+    onError: (err: any) => toast.error(err.response?.data?.message || err.response?.data?.error || 'Thao tác thất bại'),
   })
 
   /**
@@ -103,7 +117,12 @@ export default function CourtsManagePage() {
    */
   const openEdit = (court: any) => {
     setEditCourt(court)
-    setForm({ tenSan: court.tenSan, moTa: court.moTa || '', hinhAnh: court.hinhAnh || '', trangThai: court.trangThai || 'Sẵn sàng' })
+    setForm({
+      tenSan: court.tenSan || '',
+      moTa: court.moTa || '',
+      hinhAnh: court.hinhAnh || '',
+      trangThai: court.trangThai || 'Sẵn sàng',
+    })
     setShowForm(true)
   }
 
@@ -114,23 +133,36 @@ export default function CourtsManagePage() {
    */
   const openCreate = () => {
     setEditCourt(null)
-    setForm({ tenSan: '', moTa: '', hinhAnh: '', trangThai: 'Sẵn sàng' })
+    setForm(createEmptyCourtForm())
     setShowForm(true)
   }
 
   /**
    * Kiểm tra tính hợp lệ của dữ liệu form và gửi yêu cầu lưu sân.
-   * Yêu cầu tên sân không được để trống hoặc chỉ có khoảng trắng.
+   * Các trường nhập tay không được để trống hoặc chỉ có khoảng trắng.
    */
   const handleSave = () => {
-    if (!form.tenSan || form.tenSan.trim() === '') {
+    const payload = {
+      ...form,
+      tenSan: form.tenSan.trim(),
+      moTa: form.moTa.trim(),
+      hinhAnh: form.hinhAnh.trim(),
+    }
+
+    if (!payload.tenSan) {
       toast.error('Vui lòng nhập tên sân')
       return
     }
-    saveMutation.mutate({
-      ...form,
-      tenSan: form.tenSan.trim(),
-    })
+    if (!payload.moTa) {
+      toast.error('Vui lòng nhập mô tả sân')
+      return
+    }
+    if (!payload.hinhAnh) {
+      toast.error('Vui lòng nhập URL hình ảnh')
+      return
+    }
+
+    saveMutation.mutate(payload)
   }
 
   return (
@@ -194,16 +226,19 @@ export default function CourtsManagePage() {
           <div>
             <label className="block text-sm font-medium mb-1.5">Tên sân *</label>
             <input type="text" value={form.tenSan} onChange={e => setForm(prev => ({ ...prev, tenSan: e.target.value }))}
+              required
               className="w-full h-11 px-4 rounded-lg border border-input bg-background focus:ring-2 focus:ring-ring outline-none" />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1.5">Mô tả</label>
+            <label className="block text-sm font-medium mb-1.5">Mô tả *</label>
             <textarea value={form.moTa} onChange={e => setForm(prev => ({ ...prev, moTa: e.target.value }))} rows={3}
+              required
               className="w-full px-4 py-2 rounded-lg border border-input bg-background focus:ring-2 focus:ring-ring outline-none resize-none" />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1.5">URL hình ảnh</label>
+            <label className="block text-sm font-medium mb-1.5">URL hình ảnh *</label>
             <input type="text" value={form.hinhAnh} onChange={e => setForm(prev => ({ ...prev, hinhAnh: e.target.value }))}
+              required
               className="w-full h-11 px-4 rounded-lg border border-input bg-background focus:ring-2 focus:ring-ring outline-none" />
           </div>
           <div>

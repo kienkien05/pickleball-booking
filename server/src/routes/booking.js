@@ -20,7 +20,9 @@
 const express = require('express');
 const { pool } = require('../config/database');
 const { authenticate } = require('../middleware/auth');
-const { cancelBookingWithReason } = require('../utils/bookingCancellation');
+const { cancelBookingWithReason, checkAndRewardLoyalty } = require('../utils/bookingCancellation');
+const { validateDiscountForUse, markDiscountUsed } = require('../utils/discount');
+const { notifyAdmins } = require('../utils/notifications');
 const router = express.Router();
 
 const AUTO_BOOKING_DAYS = 30;
@@ -113,12 +115,18 @@ router.post('/', authenticate, async (req, res) => {
     // Bắt đầu transaction - mọi thay đổi chỉ được lưu khi COMMIT thành công
     await client.query('BEGIN');
 
-    const userCheck = await client.query('SELECT isVIP AS "isVIP" FROM users WHERE id = $1', [req.user.id]);
+    const userCheck = await client.query('SELECT isVIP AS "isVIP", trangThai AS "trangThai" FROM users WHERE id = $1', [req.user.id]);
     if (userCheck.rows.length === 0) {
       await client.query('ROLLBACK');
       return res.status(404).json({ error: 'Không tìm thấy tài khoản' });
     }
-    if (autoBook && userCheck.rows[0].isVIP !== true) {
+    const userRow = userCheck.rows[0];
+    const userStatus = userRow.trangThai || userRow.trangthai;
+    if (userStatus === 'Locked') {
+      await client.query('ROLLBACK');
+      return res.status(403).json({ error: 'Tài khoản của bạn đã bị khóa. Không thể thực hiện đặt sân.' });
+    }
+    if (autoBook && userRow.isVIP !== true) {
       await client.query('ROLLBACK');
       return res.status(403).json({ error: 'Chỉ tài khoản VIP mới được bật tự động đặt sân' });
     }
@@ -275,33 +283,25 @@ router.post('/', authenticate, async (req, res) => {
 
     // Xử lý mã giảm giá nếu có
     if (maGiamGia) {
-      const discResult = await client.query(
-        `SELECT * FROM discounts WHERE code = $1 AND trangThai = 'Active'
-         AND (ngayBatDau IS NULL OR ngayBatDau <= NOW())
-         AND (ngayKetThuc IS NULL OR ngayKetThuc >= NOW())
-         AND (soLuongBanDau = 0 OR soLuongDaDung < soLuongBanDau)`,
-        [maGiamGia]
-      );
-      if (discResult.rows.length > 0) {
-        const disc = discResult.rows[0];
-        appliedCode = disc.code || disc.CODE;
-        const loai = disc.loaiGiamGia || disc.loaigiamgia;
-        const muc = Number(disc.mucGiamGia || disc.mucgiamgia || 0);
+      const validation = await validateDiscountForUse(client, {
+        code: maGiamGia,
+        userId: req.user.id,
+        totalAmount: subTotal,
+        courtId: sanId,
+      });
 
-        // Tính số tiền giảm: percentage = % trên tổng, fixed = giảm thẳng
-        if (loai === 'percentage') {
-          discountAmount = Math.round(subTotal * muc / 100);
-        } else {
-          discountAmount = Math.min(muc, subTotal);
-        }
-        const discId = disc.id || disc.ID;
-        // Cập nhật số lượt đã dùng của mã giảm giá
-        await client.query('UPDATE discounts SET soLuongDaDung = soLuongDaDung + 1 WHERE id = $1', [discId]);
-      } else {
-        // Mã giảm giá không hợp lệ - reject thay vì silently ignore
+      if (!validation.valid) {
         await client.query('ROLLBACK');
-        return res.status(400).json({ error: 'Mã giảm giá không hợp lệ hoặc đã hết hạn' });
+        return res.status(validation.status || 400).json({ error: validation.error });
       }
+
+      appliedCode = validation.normalizedCode;
+      discountAmount = validation.discountAmount;
+      await markDiscountUsed(client, validation.discount.id);
+      await client.query(
+        "UPDATE user_vouchers SET trangThai = 'Used', usedAt = NOW() WHERE nguoiDungId = $1 AND discountId = $2",
+        [req.user.id, validation.discount.id]
+      );
     }
 
     const totalPrice = subTotal - discountAmount;
@@ -420,6 +420,12 @@ router.post('/', authenticate, async (req, res) => {
           bookingIds[0],
         ]
       );
+      await notifyAdmins(client, {
+        title: 'Khách tạo lịch VIP tự động',
+        message: `User #${req.user.id} đã tạo chuỗi ${bookingDates.length} buổi, tổng tiền ${totalPrice.toLocaleString('vi-VN')}đ.`,
+        type: 'vip_auto_success',
+        bookingId: bookingIds[0],
+      });
     } else {
       // Gửi thông báo xác nhận đặt sân cho từng booking
       for (const bid of bookingIds) {
@@ -428,35 +434,12 @@ router.post('/', authenticate, async (req, res) => {
           [req.user.id, 'Đặt sân thành công', `Đơn đặt sân #${bid} đã được xác nhận`, bid]
         );
       }
-    }
-
-    // Loyalty Rewards: mỗi 3 đơn hoàn thành -> tặng 1 mã giảm giá 10%
-    // Tính tổng số đơn trước khi tạo đơn mới (trừ các đơn đã hủy)
-    const prevCountRes = await client.query("SELECT COUNT(*) as count FROM bookings WHERE nguoiDungId = $1 AND trangThai != 'Đã hủy' AND id NOT IN (" + bookingIds.join(',') + ")", [req.user.id]);
-    const prevTotal = parseInt(prevCountRes.rows[0].count || 0);
-    const newTotal = prevTotal + bookingIds.length;
-
-    // So sánh số mốc 3 trước và sau khi tạo đơn mới
-    const prevRewards = Math.floor(prevTotal / 3);
-    const newRewards = Math.floor(newTotal / 3);
-
-    // Nếu đạt mốc mới (vượt qua bội số của 3): tặng mã giảm giá
-    if (newRewards > prevRewards) {
-      for (let i = 0; i < (newRewards - prevRewards); i++) {
-        const randomStr = Math.random().toString(36).substring(2, 6).toUpperCase();
-        const rewardCode = `LTY10-${randomStr}`;
-        await client.query(
-          `INSERT INTO discounts (code, noiDung, moTa, loaiGiamGia, mucGiamGia, ngayBatDau, ngayKetThuc, soLuongBanDau, soLuongDaDung, trangThai, nguoiDungId)
-           VALUES ($1, 'Quà tặng đặt sân', 'Mã giảm giá 10% tri ân mỗi 3 đơn đặt sân', 'percentage', 10, NOW(), '2026-12-31', 1, 0, 'Active', $2)`,
-          [rewardCode, req.user.id]
-        );
-
-        // Gửi thông báo tặng quà tri ân
-        await client.query(
-          "INSERT INTO notifications (nguoiDungId, tieuDe, noiDung, loaiThongBao) VALUES ($1, $2, $3, 'promotion')",
-          [req.user.id, 'Quà tặng tri ân!', `Bạn vừa đạt mốc ${newRewards * 3} đơn đặt sân! Hệ thống tặng bạn mã giảm giá 10% tri ân: ${rewardCode}`]
-        );
-      }
+      await notifyAdmins(client, {
+        title: 'Có đơn đặt sân mới',
+        message: `User #${req.user.id} vừa tạo ${bookingIds.length} đơn đặt sân. Tổng tiền ${totalPrice.toLocaleString('vi-VN')}đ.`,
+        type: 'booking_confirmed',
+        bookingId: bookingIds[0],
+      });
     }
 
     // Commit transaction - lưu tất cả thay đổi vào DB
@@ -691,11 +674,47 @@ router.post('/:id/checkin', authenticate, async (req, res) => {
     if (booking.trangThai !== 'Đã thanh toán' && booking.trangThai !== 'Đã đặt' && booking.trangThai !== 'Đã cọc') {
       return res.status(400).json({ error: 'Chỉ check-in đơn ở trạng thái Đã thanh toán, Đã cọc hoặc Đã đặt' });
     }
+
+    const ngayChoiStr = booking.ngayChoi instanceof Date
+      ? booking.ngayChoi.toISOString().split('T')[0]
+      : String(booking.ngayChoi).split('T')[0];
+
+    const today = new Date();
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
+    if (ngayChoiStr !== todayStr) {
+      return res.status(400).json({ error: 'Đơn đặt sân phải có ngày chơi là hôm nay mới được phép check-in' });
+    }
+
+    const slotRes = await pool.query('SELECT gioBatDau FROM timeslots WHERE id = $1', [booking.khungGioId]);
+    if (slotRes.rows.length === 0) return res.status(404).json({ error: 'Không tìm thấy khung giờ liên quan' });
+    const gioBatDau = slotRes.rows[0].gioBatDau;
+
+    const [startH, startM] = gioBatDau.split(':').map(Number);
+    const startTotalMins = startH * 60 + startM;
+
+    const [nowH, nowM] = today.toTimeString().slice(0, 5).split(':').map(Number);
+    const nowTotalMins = nowH * 60 + nowM;
+
+    if (nowTotalMins < startTotalMins - 30) {
+      return res.status(400).json({ error: 'Chỉ được phép check-in tối đa 30 phút trước giờ bắt đầu chơi' });
+    }
+
     await pool.query("UPDATE bookings SET trangThai = 'Đang sử dụng', updated_at = NOW() WHERE id = $1", [req.params.id]);
+    await pool.query(
+      "UPDATE payments SET trangThai = 'Thành công' WHERE donDatId = $1 AND trangThai IN ('Chờ thanh toán', 'Chờ xác nhận')",
+      [req.params.id]
+    );
     await pool.query(
       "INSERT INTO notifications (nguoiDungId, tieuDe, noiDung, loaiThongBao, maDonDat) VALUES ($1, $2, $3, 'auto_checkin', $4)",
       [booking.nguoiDungId, 'Check-in thành công', `Đơn #${req.params.id} đã được check-in. Chúc bạn chơi vui vẻ!`, req.params.id]
     );
+    await notifyAdmins(pool, {
+      title: 'Check-in đơn đặt sân',
+      message: `Đơn #${req.params.id} đã được check-in.`,
+      type: 'auto_checkin',
+      bookingId: req.params.id,
+    });
     res.json({ message: 'Check-in thành công' });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -727,9 +746,20 @@ router.post('/:id/checkout', authenticate, async (req, res) => {
     }
     await pool.query("UPDATE bookings SET trangThai = 'Hoàn thành', updated_at = NOW() WHERE id = $1", [req.params.id]);
     await pool.query(
+      "UPDATE payments SET trangThai = 'Thành công' WHERE donDatId = $1 AND trangThai IN ('Chờ thanh toán', 'Chờ xác nhận')",
+      [req.params.id]
+    );
+    await checkAndRewardLoyalty(pool, booking.nguoiDungId);
+    await pool.query(
       "INSERT INTO notifications (nguoiDungId, tieuDe, noiDung, loaiThongBao, maDonDat) VALUES ($1, $2, $3, 'auto_checkout', $4)",
       [booking.nguoiDungId, 'Check-out thành công', `Đơn #${req.params.id} đã hoàn thành. Cảm ơn bạn đã sử dụng dịch vụ!`, req.params.id]
     );
+    await notifyAdmins(pool, {
+      title: 'Check-out đơn đặt sân',
+      message: `Đơn #${req.params.id} đã hoàn thành.`,
+      type: 'auto_checkout',
+      bookingId: req.params.id,
+    });
 
     res.json({ message: 'Check-out thành công' });
   } catch (err) {

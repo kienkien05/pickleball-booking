@@ -87,14 +87,21 @@ router.post('/register', async (req, res) => {
     if (existingEmail.rows.length > 0) {
       return res.status(400).json({ error: 'Email đã được sử dụng' });
     }
+    let trimmedPhone = null;
     if (phone_number) {
-      const existingPhone = await pool.query('SELECT id FROM users WHERE soDienThoai = $1', [phone_number]);
-      if (existingPhone.rows.length > 0) {
-        return res.status(400).json({ error: 'Số điện thoại đã được sử dụng' });
+      trimmedPhone = String(phone_number).trim();
+      if (trimmedPhone) {
+        if (!/^[0-9+\-\s]{8,15}$/.test(trimmedPhone)) {
+          return res.status(400).json({ error: 'Số điện thoại không hợp lệ' });
+        }
+        const existingPhone = await pool.query('SELECT id FROM users WHERE soDienThoai = $1', [trimmedPhone]);
+        if (existingPhone.rows.length > 0) {
+          return res.status(400).json({ error: 'Số điện thoại đã được sử dụng' });
+        }
       }
     }
     const otp = generateOTP();
-    otpStore.set(`register:${email}`, { otp, password, full_name, phone_number, expires: Date.now() + 10 * 60 * 1000 });
+    otpStore.set(`register:${email}`, { otp, password, full_name, phone_number: trimmedPhone || null, expires: Date.now() + 10 * 60 * 1000 });
     if (process.env.NODE_ENV !== 'production') console.log(`[OTP] Register OTP for ${email}: ${otp}`);
     res.json({ message: 'Mã OTP đã được gửi (kiểm tra console)' });
   } catch (err) {

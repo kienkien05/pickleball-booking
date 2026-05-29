@@ -71,7 +71,7 @@ export default function ServicesManagePage() {
       // Reset form về mặc định
       setForm({ tenDichVu: '', donGia: '', loaiDichVu: 'Đồ uống', soLuongTon: '0', trangThai: 'Còn hàng' })
     },
-    onError: (err: any) => toast.error(err.response?.data?.message || 'Thao tác thất bại'),
+    onError: (err: any) => toast.error(err.response?.data?.error || err.response?.data?.message || 'Thao tác thất bại'),
   })
 
   /**
@@ -81,7 +81,7 @@ export default function ServicesManagePage() {
   const deleteMutation = useMutation({
     mutationFn: (id: string) => serviceService.delete(id),
     onSuccess: () => { toast.success('Xóa thành công!'); queryClient.invalidateQueries({ queryKey: ['admin', 'services'] }); setDeleteId(null) },
-    onError: (err: any) => toast.error(err.response?.data?.message || 'Không thể xóa'),
+    onError: (err: any) => toast.error(err.response?.data?.error || err.response?.data?.message || 'Không thể xóa'),
   })
 
   return (
@@ -184,7 +184,20 @@ export default function ServicesManagePage() {
         </div>
         <ModalFooter>
           <Button variant="outline" onClick={() => setShowForm(false)}>Hủy</Button>
-          <Button onClick={() => saveMutation.mutate(form)} loading={saveMutation.isPending}>Lưu</Button>
+          <Button onClick={() => {
+            if (!form.tenDichVu || form.tenDichVu.trim() === '') {
+              return toast.error('Vui lòng nhập tên dịch vụ');
+            }
+            const donGia = Number(form.donGia);
+            if (isNaN(donGia) || donGia <= 0) {
+              return toast.error('Đơn giá phải là số lớn hơn 0');
+            }
+            const soLuong = Number(form.soLuongTon);
+            if (isNaN(soLuong) || soLuong < 0 || !Number.isInteger(soLuong)) {
+              return toast.error('Số lượng tồn phải là số nguyên không âm');
+            }
+            saveMutation.mutate(form);
+          }} loading={saveMutation.isPending}>Lưu</Button>
         </ModalFooter>
       </Modal>
 

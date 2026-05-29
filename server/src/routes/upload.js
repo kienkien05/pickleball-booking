@@ -107,6 +107,19 @@ router.post('/court-images', authenticate, requireAdmin, upload.array('files', 1
     if (!sanId || !req.files?.length) {
       return res.status(400).json({ error: 'Thiếu thông tin sân hoặc file' });
     }
+
+    // Kiểm tra xem sân có tồn tại không để tránh tạo file mồ côi
+    const courtCheck = await pool.query('SELECT id FROM courts WHERE id = $1', [sanId]);
+    if (courtCheck.rows.length === 0) {
+      const fs = require('fs');
+      for (const file of req.files) {
+        try {
+          fs.unlinkSync(file.path);
+        } catch (e) {}
+      }
+      return res.status(404).json({ error: 'Sân không tồn tại, không thể upload ảnh' });
+    }
+
     const images = [];
     for (const file of req.files) {
       const url = `/uploads/courts/${file.filename}`;
@@ -119,6 +132,15 @@ router.post('/court-images', authenticate, requireAdmin, upload.array('files', 1
     }
     res.status(201).json({ data: images });
   } catch (err) {
+    // Nếu có lỗi SQL xảy ra trong quá trình insert, dọn dẹp các file đã được upload
+    const fs = require('fs');
+    if (req.files?.length) {
+      for (const file of req.files) {
+        try {
+          fs.unlinkSync(file.path);
+        } catch (e) {}
+      }
+    }
     res.status(500).json({ error: err.message });
   }
 });

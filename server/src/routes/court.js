@@ -31,6 +31,7 @@
 const express = require('express');
 const { pool } = require('../config/database');
 const { authenticate, requireAdmin } = require('../middleware/auth');
+const { cancelBookingWithReason } = require('../utils/bookingCancellation');
 const router = express.Router();
 
 function formatDateLocal(date) {
@@ -139,7 +140,7 @@ router.get('/:id/timeslots', async (req, res) => {
     // Block timelots for courts that are not ready
     const courtCheck = await pool.query('SELECT trangThai FROM courts WHERE id = $1', [courtId]);
     if (courtCheck.rows.length === 0) return res.status(404).json({ error: 'Không tìm thấy sân' });
-    if (courtCheck.rows[0].trangThai === 'Ẩn') {
+    if (courtCheck.rows[0].trangThai === 'Ẩn' || courtCheck.rows[0].trangThai === 'Bảo trì') {
       return res.json({ data: [] });
     }
 
@@ -331,6 +332,35 @@ router.put('/:id', authenticate, requireAdmin, async (req, res) => {
       }
     }
 
+    if (trangThai === 'Ẩn' || trangThai === 'Bảo trì') {
+      const futureBookingsCheck = await pool.query(
+        `SELECT COUNT(*)::int as count FROM bookings WHERE sanId = $1 AND ngayChoi >= CURRENT_DATE AND trangThai NOT IN ('Đã hủy', 'Hoàn thành')`,
+        [req.params.id]
+      );
+      if (futureBookingsCheck.rows[0].count > 0) {
+        if (req.body.force === true || req.query.force === 'true') {
+          const futureBookings = await pool.query(
+            `SELECT * FROM bookings WHERE sanId = $1 AND ngayChoi >= CURRENT_DATE AND trangThai NOT IN ('Đã hủy', 'Hoàn thành')`,
+            [req.params.id]
+          );
+          for (const booking of futureBookings.rows) {
+            await cancelBookingWithReason(pool, booking, 'SYSTEM_CHANGE', { note: 'Sân chuyển sang trạng thái bảo trì hoặc ẩn.' });
+          }
+        } else {
+          return res.status(400).json({
+            error: 'Sân đang có đơn đặt trong tương lai. Bạn có muốn hủy tất cả đơn đặt này để chuyển trạng thái sân?',
+            hasFutureBookings: true
+          });
+        }
+      }
+      if (trangThai === 'Ẩn') {
+        await pool.query(
+          "UPDATE auto_booking_series SET trangThai = 'Inactive', updated_at = NOW() WHERE sanId = $1 AND trangThai = 'Active'",
+          [req.params.id]
+        );
+      }
+    }
+
     const result = await pool.query(
       'UPDATE courts SET tenSan = COALESCE($1, tenSan), moTa = COALESCE($2, moTa), hinhAnh = COALESCE($3, hinhAnh), trangThai = COALESCE($4, trangThai), updated_at = NOW() WHERE id = $5 RETURNING *',
       [tenSan ? tenSan.trim() : tenSan, moTa, hinhAnh, trangThai, req.params.id]
@@ -375,20 +405,35 @@ router.put('/:courtId/images/:imageId/main', authenticate, requireAdmin, async (
  */
 router.delete('/:id', authenticate, requireAdmin, async (req, res) => {
   try {
-    // Lấy danh sách user có booking tương lai trên sân này để gửi thông báo
-    const affectedUsers = await pool.query(
-      "SELECT DISTINCT nguoiDungId FROM bookings WHERE sanId = $1 AND ngayChoi >= CURRENT_DATE AND trangThai NOT IN ('Đã hủy')",
+    // Dừng các chuỗi auto_booking_series của sân này
+    await pool.query(
+      "UPDATE auto_booking_series SET trangThai = 'Inactive', updated_at = NOW() WHERE sanId = $1 AND trangThai = 'Active'",
       [req.params.id]
     );
-    await pool.query("UPDATE courts SET trangThai = 'Ẩn', updated_at = NOW() WHERE id = $1", [req.params.id]);
 
-    // Gửi thông báo cho từng user bị ảnh hưởng
-    for (const row of affectedUsers.rows) {
-      await pool.query(
-        "INSERT INTO notifications (nguoiDungId, tieuDe, noiDung, loaiThongBao) VALUES ($1, $2, $3, 'system')",
-        [row.nguoidungid, 'Sân tạm ngừng hoạt động', `Sân bạn đã đặt lịch trong tương lai đã tạm ngừng hoạt động. Vui lòng liên hệ admin để được hỗ trợ.`]
-      );
+    const futureBookingsCheck = await pool.query(
+      `SELECT COUNT(*)::int as count FROM bookings WHERE sanId = $1 AND ngayChoi >= CURRENT_DATE AND trangThai NOT IN ('Đã hủy', 'Hoàn thành')`,
+      [req.params.id]
+    );
+
+    if (futureBookingsCheck.rows[0].count > 0) {
+      if (req.body.force === true || req.query.force === 'true') {
+        const futureBookings = await pool.query(
+          `SELECT * FROM bookings WHERE sanId = $1 AND ngayChoi >= CURRENT_DATE AND trangThai NOT IN ('Đã hủy', 'Hoàn thành')`,
+          [req.params.id]
+        );
+        for (const booking of futureBookings.rows) {
+          await cancelBookingWithReason(pool, booking, 'SYSTEM_CHANGE', { note: 'Sân tạm ngừng hoạt động (xóa).' });
+        }
+      } else {
+        return res.status(400).json({
+          error: 'Sân đang có đơn đặt trong tương lai. Bạn có muốn hủy tất cả đơn đặt này để ẩn/xóa sân?',
+          hasFutureBookings: true
+        });
+      }
     }
+
+    await pool.query("UPDATE courts SET trangThai = 'Ẩn', updated_at = NOW() WHERE id = $1", [req.params.id]);
     res.json({ message: 'Đã ẩn sân thành công' });
   } catch (err) {
     res.status(500).json({ error: err.message });

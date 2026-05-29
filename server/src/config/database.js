@@ -79,6 +79,7 @@ const FIELD_MAP = {
   loaigiamgia: 'loaiGiamGia', mucgiamgia: 'mucGiamGia', ngaybatdau: 'ngayBatDau',
   ngayketthuc: 'ngayKetThuc', soluongbandau: 'soLuongBanDau', soluongdadung: 'soLuongDaDung',
   usage_limit_per_user: 'usageLimitPerUser', giamtoida: 'giamToiDa',
+  discountid: 'discountId', claimedat: 'claimedAt', usedat: 'usedAt',
   // common - các trường dùng chung
   trangthai: 'trangThai', created_at: 'created_at', updated_at: 'updated_at',
   soluongton: 'soLuongTon', is_hidden: 'isHidden',
@@ -288,6 +289,16 @@ async function initDatabase() {
         trangThai VARCHAR(50) DEFAULT 'Active',
         created_at TIMESTAMP DEFAULT NOW()
       );
+
+      CREATE TABLE IF NOT EXISTS user_vouchers (
+        id SERIAL PRIMARY KEY,
+        nguoiDungId INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        discountId INTEGER NOT NULL REFERENCES discounts(id) ON DELETE CASCADE,
+        claimedAt TIMESTAMP DEFAULT NOW(),
+        usedAt TIMESTAMP,
+        trangThai VARCHAR(50) DEFAULT 'Active',
+        UNIQUE (nguoiDungId, discountId)
+      );
     `);
 
     // Thêm cột nguoiDungId vào bảng discounts cho database đã tồn tại (tương thích ngược)
@@ -312,6 +323,18 @@ async function initDatabase() {
 
     // Thêm cột is_hidden vào bảng discounts để ẩn mã bí mật/fanpage
     await client.query("ALTER TABLE discounts ADD COLUMN IF NOT EXISTS is_hidden BOOLEAN DEFAULT FALSE").catch(() => {});
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS user_vouchers (
+        id SERIAL PRIMARY KEY,
+        nguoiDungId INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        discountId INTEGER NOT NULL REFERENCES discounts(id) ON DELETE CASCADE,
+        claimedAt TIMESTAMP DEFAULT NOW(),
+        usedAt TIMESTAMP,
+        trangThai VARCHAR(50) DEFAULT 'Active',
+        UNIQUE (nguoiDungId, discountId)
+      )
+    `).catch(() => {});
 
     // Thêm cột số lượng tồn cho bảng services
     await client.query("ALTER TABLE services ADD COLUMN IF NOT EXISTS soLuongTon INTEGER DEFAULT 0").catch(() => {});

@@ -1,0 +1,529 @@
+<mxfile host="65bd71144e">
+    <diagram id="erd-pickleball" name="Pickleball Booking ERD">
+        <mxGraphModel dx="1718" dy="1674" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1300" pageHeight="1400" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="title" value="Pickleball Booking System - Entity Relationship Diagram" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=22;fontStyle=1;fontColor=#333333;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="10" width="600" height="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="entity-users" value="users" style="shape=table;startSize=30;container=1;collapsible=0;childLayout=tableLayout;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;align=center;fontSize=14;rounded=1;" parent="1" vertex="1">
+                    <mxGeometry x="-80" y="40" width="200" height="368" as="geometry"/>
+                </mxCell>
+                <mxCell id="users-r1" value="&lt;b&gt;PK&lt;/b&gt; id : SERIAL" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;align=left;spacingLeft=8;" parent="entity-users" vertex="1">
+                    <mxGeometry y="30" width="200" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="users-r2" value="hoTen : VARCHAR(100) NN" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;align=left;spacingLeft=8;" parent="entity-users" vertex="1">
+                    <mxGeometry y="56" width="200" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="users-r3" value="soDienThoai : VARCHAR(15) U" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;align=left;spacingLeft=8;" parent="entity-users" vertex="1">
+                    <mxGeometry y="82" width="200" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="users-r4" value="email : VARCHAR(150) U NN" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;align=left;spacingLeft=8;" parent="entity-users" vertex="1">
+                    <mxGeometry y="108" width="200" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="users-r5" value="matKhau : VARCHAR(255) NN" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;align=left;spacingLeft=8;" parent="entity-users" vertex="1">
+                    <mxGeometry y="134" width="200" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="users-r6" value="vaiTro : VARCHAR(50) [Admin,Customer]" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;align=left;spacingLeft=8;" parent="entity-users" vertex="1">
+                    <mxGeometry y="160" width="200" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="users-r7" value="isVIP : BOOLEAN" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;align=left;spacingLeft=8;" parent="entity-users" vertex="1">
+                    <mxGeometry y="186" width="200" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="users-r8" value="gioiTinh : VARCHAR(10)" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;align=left;spacingLeft=8;" parent="entity-users" vertex="1">
+                    <mxGeometry y="212" width="200" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="users-r9" value="diaChi : VARCHAR(255)" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;align=left;spacingLeft=8;" parent="entity-users" vertex="1">
+                    <mxGeometry y="238" width="200" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="users-r10" value="avatar_url : VARCHAR(500)" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;align=left;spacingLeft=8;" parent="entity-users" vertex="1">
+                    <mxGeometry y="264" width="200" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="users-r11" value="trangThai : VARCHAR(50)" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;align=left;spacingLeft=8;" parent="entity-users" vertex="1">
+                    <mxGeometry y="290" width="200" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="users-r12" value="created_at : TIMESTAMP" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;align=left;spacingLeft=8;" parent="entity-users" vertex="1">
+                    <mxGeometry y="316" width="200" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="users-r13" value="updated_at : TIMESTAMP" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;align=left;spacingLeft=8;" parent="entity-users" vertex="1">
+                    <mxGeometry y="342" width="200" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="entity-courts" value="courts" style="shape=table;startSize=30;container=1;collapsible=0;childLayout=tableLayout;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;align=center;fontSize=14;rounded=1;" parent="1" vertex="1">
+                    <mxGeometry x="290" y="50" width="200" height="212" as="geometry"/>
+                </mxCell>
+                <mxCell id="courts-r1" value="&lt;b&gt;PK&lt;/b&gt; id : SERIAL" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;align=left;spacingLeft=8;" parent="entity-courts" vertex="1">
+                    <mxGeometry y="30" width="200" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="courts-r2" value="tenSan : VARCHAR(100) NN" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;align=left;spacingLeft=8;" parent="entity-courts" vertex="1">
+                    <mxGeometry y="56" width="200" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="courts-r3" value="moTa : TEXT" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;align=left;spacingLeft=8;" parent="entity-courts" vertex="1">
+                    <mxGeometry y="82" width="200" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="courts-r4" value="hinhAnh : VARCHAR(500)" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;align=left;spacingLeft=8;" parent="entity-courts" vertex="1">
+                    <mxGeometry y="108" width="200" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="courts-r5" value="trangThai : VARCHAR(50)" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;align=left;spacingLeft=8;" parent="entity-courts" vertex="1">
+                    <mxGeometry y="134" width="200" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="courts-r6" value="created_at : TIMESTAMP" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;align=left;spacingLeft=8;" parent="entity-courts" vertex="1">
+                    <mxGeometry y="160" width="200" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="courts-r7" value="updated_at : TIMESTAMP" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;align=left;spacingLeft=8;" parent="entity-courts" vertex="1">
+                    <mxGeometry y="186" width="200" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="entity-services" value="services" style="shape=table;startSize=30;container=1;collapsible=0;childLayout=tableLayout;fillColor=#e1d5e7;strokeColor=#9673a6;fontStyle=1;align=center;fontSize=14;rounded=1;" parent="1" vertex="1">
+                    <mxGeometry x="540" y="50" width="200" height="212" as="geometry"/>
+                </mxCell>
+                <mxCell id="services-r1" value="&lt;b&gt;PK&lt;/b&gt; id : SERIAL" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;align=left;spacingLeft=8;" parent="entity-services" vertex="1">
+                    <mxGeometry y="30" width="200" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="services-r2" value="tenDichVu : VARCHAR(100) NN" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;align=left;spacingLeft=8;" parent="entity-services" vertex="1">
+                    <mxGeometry y="56" width="200" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="services-r3" value="donGia : DECIMAL(15,2) NN" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;align=left;spacingLeft=8;" parent="entity-services" vertex="1">
+                    <mxGeometry y="82" width="200" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="services-r4" value="loaiDichVu : VARCHAR(50)" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;align=left;spacingLeft=8;" parent="entity-services" vertex="1">
+                    <mxGeometry y="108" width="200" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="services-r5" value="soLuongTon : INTEGER" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;align=left;spacingLeft=8;" parent="entity-services" vertex="1">
+                    <mxGeometry y="134" width="200" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="services-r6" value="trangThai : VARCHAR(50)" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;align=left;spacingLeft=8;" parent="entity-services" vertex="1">
+                    <mxGeometry y="160" width="200" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="services-r7" value="created_at : TIMESTAMP" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;align=left;spacingLeft=8;" parent="entity-services" vertex="1">
+                    <mxGeometry y="186" width="200" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="entity-timeslots" value="timeslots" style="shape=table;startSize=30;container=1;collapsible=0;childLayout=tableLayout;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;align=center;fontSize=14;rounded=1;" parent="1" vertex="1">
+                    <mxGeometry x="790" y="50" width="210" height="186" as="geometry"/>
+                </mxCell>
+                <mxCell id="timeslots-r1" value="&lt;b&gt;PK&lt;/b&gt; id : SERIAL" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;align=left;spacingLeft=8;" parent="entity-timeslots" vertex="1">
+                    <mxGeometry y="30" width="210" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="timeslots-r2" value="&lt;b&gt;FK&lt;/b&gt; sanId : INTEGER NN" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;align=left;spacingLeft=8;" parent="entity-timeslots" vertex="1">
+                    <mxGeometry y="56" width="210" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="timeslots-r3" value="gioBatDau : TIME NN" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;align=left;spacingLeft=8;" parent="entity-timeslots" vertex="1">
+                    <mxGeometry y="82" width="210" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="timeslots-r4" value="gioKetThuc : TIME NN" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;align=left;spacingLeft=8;" parent="entity-timeslots" vertex="1">
+                    <mxGeometry y="108" width="210" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="timeslots-r5" value="mucGia : DECIMAL(15,2) NN" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;align=left;spacingLeft=8;" parent="entity-timeslots" vertex="1">
+                    <mxGeometry y="134" width="210" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="timeslots-r6" value="trangThai : VARCHAR(50)" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;align=left;spacingLeft=8;" parent="entity-timeslots" vertex="1">
+                    <mxGeometry y="160" width="210" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="entity-bookings" value="bookings" style="shape=table;startSize=30;container=1;collapsible=0;childLayout=tableLayout;fillColor=#ffe6cc;strokeColor=#d79b00;fontStyle=1;align=center;fontSize=14;rounded=1;" parent="1" vertex="1">
+                    <mxGeometry x="290" y="300" width="200" height="446" as="geometry"/>
+                </mxCell>
+                <mxCell id="bookings-r1" value="&lt;b&gt;PK&lt;/b&gt; id : SERIAL" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;align=left;spacingLeft=8;" parent="entity-bookings" vertex="1">
+                    <mxGeometry y="30" width="200" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="bookings-r2" value="&lt;b&gt;FK&lt;/b&gt; nguoiDungId : INTEGER NN" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;align=left;spacingLeft=8;" parent="entity-bookings" vertex="1">
+                    <mxGeometry y="56" width="200" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="bookings-r3" value="&lt;b&gt;FK&lt;/b&gt; sanId : INTEGER NN" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;align=left;spacingLeft=8;" parent="entity-bookings" vertex="1">
+                    <mxGeometry y="82" width="200" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="bookings-r4" value="&lt;b&gt;FK&lt;/b&gt; khungGioId : INTEGER NN" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;align=left;spacingLeft=8;" parent="entity-bookings" vertex="1">
+                    <mxGeometry y="108" width="200" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="bookings-r5" value="ngayChoi : DATE NN" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;align=left;spacingLeft=8;" parent="entity-bookings" vertex="1">
+                    <mxGeometry y="134" width="200" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="bookings-r6" value="tongTien : DECIMAL(15,2) NN" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;align=left;spacingLeft=8;" parent="entity-bookings" vertex="1">
+                    <mxGeometry y="160" width="200" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="bookings-r7" value="tienDaCoc : DECIMAL(15,2)" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;align=left;spacingLeft=8;" parent="entity-bookings" vertex="1">
+                    <mxGeometry y="186" width="200" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="bookings-r8" value="giaGoc : DECIMAL(15,2)" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;align=left;spacingLeft=8;" parent="entity-bookings" vertex="1">
+                    <mxGeometry y="212" width="200" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="bookings-r9" value="tienGiam : DECIMAL(15,2)" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;align=left;spacingLeft=8;" parent="entity-bookings" vertex="1">
+                    <mxGeometry y="238" width="200" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="bookings-r10" value="trangThai : VARCHAR(50)" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;align=left;spacingLeft=8;" parent="entity-bookings" vertex="1">
+                    <mxGeometry y="264" width="200" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="bookings-r11" value="isAutoBooking : BOOLEAN" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;align=left;spacingLeft=8;" parent="entity-bookings" vertex="1">
+                    <mxGeometry y="290" width="200" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="bookings-r12" value="&lt;b&gt;FK&lt;/b&gt; autoBookingSeriesId : INT" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;align=left;spacingLeft=8;fontColor=#aaaaaa;" parent="entity-bookings" vertex="1">
+                    <mxGeometry y="316" width="200" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="bookings-r13" value="ghiChu : TEXT" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;align=left;spacingLeft=8;" parent="entity-bookings" vertex="1">
+                    <mxGeometry y="342" width="200" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="bookings-r14" value="maGiamGia : VARCHAR(50)" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;align=left;spacingLeft=8;" parent="entity-bookings" vertex="1">
+                    <mxGeometry y="368" width="200" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="bookings-r15" value="created_at : TIMESTAMP" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;align=left;spacingLeft=8;" parent="entity-bookings" vertex="1">
+                    <mxGeometry y="394" width="200" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="bookings-r16" value="updated_at : TIMESTAMP" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;align=left;spacingLeft=8;" parent="entity-bookings" vertex="1">
+                    <mxGeometry y="420" width="200" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="entity-auto-booking" value="auto_booking_series" style="shape=table;startSize=30;container=1;collapsible=0;childLayout=tableLayout;fillColor=#d4e1f5;strokeColor=#3b82f6;fontStyle=1;align=center;fontSize=14;rounded=1;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="480" width="200" height="342" as="geometry"/>
+                </mxCell>
+                <mxCell id="auto-r1" value="&lt;b&gt;PK&lt;/b&gt; id : SERIAL" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#d4e1f5;strokeColor=#3b82f6;fontSize=11;align=left;spacingLeft=8;" parent="entity-auto-booking" vertex="1">
+                    <mxGeometry y="30" width="200" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="auto-r2" value="&lt;b&gt;FK&lt;/b&gt; nguoiDungId : INTEGER NN" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#d4e1f5;strokeColor=#3b82f6;fontSize=11;align=left;spacingLeft=8;" parent="entity-auto-booking" vertex="1">
+                    <mxGeometry y="56" width="200" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="auto-r3" value="&lt;b&gt;FK&lt;/b&gt; sanId : INTEGER NN" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#d4e1f5;strokeColor=#3b82f6;fontSize=11;align=left;spacingLeft=8;" parent="entity-auto-booking" vertex="1">
+                    <mxGeometry y="82" width="200" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="auto-r4" value="khungGioIds : JSONB NN" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#d4e1f5;strokeColor=#3b82f6;fontSize=11;align=left;spacingLeft=8;" parent="entity-auto-booking" vertex="1">
+                    <mxGeometry y="108" width="200" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="auto-r5" value="startDate : DATE NN" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#d4e1f5;strokeColor=#3b82f6;fontSize=11;align=left;spacingLeft=8;" parent="entity-auto-booking" vertex="1">
+                    <mxGeometry y="134" width="200" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="auto-r6" value="endDate : DATE NN" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#d4e1f5;strokeColor=#3b82f6;fontSize=11;align=left;spacingLeft=8;" parent="entity-auto-booking" vertex="1">
+                    <mxGeometry y="160" width="200" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="auto-r7" value="repeatServices : BOOLEAN" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#d4e1f5;strokeColor=#3b82f6;fontSize=11;align=left;spacingLeft=8;" parent="entity-auto-booking" vertex="1">
+                    <mxGeometry y="186" width="200" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="auto-r8" value="servicePolicy : VARCHAR(50)" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#d4e1f5;strokeColor=#3b82f6;fontSize=11;align=left;spacingLeft=8;" parent="entity-auto-booking" vertex="1">
+                    <mxGeometry y="212" width="200" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="auto-r9" value="totalAmount : DECIMAL(15,2)" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#d4e1f5;strokeColor=#3b82f6;fontSize=11;align=left;spacingLeft=8;" parent="entity-auto-booking" vertex="1">
+                    <mxGeometry y="238" width="200" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="auto-r10" value="trangThai : VARCHAR(50)" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#d4e1f5;strokeColor=#3b82f6;fontSize=11;align=left;spacingLeft=8;" parent="entity-auto-booking" vertex="1">
+                    <mxGeometry y="264" width="200" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="auto-r11" value="created_at : TIMESTAMP" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#d4e1f5;strokeColor=#3b82f6;fontSize=11;align=left;spacingLeft=8;" parent="entity-auto-booking" vertex="1">
+                    <mxGeometry y="290" width="200" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="auto-r12" value="updated_at : TIMESTAMP" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#d4e1f5;strokeColor=#3b82f6;fontSize=11;align=left;spacingLeft=8;" parent="entity-auto-booking" vertex="1">
+                    <mxGeometry y="316" width="200" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="entity-booking-svc" value="booking_services" style="shape=table;startSize=30;container=1;collapsible=0;childLayout=tableLayout;fillColor=#e1d5e7;strokeColor=#9673a6;fontStyle=1;align=center;fontSize=14;rounded=1;" parent="1" vertex="1">
+                    <mxGeometry x="540" y="300" width="200" height="160" as="geometry"/>
+                </mxCell>
+                <mxCell id="bkgsvc-r1" value="&lt;b&gt;PK&lt;/b&gt; id : SERIAL" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;align=left;spacingLeft=8;" parent="entity-booking-svc" vertex="1">
+                    <mxGeometry y="30" width="200" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="bkgsvc-r2" value="&lt;b&gt;FK&lt;/b&gt; donDatId : INTEGER NN" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;align=left;spacingLeft=8;" parent="entity-booking-svc" vertex="1">
+                    <mxGeometry y="56" width="200" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="bkgsvc-r3" value="&lt;b&gt;FK&lt;/b&gt; dichVuId : INTEGER NN" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;align=left;spacingLeft=8;" parent="entity-booking-svc" vertex="1">
+                    <mxGeometry y="82" width="200" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="bkgsvc-r4" value="soLuong : INTEGER NN" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;align=left;spacingLeft=8;" parent="entity-booking-svc" vertex="1">
+                    <mxGeometry y="108" width="200" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="bkgsvc-r5" value="tongTien : DECIMAL(15,2) NN" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;align=left;spacingLeft=8;" parent="entity-booking-svc" vertex="1">
+                    <mxGeometry y="134" width="200" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="entity-payments" value="payments" style="shape=table;startSize=30;container=1;collapsible=0;childLayout=tableLayout;fillColor=#f8cecc;strokeColor=#b85450;fontStyle=1;align=center;fontSize=14;rounded=1;" parent="1" vertex="1">
+                    <mxGeometry x="790" y="280" width="210" height="186" as="geometry"/>
+                </mxCell>
+                <mxCell id="payments-r1" value="&lt;b&gt;PK&lt;/b&gt; id : SERIAL" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;align=left;spacingLeft=8;" parent="entity-payments" vertex="1">
+                    <mxGeometry y="30" width="210" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="payments-r2" value="&lt;b&gt;FK&lt;/b&gt; donDatId : INTEGER NN" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;align=left;spacingLeft=8;" parent="entity-payments" vertex="1">
+                    <mxGeometry y="56" width="210" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="payments-r3" value="soTien : DECIMAL(15,2) NN" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;align=left;spacingLeft=8;" parent="entity-payments" vertex="1">
+                    <mxGeometry y="82" width="210" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="payments-r4" value="loaiThanhToan : VARCHAR(50) NN" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;align=left;spacingLeft=8;" parent="entity-payments" vertex="1">
+                    <mxGeometry y="108" width="210" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="payments-r5" value="ngayGiaoDich : TIMESTAMP" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;align=left;spacingLeft=8;" parent="entity-payments" vertex="1">
+                    <mxGeometry y="134" width="210" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="payments-r6" value="trangThai : VARCHAR(50)" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;align=left;spacingLeft=8;" parent="entity-payments" vertex="1">
+                    <mxGeometry y="160" width="210" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="entity-discounts" value="discounts" style="shape=table;startSize=30;container=1;collapsible=0;childLayout=tableLayout;fillColor=#cdf0d6;strokeColor=#4caf50;fontStyle=1;align=center;fontSize=14;rounded=1;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="880" width="200" height="472" as="geometry"/>
+                </mxCell>
+                <mxCell id="discounts-r1" value="&lt;b&gt;PK&lt;/b&gt; id : SERIAL" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#cdf0d6;strokeColor=#4caf50;fontSize=11;align=left;spacingLeft=8;" parent="entity-discounts" vertex="1">
+                    <mxGeometry y="30" width="200" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="discounts-r2" value="code : VARCHAR(50) U NN" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#cdf0d6;strokeColor=#4caf50;fontSize=11;align=left;spacingLeft=8;" parent="entity-discounts" vertex="1">
+                    <mxGeometry y="56" width="200" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="discounts-r3" value="noiDung : VARCHAR(255)" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#cdf0d6;strokeColor=#4caf50;fontSize=11;align=left;spacingLeft=8;" parent="entity-discounts" vertex="1">
+                    <mxGeometry y="82" width="200" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="discounts-r4" value="moTa : TEXT" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#cdf0d6;strokeColor=#4caf50;fontSize=11;align=left;spacingLeft=8;" parent="entity-discounts" vertex="1">
+                    <mxGeometry y="108" width="200" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="discounts-r5" value="loaiGiamGia : VARCHAR(50)" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#cdf0d6;strokeColor=#4caf50;fontSize=11;align=left;spacingLeft=8;" parent="entity-discounts" vertex="1">
+                    <mxGeometry y="134" width="200" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="discounts-r6" value="mucGiamGia : DECIMAL(15,2) NN" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#cdf0d6;strokeColor=#4caf50;fontSize=11;align=left;spacingLeft=8;" parent="entity-discounts" vertex="1">
+                    <mxGeometry y="160" width="200" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="discounts-r7" value="ngayBatDau : TIMESTAMP" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#cdf0d6;strokeColor=#4caf50;fontSize=11;align=left;spacingLeft=8;" parent="entity-discounts" vertex="1">
+                    <mxGeometry y="186" width="200" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="discounts-r8" value="ngayKetThuc : TIMESTAMP" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#cdf0d6;strokeColor=#4caf50;fontSize=11;align=left;spacingLeft=8;" parent="entity-discounts" vertex="1">
+                    <mxGeometry y="212" width="200" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="discounts-r9" value="soLuongBanDau : INTEGER" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#cdf0d6;strokeColor=#4caf50;fontSize=11;align=left;spacingLeft=8;" parent="entity-discounts" vertex="1">
+                    <mxGeometry y="238" width="200" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="discounts-r10" value="soLuongDaDung : INTEGER" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#cdf0d6;strokeColor=#4caf50;fontSize=11;align=left;spacingLeft=8;" parent="entity-discounts" vertex="1">
+                    <mxGeometry y="264" width="200" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="discounts-r11" value="usage_limit_per_user : INTEGER" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#cdf0d6;strokeColor=#4caf50;fontSize=11;align=left;spacingLeft=8;" parent="entity-discounts" vertex="1">
+                    <mxGeometry y="290" width="200" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="discounts-r12" value="giamToiDa : DECIMAL(15,2)" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#cdf0d6;strokeColor=#4caf50;fontSize=11;align=left;spacingLeft=8;" parent="entity-discounts" vertex="1">
+                    <mxGeometry y="316" width="200" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="discounts-r13" value="conditions : JSONB" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#cdf0d6;strokeColor=#4caf50;fontSize=11;align=left;spacingLeft=8;" parent="entity-discounts" vertex="1">
+                    <mxGeometry y="342" width="200" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="discounts-r14" value="&lt;b&gt;FK&lt;/b&gt; nguoiDungId : INTEGER" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#cdf0d6;strokeColor=#4caf50;fontSize=11;align=left;spacingLeft=8;fontColor=#aaaaaa;" parent="entity-discounts" vertex="1">
+                    <mxGeometry y="368" width="200" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="discounts-r15" value="trangThai : VARCHAR(50)" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#cdf0d6;strokeColor=#4caf50;fontSize=11;align=left;spacingLeft=8;" parent="entity-discounts" vertex="1">
+                    <mxGeometry y="394" width="200" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="discounts-r16" value="is_hidden : BOOLEAN" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#cdf0d6;strokeColor=#4caf50;fontSize=11;align=left;spacingLeft=8;" parent="entity-discounts" vertex="1">
+                    <mxGeometry y="420" width="200" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="discounts-r17" value="created_at : TIMESTAMP" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#cdf0d6;strokeColor=#4caf50;fontSize=11;align=left;spacingLeft=8;" parent="entity-discounts" vertex="1">
+                    <mxGeometry y="446" width="200" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="entity-vouchers" value="user_vouchers" style="shape=table;startSize=30;container=1;collapsible=0;childLayout=tableLayout;fillColor=#cdf0d6;strokeColor=#4caf50;fontStyle=1;align=center;fontSize=14;rounded=1;" parent="1" vertex="1">
+                    <mxGeometry x="290" y="800" width="200" height="186" as="geometry"/>
+                </mxCell>
+                <mxCell id="vouchers-r1" value="&lt;b&gt;PK&lt;/b&gt; id : SERIAL" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#cdf0d6;strokeColor=#4caf50;fontSize=11;align=left;spacingLeft=8;" parent="entity-vouchers" vertex="1">
+                    <mxGeometry y="30" width="200" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="vouchers-r2" value="&lt;b&gt;FK&lt;/b&gt; nguoiDungId : INTEGER NN" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#cdf0d6;strokeColor=#4caf50;fontSize=11;align=left;spacingLeft=8;" parent="entity-vouchers" vertex="1">
+                    <mxGeometry y="56" width="200" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="vouchers-r3" value="&lt;b&gt;FK&lt;/b&gt; discountId : INTEGER NN" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#cdf0d6;strokeColor=#4caf50;fontSize=11;align=left;spacingLeft=8;" parent="entity-vouchers" vertex="1">
+                    <mxGeometry y="82" width="200" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="vouchers-r4" value="claimedAt : TIMESTAMP" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#cdf0d6;strokeColor=#4caf50;fontSize=11;align=left;spacingLeft=8;" parent="entity-vouchers" vertex="1">
+                    <mxGeometry y="108" width="200" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="vouchers-r5" value="usedAt : TIMESTAMP" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#cdf0d6;strokeColor=#4caf50;fontSize=11;align=left;spacingLeft=8;" parent="entity-vouchers" vertex="1">
+                    <mxGeometry y="134" width="200" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="vouchers-r6" value="trangThai : VARCHAR(50)" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#cdf0d6;strokeColor=#4caf50;fontSize=11;align=left;spacingLeft=8;" parent="entity-vouchers" vertex="1">
+                    <mxGeometry y="160" width="200" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="entity-reviews" value="reviews" style="shape=table;startSize=30;container=1;collapsible=0;childLayout=tableLayout;fillColor=#fff2cc;strokeColor=#d6b656;fontStyle=1;align=center;fontSize=14;rounded=1;" parent="1" vertex="1">
+                    <mxGeometry x="540" y="500" width="200" height="212" as="geometry"/>
+                </mxCell>
+                <mxCell id="reviews-r1" value="&lt;b&gt;PK&lt;/b&gt; id : SERIAL" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;align=left;spacingLeft=8;" parent="entity-reviews" vertex="1">
+                    <mxGeometry y="30" width="200" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="reviews-r2" value="&lt;b&gt;FK&lt;/b&gt; donDatId : INTEGER" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;align=left;spacingLeft=8;fontColor=#aaaaaa;" parent="entity-reviews" vertex="1">
+                    <mxGeometry y="56" width="200" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="reviews-r3" value="&lt;b&gt;FK&lt;/b&gt; nguoiDungId : INTEGER NN" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;align=left;spacingLeft=8;" parent="entity-reviews" vertex="1">
+                    <mxGeometry y="82" width="200" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="reviews-r4" value="diemSao : INTEGER NN [1-5]" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;align=left;spacingLeft=8;" parent="entity-reviews" vertex="1">
+                    <mxGeometry y="108" width="200" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="reviews-r5" value="binhLuan : TEXT" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;align=left;spacingLeft=8;" parent="entity-reviews" vertex="1">
+                    <mxGeometry y="134" width="200" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="reviews-r6" value="ngayTao : TIMESTAMP" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;align=left;spacingLeft=8;" parent="entity-reviews" vertex="1">
+                    <mxGeometry y="160" width="200" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="reviews-r7" value="&lt;b&gt;FK&lt;/b&gt; sanId : INTEGER" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;align=left;spacingLeft=8;fontColor=#aaaaaa;" parent="entity-reviews" vertex="1">
+                    <mxGeometry y="186" width="200" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="entity-notifications" value="notifications" style="shape=table;startSize=30;container=1;collapsible=0;childLayout=tableLayout;fillColor=#f5f5f5;strokeColor=#666666;fontStyle=1;align=center;fontSize=14;rounded=1;" parent="1" vertex="1">
+                    <mxGeometry x="790" y="510" width="210" height="238" as="geometry"/>
+                </mxCell>
+                <mxCell id="noti-r1" value="&lt;b&gt;PK&lt;/b&gt; id : SERIAL" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#f5f5f5;strokeColor=#666666;fontSize=11;align=left;spacingLeft=8;" parent="entity-notifications" vertex="1">
+                    <mxGeometry y="30" width="210" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="noti-r2" value="&lt;b&gt;FK&lt;/b&gt; nguoiDungId : INTEGER NN" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#f5f5f5;strokeColor=#666666;fontSize=11;align=left;spacingLeft=8;" parent="entity-notifications" vertex="1">
+                    <mxGeometry y="56" width="210" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="noti-r3" value="tieuDe : VARCHAR(255) NN" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#f5f5f5;strokeColor=#666666;fontSize=11;align=left;spacingLeft=8;" parent="entity-notifications" vertex="1">
+                    <mxGeometry y="82" width="210" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="noti-r4" value="noiDung : TEXT" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#f5f5f5;strokeColor=#666666;fontSize=11;align=left;spacingLeft=8;" parent="entity-notifications" vertex="1">
+                    <mxGeometry y="108" width="210" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="noti-r5" value="loaiThongBao : VARCHAR(50)" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#f5f5f5;strokeColor=#666666;fontSize=11;align=left;spacingLeft=8;" parent="entity-notifications" vertex="1">
+                    <mxGeometry y="134" width="210" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="noti-r6" value="daDoc : BOOLEAN" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#f5f5f5;strokeColor=#666666;fontSize=11;align=left;spacingLeft=8;" parent="entity-notifications" vertex="1">
+                    <mxGeometry y="160" width="210" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="noti-r7" value="&lt;b&gt;FK&lt;/b&gt; maDonDat : INTEGER" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#f5f5f5;strokeColor=#666666;fontSize=11;align=left;spacingLeft=8;fontColor=#aaaaaa;" parent="entity-notifications" vertex="1">
+                    <mxGeometry y="186" width="210" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="noti-r8" value="thoiGianTao : TIMESTAMP" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#f5f5f5;strokeColor=#666666;fontSize=11;align=left;spacingLeft=8;" parent="entity-notifications" vertex="1">
+                    <mxGeometry y="212" width="210" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="entity-images" value="court_images" style="shape=table;startSize=30;container=1;collapsible=0;childLayout=tableLayout;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;align=center;fontSize=14;rounded=1;" parent="1" vertex="1">
+                    <mxGeometry x="790" y="790" width="210" height="160" as="geometry"/>
+                </mxCell>
+                <mxCell id="images-r1" value="&lt;b&gt;PK&lt;/b&gt; id : SERIAL" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;align=left;spacingLeft=8;" parent="entity-images" vertex="1">
+                    <mxGeometry y="30" width="210" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="images-r2" value="&lt;b&gt;FK&lt;/b&gt; sanId : INTEGER NN" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;align=left;spacingLeft=8;" parent="entity-images" vertex="1">
+                    <mxGeometry y="56" width="210" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="images-r3" value="duongDanAnh : VARCHAR(500) NN" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;align=left;spacingLeft=8;" parent="entity-images" vertex="1">
+                    <mxGeometry y="82" width="210" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="images-r4" value="isMain : BOOLEAN" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;align=left;spacingLeft=8;" parent="entity-images" vertex="1">
+                    <mxGeometry y="108" width="210" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="images-r5" value="created_at : TIMESTAMP" style="shape=tableRow;horizontal=0;startSize=0;swimlaneRow=0;swimlaneCol=0;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;align=left;spacingLeft=8;" parent="entity-images" vertex="1">
+                    <mxGeometry y="134" width="210" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="legend-container" value="Legend" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;rounded=1;fillColor=#fafafa;strokeColor=#666666;fontSize=13;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="1400" width="350" height="120" as="geometry"/>
+                </mxCell>
+                <mxCell id="legend-1" value="&lt;b&gt;PK&lt;/b&gt; = Primary Key &amp;nbsp;&amp;nbsp; &lt;b&gt;FK&lt;/b&gt; = Foreign Key" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=10;fontSize=11;html=1;" parent="legend-container" vertex="1">
+                    <mxGeometry y="26" width="350" height="20" as="geometry"/>
+                </mxCell>
+                <mxCell id="legend-2" value="&lt;b&gt;NN&lt;/b&gt; = NOT NULL &amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp; &lt;b&gt;U&lt;/b&gt; = UNIQUE" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=10;fontSize=11;html=1;" parent="legend-container" vertex="1">
+                    <mxGeometry y="46" width="350" height="20" as="geometry"/>
+                </mxCell>
+                <mxCell id="legend-3" value="Gray text = Nullable / Optional FK" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=10;fontSize=11;html=1;fontColor=#aaaaaa;" parent="legend-container" vertex="1">
+                    <mxGeometry y="66" width="350" height="20" as="geometry"/>
+                </mxCell>
+                <mxCell id="color-legend" value="Entity Groups" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;rounded=1;fillColor=#fafafa;strokeColor=#666666;fontSize=13;" parent="1" vertex="1">
+                    <mxGeometry x="430" y="1400" width="350" height="120" as="geometry"/>
+                </mxCell>
+                <mxCell id="cl-1" value="Blue = Users &amp;nbsp; | &amp;nbsp; Green = Courts &amp;nbsp; | &amp;nbsp; Orange = Bookings" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=10;fontSize=10;html=1;" parent="color-legend" vertex="1">
+                    <mxGeometry y="26" width="350" height="20" as="geometry"/>
+                </mxCell>
+                <mxCell id="cl-2" value="Purple = Services &amp;nbsp; | &amp;nbsp; Pink = Payments &amp;nbsp; | &amp;nbsp; Yellow = Reviews" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=10;fontSize=10;html=1;" parent="color-legend" vertex="1">
+                    <mxGeometry y="46" width="350" height="20" as="geometry"/>
+                </mxCell>
+                <mxCell id="cl-3" value="Light Green = Discounts &amp;nbsp; | &amp;nbsp; Light Blue = Auto Booking" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=10;fontSize=10;html=1;" parent="color-legend" vertex="1">
+                    <mxGeometry y="66" width="350" height="20" as="geometry"/>
+                </mxCell>
+                <mxCell id="edge-users-bookings" value="" style="endArrow=classic;html=1;strokeWidth=2;strokeColor=#666666;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" parent="1" source="entity-users" target="entity-bookings" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="lbl-users-bookings-1" value="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=10;fontColor=#666666;" parent="1" vertex="1">
+                    <mxGeometry x="235" y="240" width="20" height="16" as="geometry"/>
+                </mxCell>
+                <mxCell id="lbl-users-bookings-N" value="N" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=10;fontColor=#666666;" parent="1" vertex="1">
+                    <mxGeometry x="280" y="240" width="20" height="16" as="geometry"/>
+                </mxCell>
+                <mxCell id="edge-users-auto" value="" style="endArrow=classic;html=1;strokeWidth=2;strokeColor=#666666;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="1" source="entity-users" target="entity-auto-booking" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="lbl-users-auto-1" value="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=10;fontColor=#666666;" parent="1" vertex="1">
+                    <mxGeometry x="145" y="425" width="20" height="16" as="geometry"/>
+                </mxCell>
+                <mxCell id="lbl-users-auto-N" value="N" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=10;fontColor=#666666;" parent="1" vertex="1">
+                    <mxGeometry x="145" y="460" width="20" height="16" as="geometry"/>
+                </mxCell>
+                <mxCell id="edge-users-discounts" value="" style="endArrow=classic;html=1;strokeWidth=1;strokeColor=#aaaaaa;dashed=1;dashPattern=8 4;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" parent="1" source="entity-users" target="entity-discounts" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="edge-users-vouchers" value="" style="endArrow=classic;html=1;strokeWidth=2;strokeColor=#666666;exitX=0.25;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="1" source="entity-users" target="entity-vouchers" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="edge-users-reviews" value="" style="endArrow=classic;html=1;strokeWidth=2;strokeColor=#666666;exitX=1;exitY=0.8;exitDx=0;exitDy=0;entryX=0;entryY=0.3;entryDx=0;entryDy=0;curved=1;" parent="1" source="entity-users" target="entity-reviews" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="edge-users-notifications" value="" style="endArrow=classic;html=1;strokeWidth=2;strokeColor=#666666;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;curved=1;" parent="1" source="entity-users" target="entity-notifications" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="260" y="234"/>
+                            <mxPoint x="260" y="629"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="edge-courts-timeslots" value="" style="endArrow=classic;html=1;strokeWidth=2;strokeColor=#666666;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.3;entryDx=0;entryDy=0;" parent="1" source="entity-courts" target="entity-timeslots" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="lbl-courts-ts-1" value="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=10;fontColor=#666666;" parent="1" vertex="1">
+                    <mxGeometry x="485" y="120" width="20" height="16" as="geometry"/>
+                </mxCell>
+                <mxCell id="lbl-courts-ts-N" value="N&#xa;(CASCADE)" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=10;fontColor=#666666;" parent="1" vertex="1">
+                    <mxGeometry x="780" y="100" width="40" height="22" as="geometry"/>
+                </mxCell>
+                <mxCell id="edge-courts-images" value="" style="endArrow=classic;html=1;strokeWidth=2;strokeColor=#666666;exitX=1;exitY=0.8;exitDx=0;exitDy=0;entryX=0;entryY=0.3;entryDx=0;entryDy=0;curved=1;" parent="1" source="entity-courts" target="entity-images" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="510" y="200"/>
+                            <mxPoint x="510" y="838"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="edge-courts-bookings" value="" style="endArrow=classic;html=1;strokeWidth=2;strokeColor=#666666;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.3;entryY=0;entryDx=0;entryDy=0;" parent="1" source="entity-courts" target="entity-bookings" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="edge-courts-auto" value="" style="endArrow=classic;html=1;strokeWidth=2;strokeColor=#666666;exitX=0.3;exitY=1;exitDx=0;exitDy=0;entryX=0.7;entryY=0;entryDx=0;entryDy=0;curved=1;" parent="1" source="entity-courts" target="entity-auto-booking" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="edge-courts-reviews" value="" style="endArrow=classic;html=1;strokeWidth=1;strokeColor=#aaaaaa;dashed=1;dashPattern=8 4;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;curved=1;" parent="1" source="entity-courts" target="entity-reviews" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="390" y="280"/>
+                            <mxPoint x="640" y="740"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="edge-timeslots-bookings" value="" style="endArrow=classic;html=1;strokeWidth=2;strokeColor=#666666;exitX=0;exitY=0.8;exitDx=0;exitDy=0;entryX=0.7;entryY=0;entryDx=0;entryDy=0;curved=1;" parent="1" source="entity-timeslots" target="entity-bookings" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="edge-bookings-bkgsvc" value="" style="endArrow=classic;html=1;strokeWidth=2;strokeColor=#666666;exitX=1;exitY=0.3;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" parent="1" source="entity-bookings" target="entity-booking-svc" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="lbl-bk-bs-1" value="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=10;fontColor=#666666;" parent="1" vertex="1">
+                    <mxGeometry x="485" y="370" width="20" height="16" as="geometry"/>
+                </mxCell>
+                <mxCell id="lbl-bk-bs-N" value="N&#xa;(CASCADE)" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=10;fontColor=#666666;" parent="1" vertex="1">
+                    <mxGeometry x="530" y="370" width="40" height="22" as="geometry"/>
+                </mxCell>
+                <mxCell id="edge-bookings-payments" value="" style="endArrow=classic;html=1;strokeWidth=2;strokeColor=#666666;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" parent="1" source="entity-bookings" target="entity-payments" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="lbl-bk-pay-1" value="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=10;fontColor=#666666;" parent="1" vertex="1">
+                    <mxGeometry x="485" y="490" width="20" height="16" as="geometry"/>
+                </mxCell>
+                <mxCell id="lbl-bk-pay-N" value="N&#xa;(CASCADE)" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=10;fontColor=#666666;" parent="1" vertex="1">
+                    <mxGeometry x="780" y="360" width="40" height="22" as="geometry"/>
+                </mxCell>
+                <mxCell id="edge-bookings-reviews" value="" style="endArrow=classic;html=1;strokeWidth=1;strokeColor=#aaaaaa;dashed=1;dashPattern=8 4;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.3;entryY=0;entryDx=0;entryDy=0;curved=1;" parent="1" source="entity-bookings" target="entity-reviews" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="edge-bookings-notifications" value="" style="endArrow=classic;html=1;strokeWidth=1;strokeColor=#aaaaaa;dashed=1;dashPattern=8 4;exitX=1;exitY=0.8;exitDx=0;exitDy=0;entryX=0;entryY=0.7;entryDx=0;entryDy=0;curved=1;" parent="1" source="entity-bookings" target="entity-notifications" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="edge-services-bkgsvc" value="" style="endArrow=classic;html=1;strokeWidth=2;strokeColor=#666666;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="1" source="entity-services" target="entity-booking-svc" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="edge-discounts-vouchers" value="" style="endArrow=classic;html=1;strokeWidth=2;strokeColor=#666666;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" parent="1" source="entity-discounts" target="entity-vouchers" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="lbl-disc-vouch-1" value="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=10;fontColor=#666666;" parent="1" vertex="1">
+                    <mxGeometry x="235" y="1080" width="20" height="16" as="geometry"/>
+                </mxCell>
+                <mxCell id="lbl-disc-vouch-N" value="N&#xa;(CASCADE)" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=10;fontColor=#666666;" parent="1" vertex="1">
+                    <mxGeometry x="280" y="1080" width="40" height="22" as="geometry"/>
+                </mxCell>
+                <mxCell id="edge-auto-bookings" value="" style="endArrow=classic;html=1;strokeWidth=1;strokeColor=#aaaaaa;dashed=1;dashPattern=8 4;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.8;entryDx=0;entryDy=0;" parent="1" source="entity-auto-booking" target="entity-bookings" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+</mxfile>

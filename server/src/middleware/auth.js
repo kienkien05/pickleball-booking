@@ -41,7 +41,11 @@ function authenticate(req, res, next) {
   }
   try {
     const token = authHeader.split(' ')[1];
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'pickleball_jwt_secret_key_2026');
+    const secret = process.env.JWT_SECRET;
+    if (!secret) {
+      return res.status(500).json({ error: 'Lỗi cấu hình bảo mật hệ thống' });
+    }
+    const decoded = jwt.verify(token, secret);
     req.user = decoded;
     next();
   } catch (err) {

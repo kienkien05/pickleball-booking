@@ -26,6 +26,8 @@
 const express = require('express');
 const { pool } = require('../config/database');
 const { authenticate, requireAdmin } = require('../middleware/auth');
+const { notifyAdmins } = require('../utils/notifications');
+const { cancelBookingWithReason } = require('../utils/bookingCancellation');
 const router = express.Router();
 
 /**
@@ -113,16 +115,38 @@ router.patch('/:id/toggle-status', authenticate, requireAdmin, async (req, res) 
     if (result.rows.length === 0) return res.status(404).json({ error: 'Không tìm thấy' });
     const newStatus = result.rows[0].trangThai === 'Locked' ? 'Active' : 'Locked';
     await pool.query('UPDATE users SET trangThai = $1 WHERE id = $2', [newStatus, req.params.id]);
+    let stoppedSeries = 0;
+    if (newStatus === 'Locked') {
+      const stopped = await pool.query(
+        "UPDATE auto_booking_series SET trangThai = 'Inactive', updated_at = NOW() WHERE nguoiDungId = $1 AND trangThai = 'Active' RETURNING id",
+        [req.params.id]
+      );
+      stoppedSeries = stopped.rows.length;
+
+      // Hủy tất cả đơn đặt tương lai của user bị khóa
+      const futureBookings = await pool.query(
+        `SELECT * FROM bookings WHERE nguoiDungId = $1 AND ngayChoi >= CURRENT_DATE AND trangThai NOT IN ('Đã hủy', 'Hoàn thành')`,
+        [req.params.id]
+      );
+      for (const booking of futureBookings.rows) {
+        await cancelBookingWithReason(pool, booking, 'SYSTEM_CHANGE', { note: 'Tài khoản bị khóa bởi quản trị viên.' });
+      }
+    }
 
     // Gửi thông báo cho user bị khóa/mở khóa
     const notiTitle = newStatus === 'Locked' ? 'Tài khoản bị khóa' : 'Tài khoản được mở khóa';
     const notiBody = newStatus === 'Locked'
-      ? 'Tài khoản của bạn đã bị khóa bởi quản trị viên. Vui lòng liên hệ admin để được hỗ trợ.'
+      ? `Tài khoản của bạn đã bị khóa bởi quản trị viên. ${stoppedSeries > 0 ? 'Các chuỗi tự động đặt sân đang hoạt động đã được dừng. ' : ''}Vui lòng liên hệ admin để được hỗ trợ.`
       : 'Tài khoản của bạn đã được mở khóa. Bạn có thể đăng nhập và sử dụng dịch vụ bình thường.';
     await pool.query(
       "INSERT INTO notifications (nguoiDungId, tieuDe, noiDung, loaiThongBao) VALUES ($1, $2, $3, 'system')",
       [req.params.id, notiTitle, notiBody]
     );
+    await notifyAdmins(pool, {
+      title: notiTitle,
+      message: `User #${req.params.id} đã được đổi trạng thái thành ${newStatus}.`,
+      type: 'system',
+    });
 
     res.json({ message: 'Đã thay đổi trạng thái', data: { trangThai: newStatus } });
   } catch (err) {
@@ -162,6 +186,39 @@ router.patch('/:id/toggle-vip', authenticate, requireAdmin, async (req, res) => 
          VALUES ($1, $2, $3, 'vip')`,
         [userId, 'Chúc mừng bạn đã trở thành VIP!', `Bạn được tặng mã giảm giá ${vipCode} giảm 15% (tối đa 200k). Mã có hiệu lực trong 30 ngày.`]
       );
+      await notifyAdmins(pool, {
+        title: 'Đã bật VIP',
+        message: `User #${userId} đã được bật VIP và nhận mã ${vipCode}.`,
+        type: 'vip',
+      });
+    } else {
+      const stopped = await pool.query(
+        "UPDATE auto_booking_series SET trangThai = 'Inactive', updated_at = NOW() WHERE nguoiDungId = $1 AND trangThai = 'Active' RETURNING id",
+        [userId]
+      );
+
+      // Hủy các đơn tự động đặt sân trong tương lai của user khi bị tắt VIP
+      const futureVipBookings = await pool.query(
+        `SELECT * FROM bookings WHERE nguoiDungId = $1 AND autoBookingSeriesId IS NOT NULL AND ngayChoi >= CURRENT_DATE AND trangThai NOT IN ('Đã hủy', 'Hoàn thành')`,
+        [userId]
+      );
+      for (const booking of futureVipBookings.rows) {
+        await cancelBookingWithReason(pool, booking, 'SYSTEM_CHANGE', { note: 'Đơn bị hủy do quyền VIP đã được tắt.' });
+      }
+      await pool.query(
+        `INSERT INTO notifications (nguoiDungId, tieuDe, noiDung, loaiThongBao)
+         VALUES ($1, $2, $3, 'vip')`,
+        [
+          userId,
+          'Tài khoản VIP đã được tắt',
+          `Quyền VIP của bạn đã được tắt. ${stopped.rows.length > 0 ? 'Các chuỗi tự động đặt sân đang hoạt động đã được dừng.' : 'Bạn sẽ không thể tạo lịch tự động mới.'}`,
+        ]
+      );
+      await notifyAdmins(pool, {
+        title: 'Đã tắt VIP',
+        message: `User #${userId} đã bị tắt VIP. Đã dừng ${stopped.rows.length} chuỗi tự động đặt sân.`,
+        type: 'vip',
+      });
     }
 
     res.json({ message: 'Đã thay đổi VIP', data: { isVIP: newVip } });

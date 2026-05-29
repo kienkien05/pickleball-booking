@@ -113,12 +113,11 @@ export default function DiscountsManagePage() {
    */
   const saveMutation = useMutation({
     mutationFn: (data: any) => {
+      const parsedLimit = parseInt(data.usageLimitPerUser, 10);
       const payload = {
         ...data,
-        // Chuyển đổi kiểu dữ liệu cho các trường số
-        usageLimitPerUser: parseInt(data.usageLimitPerUser) || 1,
+        usageLimitPerUser: isNaN(parsedLimit) ? 1 : parsedLimit,
         giamToiDa: data.giamToiDa ? parseFloat(data.giamToiDa) : null,
-        // Đóng gói điều kiện áp dụng
         conditions: {
           min_order_value: data.min_order_value ? parseFloat(data.min_order_value) : null,
           applicable_court_ids: Array.isArray(data.applicable_court_ids) && data.applicable_court_ids.length > 0 ? data.applicable_court_ids : null,
@@ -394,7 +393,44 @@ export default function DiscountsManagePage() {
         </div>
         <ModalFooter>
           <Button variant="outline" onClick={() => setShowForm(false)}>Hủy</Button>
-          <Button onClick={() => saveMutation.mutate(form)} loading={saveMutation.isPending}>Lưu</Button>
+          <Button onClick={() => {
+            if (!form.code || form.code.trim() === '') {
+              return toast.error('Vui lòng nhập mã giảm giá');
+            }
+            const mucGiam = Number(form.mucGiamGia);
+            if (isNaN(mucGiam) || mucGiam <= 0) {
+              return toast.error('Mức giảm giá phải là số lớn hơn 0');
+            }
+            if (form.loaiGiamGia === 'percentage' && mucGiam > 100) {
+              return toast.error('Mức giảm phần trăm không được vượt quá 100%');
+            }
+            const limit = Number(form.usageLimitPerUser);
+            if (isNaN(limit) || limit < 0 || !Number.isInteger(limit)) {
+              return toast.error('Lượt dùng mỗi khách phải là số nguyên không âm (0 biểu thị không giới hạn)');
+            }
+            const total = Number(form.soLuongBanDau);
+            if (isNaN(total) || total < 0 || !Number.isInteger(total)) {
+              return toast.error('Tổng số lượng mã phát hành phải là số nguyên không âm');
+            }
+            if (form.min_order_value) {
+              const minVal = Number(form.min_order_value);
+              if (isNaN(minVal) || minVal < 0) {
+                return toast.error('Đơn hàng tối thiểu phải là số không âm');
+              }
+            }
+            if (form.giamToiDa && form.loaiGiamGia === 'percentage') {
+              const maxVal = Number(form.giamToiDa);
+              if (isNaN(maxVal) || maxVal <= 0) {
+                return toast.error('Giảm tối đa phải là số lớn hơn 0');
+              }
+            }
+            if (form.ngayBatDau && form.ngayKetThuc) {
+              if (new Date(form.ngayBatDau) > new Date(form.ngayKetThuc)) {
+                return toast.error('Ngày bắt đầu không được sau ngày kết thúc');
+              }
+            }
+            saveMutation.mutate(form);
+          }} loading={saveMutation.isPending}>Lưu</Button>
         </ModalFooter>
       </Modal>
 

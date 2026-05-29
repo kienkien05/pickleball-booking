@@ -27,7 +27,7 @@
  */
 
 const { pool } = require('../config/database');
-const { cancelBookingWithReason, getField } = require('../utils/bookingCancellation');
+const { cancelBookingWithReason, getField, checkAndRewardLoyalty } = require('../utils/bookingCancellation');
 
 function formatDateLocal(date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
@@ -73,6 +73,11 @@ async function handleBookingStatus() {
         "UPDATE bookings SET trangThai = 'Hoàn thành', updated_at = NOW() WHERE id = $1",
         [bookingId]
       );
+      await client.query(
+        "UPDATE payments SET trangThai = 'Thành công' WHERE donDatId = $1 AND trangThai IN ('Chờ thanh toán', 'Chờ xác nhận')",
+        [bookingId]
+      );
+      await checkAndRewardLoyalty(client, userId);
       await client.query(
         "INSERT INTO notifications (nguoiDungId, tieuDe, noiDung, loaiThongBao, maDonDat) VALUES ($1, $2, $3, 'auto_checkout', $4)",
         [userId, 'Tự động Check-out', `Hệ thống đã tự động check-out cho đơn #${bookingId}`, bookingId]
@@ -187,6 +192,19 @@ async function processVipAutoBooking(force = false) {
     );
 
     for (const vip of vipBookings.rows) {
+      const courtCheck = await client.query('SELECT trangThai FROM courts WHERE id = $1', [vip.sanid]);
+      if (courtCheck.rows.length === 0 || courtCheck.rows[0].trangThai === 'Ẩn' || courtCheck.rows[0].trangThai === 'Bảo trì') {
+        await client.query(
+          "UPDATE bookings SET isAutoBooking = FALSE, updated_at = NOW() WHERE nguoiDungId = $1 AND sanId = $2 AND khungGioId = $3 AND isAutoBooking = TRUE",
+          [vip.nguoidungid, vip.sanid, vip.khunggioid]
+        );
+        await client.query(
+          "INSERT INTO notifications (nguoiDungId, tieuDe, noiDung, loaiThongBao) VALUES ($1, $2, $3, 'vip_auto_conflict')",
+          [vip.nguoidungid, 'Lịch VIP tự động thất bại', 'Không thể đặt lịch tự động do sân đang bảo trì hoặc tạm ẩn. Tính năng tự động đặt đã bị tắt cho khung giờ này.']
+        );
+        continue;
+      }
+
       const lastDate = new Date(vip.lastbookingdate);
       let nextDate = new Date(lastDate);
       nextDate.setDate(nextDate.getDate() + 7);
@@ -224,6 +242,11 @@ async function processVipAutoBooking(force = false) {
           "INSERT INTO notifications (nguoiDungId, tieuDe, noiDung, loaiThongBao) VALUES ($1, $2, $3, 'vip_auto_conflict')",
           [vip.nguoidungid, 'Lịch VIP bị trùng', `Khung giờ tự động cho ngày ${targetDate} đã có người đặt trước. Tính năng tự động đặt đã bị tắt cho khung giờ này.`]
         );
+        await notifyAdmins(client, {
+          title: 'Lịch VIP bị trùng',
+          message: `Lịch đặt tự động của VIP #${vip.nguoidungid} ngày ${targetDate} tại sân #${vip.sanid} bị trùng. Hệ thống đã tắt tính năng đặt tự động cho khung giờ này.`,
+          type: 'vip_auto_conflict'
+        });
         continue;
       }
 
@@ -243,6 +266,12 @@ async function processVipAutoBooking(force = false) {
         "INSERT INTO notifications (nguoiDungId, tieuDe, noiDung, loaiThongBao, maDonDat) VALUES ($1, $2, $3, 'vip_auto_success', $4)",
         [vip.nguoidungid, 'Đặt lịch VIP tự động', `Đã tự động đặt lịch cho ngày ${targetDate}. Vui lòng thanh toán trước ngày chơi.`, booking.rows[0].id]
       );
+      await notifyAdmins(client, {
+        title: 'Tự động đặt lịch VIP thành công',
+        message: `Hệ thống đã tự động đặt thành công lịch chơi ngày ${targetDate} cho khách VIP #${vip.nguoidungid}. Mã đơn: #${booking.rows[0].id}.`,
+        type: 'vip_auto_success',
+        bookingId: booking.rows[0].id
+      });
     }
   } catch (err) {
     console.error('VIP auto-booking error:', err);

@@ -98,10 +98,10 @@ test.describe('Courts E2E Tests', () => {
       await textarea.fill('Sân pickleball mới');
     }
 
-    // URL hình ảnh (optional)
+    // URL hình ảnh
     const urlInput = page.locator('input[type="text"]').nth(1);
     if (await urlInput.isVisible()) {
-      // Try to fill if it exists - might be the image URL field
+      await urlInput.fill('/uploads/courts/court-1.jpg');
     }
 
     // Click Lưu
