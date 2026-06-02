@@ -85,6 +85,8 @@ async function cancelBookingWithReason(client, booking, reasonKey, overrides = {
     [bookingId, note]
   );
 
+  // Đơn đã thanh toán giữ payment = 'Thành công' để vẫn tính doanh thu/phí giữ chỗ.
+  // Chỉ các payment chưa thu tiền thật mới chuyển sang 'Đã hủy'.
   await client.query(
     "UPDATE payments SET trangThai = 'Đã hủy' WHERE donDatId = $1 AND trangThai IN ('Chờ thanh toán', 'Chờ xác nhận')",
     [bookingId]

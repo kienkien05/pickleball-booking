@@ -617,7 +617,8 @@ router.get('/:id', authenticate, async (req, res) => {
  *    - Nếu còn dưới 3 tiếng -> không cho hủy
  *
  * Sau khi hủy:
- * - Cập nhật trạng thái -> 'Đã hủy'
+ * - Cập nhật booking -> 'Đã hủy' để giải phóng khung giờ cho người khác đặt lại
+ * - Giữ payment 'Thành công' nếu đơn đã thu tiền, chỉ hủy payment còn chờ thanh toán
  * - Gửi thông báo hủy thành công cho user
  *
  * Response: { message: 'Hủy đặt sân thành công.' }
@@ -649,7 +650,11 @@ router.post('/:id/cancel', authenticate, async (req, res) => {
     }
 
     await cancelBookingWithReason(pool, booking, 'USER_CANCEL');
-    res.json({ message: 'Hủy đặt sân thành công. Nếu đơn đã thanh toán/cọc, hệ thống áp dụng chính sách không hoàn tiền.' });
+    res.json({
+      message: 'Hủy đặt sân thành công. Khung giờ đã được mở lại. Nếu đơn đã thanh toán/cọc, hệ thống áp dụng chính sách không hoàn tiền.',
+      slotReleased: true,
+      refundPolicy: 'no_refund',
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

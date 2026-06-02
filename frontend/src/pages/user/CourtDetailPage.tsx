@@ -453,6 +453,7 @@ export default function CourtDetailPage() {
       queryClient.invalidateQueries({ queryKey: ['notifications'] })
       queryClient.invalidateQueries({ queryKey: ['my-vouchers'] })
       queryClient.invalidateQueries({ queryKey: ['bookings'] })
+      queryClient.invalidateQueries({ queryKey: ['timeslots'] })
       setConfirmOpen(false)
       navigate('/my-bookings')
     } catch (err: any) {

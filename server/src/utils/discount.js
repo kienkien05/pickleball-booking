@@ -112,6 +112,16 @@ async function validateDiscountForUse(db, { code, userId, totalAmount, courtId }
     }
   }
 
+  // Kiểm tra trạng thái trong user_vouchers nếu mã giảm giá này được sở hữu bởi user
+  const userVoucherRes = await db.query(
+    "SELECT trangThai FROM user_vouchers WHERE nguoiDungId = $1 AND discountId = $2",
+    [userId, discount.id]
+  );
+  if (userVoucherRes.rows.length > 0 && userVoucherRes.rows[0].trangThai === 'Used') {
+    return { valid: false, status: 400, error: 'Bạn đã sử dụng voucher này rồi.' };
+  }
+
+
   const conditions = parseConditions(discount.conditions);
   const minOrderValue = Number(conditions.min_order_value || 0);
   if (minOrderValue > 0 && amount < minOrderValue) {
