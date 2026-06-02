@@ -9,7 +9,7 @@
  * @access Người dùng sau khi được redirect từ cổng thanh toán
  *
  * @businessLogic
- *   - status=success: Hiển thị thông báo thành công, hướng dẫn thanh toán phần còn lại tại sân
+ *   - status=success: Hiển thị thông báo thành công
  *   - status khác: Hiển thị thông báo thất bại, khuyến khích thử lại
  *   - Cả 2 trường hợp đều cung cấp link đến lịch sử đặt sân và đặt thêm sân
  */
@@ -44,20 +44,20 @@ export default function PaymentReturnPage() {
       {/* Mô tả chi tiết theo từng trường hợp */}
       <p className="mt-2 text-muted-foreground">
         {success
-          ? 'Đơn đặt sân của bạn đã được ghi nhận. Vui lòng thanh toán tại sân khi đến chơi.'
+          ? 'Đơn đặt sân của bạn đã được ghi nhận và thanh toán thành công.'
           : 'Đã có lỗi xảy ra trong quá trình đặt sân. Vui lòng thử lại.'
         }
       </p>
 
-      {/* Chỉ hiển thị block hướng dẫn thanh toán tại sân khi đặt sân thành công */}
+      {/* Chỉ hiển thị block xác nhận thanh toán khi đặt sân thành công */}
       {success && (
         <div className="mt-6 p-4 rounded-xl border border-border bg-card text-left text-sm space-y-2">
           <p className="font-medium flex items-center gap-2">
             <Banknote className="size-4 text-amber-500" /> Hình thức thanh toán
           </p>
-          {/* Hướng dẫn thanh toán phần còn lại tại quầy */}
+          {/* Xác nhận hệ thống chỉ ghi nhận thanh toán thành công */}
           <p className="text-muted-foreground">
-            Quý khách vui lòng thanh toán số tiền còn lại tại quầy khi đến sân (tiền mặt hoặc chuyển khoản).
+            Hệ thống chỉ ghi nhận doanh thu từ các giao dịch chuyển khoản, MoMo hoặc Visa/Mastercard đã thành công.
           </p>
           {/* Thông tin tài khoản ngân hàng để chuyển khoản (hardcoded - cần cập nhật theo thực tế) */}
           <div className="pt-2 border-t border-border">

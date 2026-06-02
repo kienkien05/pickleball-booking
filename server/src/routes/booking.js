@@ -63,8 +63,10 @@ function paymentMethodLabel(method) {
   if (method === 'transfer') return 'Chuyển khoản';
   if (method === 'momo') return 'MoMo';
   if (method === 'visa') return 'Visa/MC';
-  return 'Tiền mặt';
+  return null;
 }
+
+const ALLOWED_PAYMENT_METHODS = new Set(['transfer', 'momo', 'visa']);
 
 /**
  * POST /bookings - Tạo đơn đặt sân mới (có transaction để đảm bảo tính toàn vẹn dữ liệu).
@@ -74,7 +76,7 @@ function paymentMethodLabel(method) {
  * - ngayChoi: ngày chơi (YYYY-MM-DD)
  * - khungGioIds: mảng các ID khung giờ muốn đặt (có thể đặt nhiều khung giờ cùng lúc)
  * - dichVu: mảng [{ dichVuId, soLuong }] các dịch vụ đi kèm
- * - phuongThuc: 'cash' (tiền mặt) | 'transfer' (chuyển khoản) | 'momo' | 'visa'
+ * - phuongThuc: 'transfer' (chuyển khoản) | 'momo' | 'visa'
  * - maGiamGia: mã giảm giá nếu có
  * - isAutoBooking: true nếu VIP muốn khóa lịch cùng thứ/giờ trong 30 ngày
  * - repeatServices: true nếu dịch vụ áp dụng cho tất cả buổi trong chuỗi VIP 30 ngày
@@ -87,8 +89,7 @@ function paymentMethodLabel(method) {
  * 4. Tính giá: giá sân (từ timeslots) + giá dịch vụ (từ services) = subTotal
  * 5. Áp dụng mã giảm giá nếu có: kiểm tra hợp lệ, tính discountAmount, cập nhật số lượt dùng
  * 6. Tạo booking cho từng khung giờ (mỗi khung giờ 1 bản ghi), phân bổ giá và discount đều
- *    - Nếu phuongThuc = 'cash': trạng thái 'Đã đặt'
- *    - Các phương thức khác: trạng thái 'Đã thanh toán'
+ *    - Chỉ tạo đơn khi phương thức thanh toán hợp lệ và ghi nhận thanh toán thành công
  * 7. Tạo payment record tương ứng
  * 8. Gán dịch vụ vào booking đầu tiên, trừ kho dịch vụ
  * 9. Gửi thông báo xác nhận đặt sân thành công
@@ -101,7 +102,7 @@ function paymentMethodLabel(method) {
 router.post('/', authenticate, async (req, res) => {
   const client = await pool.connect();
   try {
-    const { sanId, ngayChoi, khungGioIds, dichVu, isAutoBooking, repeatServices, phuongThuc = 'cash', maGiamGia } = req.body;
+    const { sanId, ngayChoi, khungGioIds, dichVu, isAutoBooking, repeatServices, phuongThuc = 'transfer', maGiamGia } = req.body;
     const slotIds = Array.isArray(khungGioIds)
       ? [...new Set(khungGioIds.map(id => parseInt(id, 10)).filter(id => Number.isInteger(id) && id > 0))]
       : [];
@@ -110,6 +111,9 @@ router.post('/', authenticate, async (req, res) => {
 
     if (!sanId || !ngayChoi || slotIds.length === 0) {
       return res.status(400).json({ error: 'Vui lòng chọn sân và khung giờ' });
+    }
+    if (!ALLOWED_PAYMENT_METHODS.has(phuongThuc)) {
+      return res.status(400).json({ error: 'Phương thức thanh toán không hợp lệ. Vui lòng chọn chuyển khoản, MoMo hoặc Visa/Mastercard.' });
     }
 
     // Bắt đầu transaction - mọi thay đổi chỉ được lưu khi COMMIT thành công
@@ -355,8 +359,8 @@ router.post('/', authenticate, async (req, res) => {
       const finalPriceForThisSlot = isLast ? remainingFinal : Math.round(planned.originalPrice * discountRatio);
       const discountForThisSlot = planned.originalPrice - finalPriceForThisSlot;
       remainingFinal -= finalPriceForThisSlot;
-      // Xác định trạng thái booking dựa trên phương thức thanh toán
-      const bookingStatus = phuongThuc === 'cash' ? 'Đã đặt' : 'Đã thanh toán';
+      // Chỉ tạo đơn sau khi người dùng chọn phương thức thanh toán online/chuyển khoản hợp lệ.
+      const bookingStatus = 'Đã thanh toán';
       const booking = await client.query(
         `INSERT INTO bookings
           (nguoiDungId, sanId, khungGioId, ngayChoi, tongTien, tienDaCoc, giaGoc, tienGiam, trangThai, isAutoBooking, autoBookingSeriesId, maGiamGia)
@@ -386,7 +390,7 @@ router.post('/', authenticate, async (req, res) => {
           bookingId,
           finalPriceForThisSlot,
           `${autoBook ? 'VIP Auto 30 ngày' : 'Full'} - ${paymentMethodLabel(phuongThuc)}`,
-          phuongThuc === 'cash' ? 'Chờ thanh toán' : 'Thành công',
+          'Thành công',
         ]
       );
 

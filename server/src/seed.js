@@ -196,15 +196,15 @@ async function seed() {
     const yesterday = formatDateLocal(addDays(baseDate, -1));
     const twoDaysAgo = formatDateLocal(addDays(baseDate, -2));
 
-    // Booking 1-2: user1 đặt sân Landmark ngày mai (tiền mặt, chưa thanh toán)
+    // Booking 1-2: user1 đặt sân Landmark ngày mai (đã thanh toán chuyển khoản)
     await client.query(`
       INSERT INTO bookings (nguoiDungId, sanId, khungGioId, ngayChoi, tongTien, tienDaCoc, trangThai)
-      VALUES (2, 1, 1, '${tomorrow}', 200000, 200000, 'Đã đặt')
+      VALUES (2, 1, 1, '${tomorrow}', 200000, 200000, 'Đã thanh toán')
     `);
 
     await client.query(`
       INSERT INTO bookings (nguoiDungId, sanId, khungGioId, ngayChoi, tongTien, tienDaCoc, trangThai)
-      VALUES (2, 1, 2, '${tomorrow}', 240000, 240000, 'Đã đặt')
+      VALUES (2, 1, 2, '${tomorrow}', 240000, 240000, 'Đã thanh toán')
     `);
 
     // Booking 3: VIP đặt sân Sunrise ngày mai (đã thanh toán, isAutoBooking = TRUE)
@@ -256,8 +256,8 @@ async function seed() {
     // Mỗi booking có 1 payment, trạng thái khác nhau tùy phương thức
     await client.query(`
       INSERT INTO payments (donDatId, soTien, loaiThanhToan, trangThai) VALUES
-        (1, 200000, 'Full - Tiền mặt', 'Chờ thanh toán'),
-        (2, 240000, 'Full - Tiền mặt', 'Chờ thanh toán'),
+        (1, 200000, 'Full - Chuyển khoản', 'Thành công'),
+        (2, 240000, 'Full - Chuyển khoản', 'Thành công'),
         (3, 180000, 'Full - Chuyển khoản', 'Thành công'),
         (4, 24000,  'Full - MoMo',   'Thành công'),
         (5, 150000, 'Full',      'Thành công'),

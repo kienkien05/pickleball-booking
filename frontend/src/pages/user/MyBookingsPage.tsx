@@ -279,7 +279,7 @@ export default function MyBookingsPage() {
           {/* Cảnh báo chính sách hủy */}
           <div className="flex items-start gap-2 p-3 rounded-lg bg-destructive/10 text-destructive">
             <AlertCircle className="size-4 shrink-0 mt-0.5" />
-            <span>Bạn có thể hủy trước 3 tiếng. Đơn đã thanh toán/cọc khi hủy sẽ không hoàn tiền; đơn tiền mặt chưa thanh toán chỉ chuyển sang Đã hủy.</span>
+            <span>Bạn có thể hủy trước 3 tiếng. Đơn đã thanh toán/cọc khi hủy sẽ không hoàn tiền.</span>
           </div>
           <p>Bạn có chắc chắn muốn hủy lịch đặt sân này?</p>
         </div>

@@ -291,8 +291,8 @@ export default function BookingDetailPage() {
             <AlertCircle className="size-4 shrink-0 mt-0.5" />
             <span>
               {isAutoBooking
-                ? 'Bạn đang hủy buổi VIP đã được khóa trong chuỗi 30 ngày. Đơn đã thanh toán/cọc khi hủy sẽ không hoàn tiền; đơn tiền mặt chưa thanh toán chỉ chuyển sang Đã hủy.'
-                : 'Bạn có thể hủy trước 3 tiếng. Đơn đã thanh toán/cọc khi hủy sẽ không hoàn tiền; đơn tiền mặt chưa thanh toán chỉ chuyển sang Đã hủy.'}
+                ? 'Bạn đang hủy buổi VIP đã được khóa trong chuỗi 30 ngày. Đơn đã thanh toán/cọc khi hủy sẽ không hoàn tiền.'
+                : 'Bạn có thể hủy trước 3 tiếng. Đơn đã thanh toán/cọc khi hủy sẽ không hoàn tiền.'}
             </span>
           </div>
           <p>Bạn có chắc chắn muốn hủy lịch đặt sân này?</p>

@@ -183,7 +183,7 @@ router.get('/dashboard', authenticate, requireAdmin, async (req, res) => {
     const totalUsers = await pool.query("SELECT COUNT(*) FROM users WHERE vaiTro != 'Admin'");
     const todayBookings = await pool.query("SELECT COUNT(*) FROM bookings WHERE ngayChoi = CURRENT_DATE AND trangThai NOT IN ('Đã hủy')");
     const monthlyRevenue = await pool.query(
-      "SELECT COALESCE(SUM(soTien), 0) as total FROM payments WHERE ngayGiaoDich >= date_trunc('month', CURRENT_DATE)"
+      "SELECT COALESCE(SUM(soTien), 0) as total FROM payments WHERE trangThai = 'Thành công' AND ngayGiaoDich >= date_trunc('month', CURRENT_DATE)"
     );
 
     let dbRevenue;
@@ -196,6 +196,7 @@ router.get('/dashboard', authenticate, requireAdmin, async (req, res) => {
          FROM payments
          WHERE (ngayGiaoDich AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh')::date >= $1::date
            AND (ngayGiaoDich AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh')::date <= $2::date
+           AND trangThai = 'Thành công'
          GROUP BY 1`,
         [`${month}-01`, `${month}-${String(daysInMonth).padStart(2, '0')}`]
       );
@@ -233,6 +234,7 @@ router.get('/dashboard', authenticate, requireAdmin, async (req, res) => {
       `SELECT TO_CHAR(ngayGiaoDich AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh', 'DD/MM') as date, SUM(soTien) as revenue
        FROM payments
        WHERE (ngayGiaoDich AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh')::date >= (CURRENT_DATE AT TIME ZONE 'Asia/Ho_Chi_Minh') - INTERVAL '7 days'
+       AND trangThai = 'Thành công'
        GROUP BY 1`
     );
 
@@ -300,10 +302,7 @@ router.get('/reports', authenticate, requireAdmin, async (req, res) => {
     const start = startDate || todayStr;
     const end = endDate || todayStr;
     const countedRevenueCase = `CASE
-          WHEN p.trangThai = 'Thành công'
-            OR b.trangThai IN ('Đã thanh toán', 'Đã cọc', 'Đang sử dụng', 'Hoàn thành')
-            OR (b.trangThai = 'Đã hủy' AND b.ghiChu ILIKE '%không được hoàn lại%')
-          THEN p.soTien
+          WHEN p.trangThai = 'Thành công' THEN p.soTien
           ELSE 0
         END`;
 
@@ -313,7 +312,7 @@ router.get('/reports', authenticate, requireAdmin, async (req, res) => {
         COALESCE(SUM(${countedRevenueCase}), 0) as totalRevenue,
         COUNT(DISTINCT b.id) as totalBookings,
         COALESCE(SUM(CASE
-          WHEN b.trangThai = 'Đã hủy' AND b.ghiChu ILIKE '%không được hoàn lại%' THEN p.soTien
+          WHEN p.trangThai = 'Thành công' AND b.trangThai = 'Đã hủy' AND b.ghiChu ILIKE '%không được hoàn lại%' THEN p.soTien
           ELSE 0
         END), 0) as cancelRevenue
        FROM payments p JOIN bookings b ON p.donDatId = b.id

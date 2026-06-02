@@ -135,7 +135,7 @@ test.describe('Verification of Fixes E2E Tests', () => {
           sanId: 1,
           ngayChoi: '2026-06-01',
           khungGioIds: [1],
-          phuongThuc: 'cash'
+          phuongThuc: 'transfer'
         })
       });
       return { status: res.status, body: await res.json() };
@@ -291,7 +291,7 @@ test.describe('Verification of Fixes E2E Tests', () => {
 
   // ── FIX-009: Synchronization of "Chờ xác nhận" payment state to "Đã hủy" ────
   test('FIX-009: Đồng bộ trạng thái thanh toán Chờ xác nhận thành Đã hủy khi hủy đơn', async ({ page }) => {
-    // 1. Đặt sân qua API bằng userToken (cash)
+    // 1. Đặt sân qua API bằng userToken
     const bookingRes = await page.evaluate(async (token) => {
       const res = await fetch('http://localhost:3001/api/bookings', {
         method: 'POST',
@@ -303,7 +303,7 @@ test.describe('Verification of Fixes E2E Tests', () => {
           sanId: 2,
           ngayChoi: '2026-06-05',
           khungGioIds: [13],
-          phuongThuc: 'cash'
+          phuongThuc: 'transfer'
         })
       });
       return { status: res.status, body: await res.json() };
@@ -352,7 +352,7 @@ test.describe('Verification of Fixes E2E Tests', () => {
           sanId: 2,
           ngayChoi: '2026-06-06',
           khungGioIds: [14],
-          phuongThuc: 'cash',
+          phuongThuc: 'transfer',
           maGiamGia: 'WELCOME8'
         })
       });
@@ -382,4 +382,3 @@ test.describe('Verification of Fixes E2E Tests', () => {
     expect(getExecResult(statusAfterCancel)).toBe('Active');
   });
 });
-

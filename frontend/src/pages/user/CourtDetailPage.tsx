@@ -17,7 +17,7 @@
  *   + Là ngày trong quá khứ.
  *   + Là ngày hôm nay nhưng đã quá giờ kết thúc hoặc quá ngưỡng khóa (BOOKING_LOCK_THRESHOLD_MINS) tính từ giờ bắt đầu.
  * - Danh sách dịch vụ đi kèm (đồ uống, dụng cụ...) với nút +/- để chọn số lượng.
- * - Chọn phương thức thanh toán: tiền mặt, chuyển khoản, MoMo, Visa/Mastercard.
+ * - Chọn phương thức thanh toán: chuyển khoản, MoMo, Visa/Mastercard.
  * - Phần mã giảm giá (voucher):
  *   + Người dùng có thể nhập mã hoặc chọn từ danh sách voucher có sẵn.
  *   + Tự động áp dụng voucher đầu tiên khi vào trang (chỉ 1 lần).
@@ -128,9 +128,9 @@ export default function CourtDetailPage() {
   const [selectedServices, setSelectedServices] = useState<Record<string, number>>({})
   /**
    * Phương thức thanh toán được chọn.
-   * Hỗ trợ: 'cash' (tiền mặt), 'transfer' (chuyển khoản), 'momo' (ví MoMo), 'visa' (thẻ Visa/Mastercard).
+   * Hỗ trợ: 'transfer' (chuyển khoản), 'momo' (ví MoMo), 'visa' (thẻ Visa/Mastercard).
    */
-  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'transfer' | 'momo' | 'visa'>('cash')
+  const [paymentMethod, setPaymentMethod] = useState<'transfer' | 'momo' | 'visa'>('transfer')
   /**
    * Cờ tự động đặt lịch. Chỉ khả dụng cho người dùng VIP.
    * Khi bật: hệ thống tạo booking thật cho cùng thứ/khung giờ trong 30 ngày.
@@ -732,7 +732,6 @@ export default function CourtDetailPage() {
                 <h2 className="font-semibold mb-4">Phương thức thanh toán</h2>
                 <div className="grid grid-cols-2 gap-3">
                   {[
-                    { key: 'cash' as const, label: 'Tiền mặt tại sân', desc: 'Thanh toán khi đến chơi', icon: '💵' },
                     { key: 'transfer' as const, label: 'Chuyển khoản NH', desc: 'MB Bank, Vietcombank...', icon: '🏦' },
                     { key: 'momo' as const, label: 'Ví MoMo', desc: 'Quét mã QR qua MoMo', icon: '📱' },
                     { key: 'visa' as const, label: 'Visa/Mastercard', desc: 'Thẻ tín dụng quốc tế', icon: '💳' },
@@ -931,14 +930,12 @@ export default function CourtDetailPage() {
             </div>
           )}
           <p><strong>Tổng tiền:</strong> <span className="text-lg font-bold text-primary">{formatPrice(totalPrice)}</span></p>
-          <p><strong>Thanh toán:</strong> {paymentMethod === 'cash' ? 'Tiền mặt tại sân' : paymentMethod === 'transfer' ? 'Chuyển khoản ngân hàng' : paymentMethod === 'momo' ? 'Ví MoMo' : 'Visa/Mastercard'}</p>
+          <p><strong>Thanh toán:</strong> {paymentMethod === 'transfer' ? 'Chuyển khoản ngân hàng' : paymentMethod === 'momo' ? 'Ví MoMo' : 'Visa/Mastercard'}</p>
           {/* Cảnh báo chính sách hủy */}
           <div className="flex items-start gap-2 p-3 rounded-lg bg-warning/10 text-warning text-xs">
             <AlertCircle className="size-4 shrink-0 mt-0.5" />
             <span>
-              {paymentMethod === 'cash'
-                ? 'Bạn có thể hủy trước 3 tiếng. Nếu không đến/check-in trong 15 phút từ giờ bắt đầu, sân sẽ bị hủy.'
-                : 'Bạn có thể hủy trước 3 tiếng. Đơn đã thanh toán/cọc khi hủy hoặc no-show sẽ không hoàn tiền.'}
+              Bạn có thể hủy trước 3 tiếng. Đơn đã thanh toán/cọc khi hủy hoặc no-show sẽ không hoàn tiền.
             </span>
           </div>
           {/* Thông báo auto-booking nếu được bật */}

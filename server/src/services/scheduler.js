@@ -84,7 +84,7 @@ async function handleBookingStatus() {
       );
     }
 
-    // 2. Hủy quá hạn thanh toán: chỉ áp dụng cho đơn đã cọc/pending online, không hủy tiền mặt Đã đặt theo thời điểm tạo đơn
+    // 2. Hủy quá hạn thanh toán: chỉ áp dụng cho đơn đã cọc/pending online
     const paymentTimeoutResult = await client.query(
       `SELECT DISTINCT b.*
        FROM bookings b
