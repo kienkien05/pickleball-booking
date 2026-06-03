@@ -103,8 +103,10 @@ async function validateDiscountForUse(db, { code, userId, totalAmount, courtId }
     ? Number(discount.usageLimitPerUser) 
     : 1;
   if (usageLimit > 0) {
+    // usage_limit_per_user là giới hạn theo lịch sử đã dùng mã; hủy booking
+    // không làm mất lượt đã dùng để tránh user dùng lại voucher một lần.
     const userUsageRes = await db.query(
-      "SELECT COUNT(*)::int AS count FROM bookings WHERE nguoiDungId = $1 AND UPPER(maGiamGia) = $2 AND trangThai != 'Đã hủy'",
+      "SELECT COUNT(*)::int AS count FROM bookings WHERE nguoiDungId = $1 AND UPPER(maGiamGia) = $2",
       [userId, normalizedCode]
     );
     if (Number(userUsageRes.rows[0]?.count || 0) >= usageLimit) {

@@ -612,7 +612,7 @@ router.get('/discounts', authenticate, requireAdmin, async (req, res) => {
  * - Phải đang Active
  * - Trong thời gian hiệu lực (ngayBatDau <= NOW() <= ngayKetThuc)
  * - Còn số lượng (soLuongDaDung < soLuongBanDau, hoặc soLuongBanDau = 0 là không giới hạn)
- * - Chưa vượt giới hạn sử dụng/user (usage_limit_per_user, mặc định 1)
+ * - Chưa vượt giới hạn sử dụng/user (usage_limit_per_user, mặc định 1; tính cả đơn đã hủy)
  * - Không bị ẩn (is_hidden = FALSE)
  * - Kiểm tra target_audience:
  *   + 'all' hoặc NULL: ai cũng dùng được
@@ -625,7 +625,8 @@ router.get('/discounts', authenticate, requireAdmin, async (req, res) => {
 router.get('/discounts/my', authenticate, async (req, res) => {
   try {
     // Lấy mã chung (nguoiDungId IS NULL) và mã riêng của user
-    // JOIN với subquery đếm số lần user đã dùng mỗi mã để kiểm tra giới hạn
+    // JOIN với subquery đếm số lần user đã từng dùng mỗi mã để kiểm tra giới hạn.
+    // Đơn đã hủy vẫn được tính để tránh dùng lại voucher usage_limit_per_user=1.
     const result = await pool.query(
       `SELECT DISTINCT d.* FROM discounts d
        LEFT JOIN user_vouchers uv
@@ -635,7 +636,7 @@ router.get('/discounts/my', authenticate, async (req, res) => {
        LEFT JOIN (
          SELECT UPPER(maGiamGia) AS maGiamGia, COUNT(*) as used_count
          FROM bookings
-         WHERE nguoiDungId = $1 AND trangThai != 'Đã hủy'
+         WHERE nguoiDungId = $1
          GROUP BY UPPER(maGiamGia)
        ) u ON UPPER(d.code) = u.maGiamGia
        WHERE (d.nguoiDungId IS NULL OR d.nguoiDungId = $1)

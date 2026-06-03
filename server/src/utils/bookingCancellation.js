@@ -74,7 +74,6 @@ async function cancelBookingWithReason(client, booking, reasonKey, overrides = {
   const title = overrides.title || reason.title;
   const message = overrides.message || reason.message(bookingId, booking);
   const type = overrides.type || reason.type;
-  const discountCode = getField(booking, 'maGiamGia', 'magiamgia');
 
   if (!bookingId || !userId) {
     throw new Error('Thiếu thông tin booking để hủy');
@@ -104,21 +103,8 @@ async function cancelBookingWithReason(client, booking, reasonKey, overrides = {
     );
   }
 
-  // Hoàn lại lượt dùng mã giảm giá khi hủy đơn
-  if (discountCode) {
-    await client.query(
-      'UPDATE discounts SET soLuongDaDung = GREATEST(soLuongDaDung - 1, 0) WHERE code = $1 AND soLuongDaDung > 0',
-      [discountCode]
-    );
-    // Khôi phục trạng thái voucher cá nhân sang Active
-    const discountRes = await client.query('SELECT id FROM discounts WHERE code = $1', [discountCode]);
-    if (discountRes.rows.length > 0) {
-      await client.query(
-        "UPDATE user_vouchers SET trangThai = 'Active', usedAt = NULL WHERE nguoiDungId = $1 AND discountId = $2",
-        [userId, discountRes.rows[0].id]
-      );
-    }
-  }
+  // Không hoàn trạng thái/lượt dùng voucher khi hủy đơn. usage_limit_per_user
+  // được hiểu là lịch sử đã dùng mã, nên hủy booking không cho user dùng lại mã đó.
 
   await client.query(
     "INSERT INTO notifications (nguoiDungId, tieuDe, noiDung, loaiThongBao, maDonDat) VALUES ($1, $2, $3, $4, $5)",

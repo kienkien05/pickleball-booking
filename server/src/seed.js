@@ -308,7 +308,7 @@ async function seed() {
     // Mỗi mã có loại giảm giá, điều kiện và đối tượng áp dụng khác nhau
     await client.query(`
       INSERT INTO discounts (code, noiDung, moTa, loaiGiamGia, mucGiamGia, ngayBatDau, ngayKetThuc, soLuongBanDau, soLuongDaDung, trangThai, is_hidden, nguoiDungId, conditions) VALUES
-        ('WELCOME8', 'Mã chào mừng khách mới', 'Giảm 8% cho đơn đầu tiên, tối đa 100K', 'percentage', 8, '2026-01-01', '2026-12-31', 500, 0, 'Active', false, NULL, '{"target_audience": "new_user"}'),
+        ('WELCOME8', 'Mã chào mừng khách mới', 'Giảm 8% cho khách mới, tối đa 100K', 'percentage', 8, '2026-01-01', '2026-12-31', 500, 0, 'Active', false, NULL, '{"target_audience": "all"}'),
         ('TET50', 'Giảm 50K mùa Tết', 'Sự kiện Fanpage - Giảm thẳng 50,000đ cho đơn từ 300K', 'fixed', 50000, '2026-01-01', '2026-12-31', 100, 0, 'Active', true, NULL, '{}'),
         ('SUMMER50', 'Giảm 50K mùa hè', 'Giảm thẳng 50,000đ cho đơn từ 200K', 'fixed', 50000, '2026-01-01', '2026-12-31', 100, 0, 'Active', false, NULL, '{}'),
         ('PRO20', 'Ưu đãi hội viên Pro', 'Giảm 20% dành riêng cho VIP', 'percentage', 20, '2026-01-01', '2026-12-31', 999, 0, 'Active', false, NULL, '{"target_audience": "vip"}');

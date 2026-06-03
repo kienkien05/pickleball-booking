@@ -331,17 +331,44 @@ test.describe('Verification of Fixes E2E Tests', () => {
     expect(getExecResult(paymentStatus)).toBe('Đã hủy');
   });
 
-  // ── FIX-010: user_vouchers state synchronization ─────────────────────
-  test('FIX-010: Đồng bộ trạng thái user_vouchers khi đặt sân và hủy sân', async ({ page }) => {
-    // 1. Chèn một bản ghi user_vouchers 'Active' cho user 2 và discount 1 (WELCOME8)
-    execSync(`node -e "const { pool } = require('./server/src/config/database'); pool.query(\\"INSERT INTO user_vouchers (nguoiDungId, discountId, trangThai) VALUES (2, 1, 'Active') ON CONFLICT (nguoiDungId, discountId) DO UPDATE SET trangThai = 'Active'\\" ).then(() => pool.end());"`);
+  // ── FIX-010: user_vouchers usage history after cancellation ───────────
+  test('FIX-010: Hủy đơn không cho dùng lại voucher usage_limit_per_user=1', async ({ page }) => {
+    const code = `FIX010_${Date.now()}`;
 
-    // 2. Kiểm tra voucher đang ở trạng thái 'Active'
-    const initialStatus = execSync(`node -e "const { pool } = require('./server/src/config/database'); pool.query(\\"SELECT trangThai FROM user_vouchers WHERE nguoiDungId = 2 AND discountId = 1\\" ).then(r => { console.log(r.rows[0].trangThai); pool.end(); });"`).toString();
+    // 1. Tạo mã giảm giá riêng cho test, giới hạn mỗi user 1 lần
+    const discountRes = await page.evaluate(async ({ token, code }) => {
+      const res = await fetch('http://localhost:3001/api/discounts', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          code,
+          loaiGiamGia: 'percentage',
+          mucGiamGia: 10,
+          soLuongBanDau: 100,
+          usageLimitPerUser: 1,
+          ngayBatDau: '2026-01-01',
+          ngayKetThuc: '2026-12-31',
+          conditions: { target_audience: 'all' }
+        })
+      });
+      return { status: res.status, body: await res.json() };
+    }, { token: adminToken, code });
+
+    expect(discountRes.status).toBe(201);
+    const discountId = discountRes.body.data.id;
+
+    // 2. Chèn một bản ghi user_vouchers 'Active' cho user 2
+    execSync(`node -e "const { pool } = require('./server/src/config/database'); pool.query(\\"INSERT INTO user_vouchers (nguoiDungId, discountId, trangThai) VALUES (2, ${discountId}, 'Active') ON CONFLICT (nguoiDungId, discountId) DO UPDATE SET trangThai = 'Active', usedAt = NULL\\" ).then(() => pool.end());"`);
+
+    // 3. Kiểm tra voucher đang ở trạng thái 'Active'
+    const initialStatus = execSync(`node -e "const { pool } = require('./server/src/config/database'); pool.query(\\"SELECT trangThai FROM user_vouchers WHERE nguoiDungId = 2 AND discountId = ${discountId}\\" ).then(r => { console.log(r.rows[0].trangThai); pool.end(); });"`).toString();
     expect(getExecResult(initialStatus)).toBe('Active');
 
-    // 3. Tạo booking mới sử dụng mã giảm giá WELCOME8
-    const bookingRes = await page.evaluate(async (token) => {
+    // 4. Tạo booking mới sử dụng mã giảm giá vừa tạo
+    const bookingRes = await page.evaluate(async ({ token, code }) => {
       const res = await fetch('http://localhost:3001/api/bookings', {
         method: 'POST',
         headers: {
@@ -353,20 +380,20 @@ test.describe('Verification of Fixes E2E Tests', () => {
           ngayChoi: '2026-06-06',
           khungGioIds: [14],
           phuongThuc: 'transfer',
-          maGiamGia: 'WELCOME8'
+          maGiamGia: code
         })
       });
       return { status: res.status, body: await res.json() };
-    }, userToken);
+    }, { token: userToken, code });
 
     expect(bookingRes.status).toBe(201);
     const bookingId = bookingRes.body.data.bookingIds[0];
 
-    // 4. Verify trạng thái voucher chuyển thành 'Used'
-    const usedStatus = execSync(`node -e "const { pool } = require('./server/src/config/database'); pool.query(\\"SELECT trangThai FROM user_vouchers WHERE nguoiDungId = 2 AND discountId = 1\\" ).then(r => { console.log(r.rows[0].trangThai); pool.end(); });"`).toString();
+    // 5. Verify trạng thái voucher chuyển thành 'Used'
+    const usedStatus = execSync(`node -e "const { pool } = require('./server/src/config/database'); pool.query(\\"SELECT trangThai FROM user_vouchers WHERE nguoiDungId = 2 AND discountId = ${discountId}\\" ).then(r => { console.log(r.rows[0].trangThai); pool.end(); });"`).toString();
     expect(getExecResult(usedStatus)).toBe('Used');
 
-    // 5. Hủy đơn đặt sân vừa tạo
+    // 6. Hủy đơn đặt sân vừa tạo
     const cancelRes = await page.evaluate(async ({ token, id }) => {
       const res = await fetch(`http://localhost:3001/api/bookings/${id}/cancel`, {
         method: 'POST',
@@ -377,8 +404,24 @@ test.describe('Verification of Fixes E2E Tests', () => {
 
     expect(cancelRes).toBe(200);
 
-    // 6. Verify trạng thái voucher quay lại thành 'Active'
-    const statusAfterCancel = execSync(`node -e "const { pool } = require('./server/src/config/database'); pool.query(\\"SELECT trangThai FROM user_vouchers WHERE nguoiDungId = 2 AND discountId = 1\\" ).then(r => { console.log(r.rows[0].trangThai); pool.end(); });"`).toString();
-    expect(getExecResult(statusAfterCancel)).toBe('Active');
+    // 7. Voucher vẫn phải giữ trạng thái 'Used', không được quay lại 'Active'
+    const statusAfterCancel = execSync(`node -e "const { pool } = require('./server/src/config/database'); pool.query(\\"SELECT trangThai FROM user_vouchers WHERE nguoiDungId = 2 AND discountId = ${discountId}\\" ).then(r => { console.log(r.rows[0].trangThai); pool.end(); });"`).toString();
+    expect(getExecResult(statusAfterCancel)).toBe('Used');
+
+    // 8. Validate lại cùng mã phải bị từ chối vì usage_limit_per_user=1 vẫn tính lần đã dùng
+    const reuseRes = await page.evaluate(async ({ token, code }) => {
+      const res = await fetch('http://localhost:3001/api/discounts/validate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ code, totalAmount: 500000, courtId: 2 })
+      });
+      return { status: res.status, body: await res.json() };
+    }, { token: userToken, code });
+
+    expect(reuseRes.status).toBe(400);
+    expect(reuseRes.body.error).toContain('đã sử dụng');
   });
 });
