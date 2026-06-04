@@ -684,9 +684,7 @@ router.post('/:id/checkin', authenticate, async (req, res) => {
       return res.status(400).json({ error: 'Chỉ check-in đơn ở trạng thái Đã thanh toán, Đã cọc hoặc Đã đặt' });
     }
 
-    const ngayChoiStr = booking.ngayChoi instanceof Date
-      ? booking.ngayChoi.toISOString().split('T')[0]
-      : String(booking.ngayChoi).split('T')[0];
+    const ngayChoiStr = toDateStringLocal(booking.ngayChoi);
 
     const today = new Date();
     const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
