@@ -453,6 +453,46 @@ router.post('/', authenticate, async (req, res) => {
  * Yêu cầu: authenticate
  */
 /**
+ * GET /bookings/local-ip
+ * Trả về IP cục bộ của server để thiết bị di động trong cùng mạng LAN quét QR kết nối được
+ */
+router.get('/local-ip', (req, res) => {
+  const os = require('os');
+  const interfaces = os.networkInterfaces();
+  let ip = 'localhost';
+  for (const devName in interfaces) {
+    const iface = interfaces[devName];
+    for (let i = 0; i < iface.length; i++) {
+      const alias = iface[i];
+      if (alias.family === 'IPv4' && alias.address !== '127.0.0.1' && !alias.internal) {
+        ip = alias.address;
+        break;
+      }
+    }
+    if (ip !== 'localhost') break;
+  }
+  return res.json({ ip });
+});
+
+/**
+ * GET /bookings/status-check
+ * Kiểm tra trạng thái thanh toán của danh sách đơn đặt để hỗ trợ tự động nhận diện kết quả khi quét QR bằng điện thoại
+ */
+router.get('/status-check', async (req, res) => {
+  try {
+    const ids = (req.query.ids || '').split(',').map(Number);
+    if (ids.length === 0 || ids.some(isNaN)) {
+      return res.status(400).json({ error: 'Mã đặt sân không hợp lệ' });
+    }
+    const result = await pool.query('SELECT trangThai FROM bookings WHERE id = ANY($1::int[])', [ids]);
+    const allPaid = result.rows.length > 0 && result.rows.every(r => (r.trangThai || r.trangthai) === 'Đã thanh toán');
+    return res.json({ allPaid });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+/**
  * GET /bookings/vnpay-verify
  * Xác thực thanh toán từ VNPay sandbox
  */
@@ -507,10 +547,12 @@ router.get('/vnpay-verify', async (req, res) => {
         [bookingIds]
       );
 
+      let courtId = null;
       if (bookingsRes.rows.length > 0) {
         const firstBooking = bookingsRes.rows[0];
         const userId = firstBooking.nguoiDungId || firstBooking.nguoidungid;
         const isAutoBooking = firstBooking.isAutoBooking || firstBooking.isautobooking;
+        courtId = firstBooking.sanId || firstBooking.sanid;
         const totalPrice = bookingsRes.rows.reduce((sum, b) => sum + (parseFloat(b.tongTien || b.tongtien) || 0), 0);
 
         if (isAutoBooking) {
@@ -559,7 +601,34 @@ router.get('/vnpay-verify', async (req, res) => {
       }
 
       await client.query('COMMIT');
-      return res.json({ success: true, message: 'Thanh toán thành công' });
+      if (req.query.format === 'html' || (req.headers.accept && req.headers.accept.includes('text/html'))) {
+        return res.send(`
+          <!DOCTYPE html>
+          <html>
+            <head>
+              <meta charset="UTF-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <title>Thanh toán thành công</title>
+              <style>
+                body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; text-align: center; padding: 50px 20px; background: #f8fafc; color: #1e293b; }
+                .card { background: white; padding: 30px; border-radius: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); max-width: 400px; margin: 0 auto; }
+                h1 { color: #10b981; font-size: 24px; margin-top: 15px; margin-bottom: 10px; }
+                p { font-size: 14px; color: #64748b; line-height: 1.6; }
+                .icon { font-size: 64px; }
+              </style>
+            </head>
+            <body>
+              <div class="card">
+                <div class="icon">✅</div>
+                <h1>Thanh toán thành công!</h1>
+                <p>Giao dịch đặt sân đã được xác nhận thành công.</p>
+                <p style="font-weight: bold; color: #3b82f6; margin-top: 20px;">Bạn có thể quay lại máy tính để xem kết quả chi tiết.</p>
+              </div>
+            </body>
+          </html>
+        `);
+      }
+      return res.json({ success: true, message: 'Thanh toán thành công', courtId });
     } else {
       // Hủy bỏ hoặc lỗi
       await client.query(
