@@ -41,6 +41,7 @@ const MyBookingsPage = lazy(() => import('@/pages/user/MyBookingsPage'))
 const BookingDetailPage = lazy(() => import('@/pages/user/BookingDetailPage'))
 const PaymentReturnPage = lazy(() => import('@/pages/user/PaymentReturnPage'))
 const VouchersPage = lazy(() => import('@/pages/user/VouchersPage'))
+const VNPAYMockPage = lazy(() => import('@/pages/user/VNPAYMockPage'))
 
 const LoginPage = lazy(() => import('@/pages/auth/LoginPage'))
 const OTPVerifyPage = lazy(() => import('@/pages/auth/OTPVerifyPage'))
@@ -130,6 +131,7 @@ export default function App() {
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/verify-otp" element={<OTPVerifyPage />} />
+        <Route path="/vnpay-mock" element={<VNPAYMockPage />} />
 
         {/* ── User Routes (có UserLayout bao ngoài) ── */}
         <Route element={<UserLayout />}>

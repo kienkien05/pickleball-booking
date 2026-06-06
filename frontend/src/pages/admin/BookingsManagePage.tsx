@@ -38,7 +38,6 @@ import { cn } from '@/lib/utils'
  */
 const statusTabs = [
   { key: '', label: 'Tất cả' },
-  { key: 'Đã đặt', label: 'Đã đặt' },
   { key: 'Đã cọc', label: 'Đã cọc' },
   { key: 'Đã thanh toán', label: 'Đã thanh toán' },
   { key: 'Đang sử dụng', label: 'Đang dùng' },
@@ -230,13 +229,12 @@ export default function BookingsManagePage() {
                         - Hoàn thành: xám
                         - Đã hủy/vắng mặt: đỏ */}
                     <td className="px-4 py-3">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        booking.trangThai === 'Đã đặt' ? 'bg-amber-500/10 text-amber-600' :
-                        booking.trangThai === 'Đã cọc' ? 'bg-purple-500/10 text-purple-600' :
-                        booking.trangThai === 'Đã thanh toán' ? 'bg-blue-500/10 text-blue-600' :
-                        booking.trangThai === 'Đang sử dụng' ? 'bg-success/10 text-success' :
-                        booking.trangThai === 'Hoàn thành' ? 'bg-muted text-muted-foreground' :
-                        'bg-destructive/10 text-destructive'}`}>
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${booking.trangThai === 'Đã đặt' ? 'bg-amber-500/10 text-amber-600' :
+                          booking.trangThai === 'Đã cọc' ? 'bg-purple-500/10 text-purple-600' :
+                            booking.trangThai === 'Đã thanh toán' ? 'bg-blue-500/10 text-blue-600' :
+                              booking.trangThai === 'Đang sử dụng' ? 'bg-success/10 text-success' :
+                                booking.trangThai === 'Hoàn thành' ? 'bg-muted text-muted-foreground' :
+                                  'bg-destructive/10 text-destructive'}`}>
                         {booking.trangThai}
                       </span>
                     </td>

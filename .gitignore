@@ -28,13 +28,9 @@ package-lock.json
 
 CLAUDE.md
 
-docker-compose.yml
+docker-compose.yml   
 
-# Playwright test results (from upstream)
 test-results
 
-# Test automation files (local only)
-tests/
-ManualTestCases.xlsx
-KLTN_*.docx
-.spreadsheet_work/
+
+frontend/dist

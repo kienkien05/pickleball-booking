@@ -170,6 +170,8 @@ export default function CourtDetailPage() {
    * Ngăn việc tự động áp dụng lại khi component re-render.
    */
   const [hasAutoApplied, setHasAutoApplied] = useState<string | null>(null)
+  /** Điều khiển ẩn/hiện (collapsible) khu vực nhập mã giảm giá */
+  const [promoExpanded, setPromoExpanded] = useState(false)
 
   // ==================== STATE: ĐỒNG HỒ THỜI GIAN THỰC ====================
 
@@ -439,7 +441,7 @@ export default function CourtDetailPage() {
     if (!isAuthenticated) { navigate('/login'); return }
     setBookingLoading(true)
     try {
-      await bookingService.createBooking({
+      const res = await bookingService.createBooking({
         sanId: id,
         ngayChoi: selectedDate,
         khungGioIds: selectedSlots,
@@ -449,6 +451,11 @@ export default function CourtDetailPage() {
         repeatServices,
         maGiamGia: appliedDiscount?.code
       })
+      const bookingData = res.data?.data || res.data
+      if (bookingData && bookingData.paymentUrl) {
+        window.location.href = bookingData.paymentUrl
+        return
+      }
       toast.success(autoBooking ? 'Đặt sân thành công! Hệ thống đã khóa lịch VIP trong 30 ngày.' : 'Đặt sân thành công!')
       queryClient.invalidateQueries({ queryKey: ['notifications'] })
       queryClient.invalidateQueries({ queryKey: ['my-vouchers'] })
@@ -750,61 +757,72 @@ export default function CourtDetailPage() {
               {/* ---- TÓM TẮT ĐẶT SÂN ---- */}
               {selectedSlots.length > 0 && (
                 <div className="rounded-xl border border-border bg-card p-6 sticky bottom-20 sm:bottom-0 z-10">
-                  <h2 className="font-semibold mb-4 text-primary flex items-center gap-2">
-                    <Ticket className="size-5" /> Mã giảm giá
-                  </h2>
+                  <button
+                    type="button"
+                    onClick={() => setPromoExpanded(!promoExpanded)}
+                    className="w-full flex items-center justify-between font-semibold mb-4 text-primary hover:text-primary/80 transition-colors"
+                  >
+                    <span className="flex items-center gap-2">
+                      <Ticket className="size-5" /> Mã giảm giá
+                    </span>
+                    <span className="text-xs text-muted-foreground font-normal">
+                      {promoExpanded ? 'Thu gọn ▲' : 'Chọn Voucher ▼'}
+                    </span>
+                  </button>
 
-                  <div className="space-y-3 mb-6">
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        value={discountCode}
-                        onChange={e => setDiscountCode(e.target.value)}
-                        placeholder="Nhập mã hoặc chọn bên dưới..."
-                        className="flex-1 h-10 px-3 rounded-lg border border-input bg-background text-sm focus:ring-2 focus:ring-ring outline-none uppercase"
-                      />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleApplyDiscount()}
-                        loading={validatingDiscount}
-                        disabled={!discountCode}
-                      >
-                        Áp dụng
-                      </Button>
-                    </div>
-
-                    {myDiscounts && myDiscounts.length > 0 && (
-                      <div className="space-y-2">
-                        <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Voucher của bạn</p>
-                        <div className="flex flex-wrap gap-2">
-                          {myDiscounts.filter((d: any) => d.soLuongBanDau === 0 || d.soLuongDaDung < d.soLuongBanDau).map((disc: any) => (
-                            <button
-                              key={disc.id}
-                              onClick={() => {
-                                setDiscountCode(disc.code)
-                                handleApplyDiscount(disc.code)
-                              }}
-                              className={`text-left p-2 rounded-lg border transition-all flex items-center gap-2 max-w-[200px] relative ${
-                                appliedDiscount?.code === disc.code
-                                ? 'border-primary bg-primary/5 ring-1 ring-primary'
-                                : 'border-dashed border-muted-foreground/30 hover:border-primary/50'
-                              }`}
-                            >
-                              <div className="bg-primary/10 p-1.5 rounded-md">
-                                <Ticket className="size-3.5 text-primary" />
-                              </div>
-                              <div className="min-w-0 pr-6">
-                                <p className="text-xs font-bold truncate">{disc.code}</p>
-                                <p className="text-[10px] text-muted-foreground truncate">{disc.noiDung}</p>
-                              </div>
-                            </button>
-                          ))}
-                        </div>
+                  {promoExpanded && (
+                    <div className="space-y-3 mb-6 animate-in fade-in slide-in-from-top-1 duration-200">
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={discountCode}
+                          onChange={e => setDiscountCode(e.target.value)}
+                          placeholder="Nhập mã hoặc chọn bên dưới..."
+                          className="flex-1 h-10 px-3 rounded-lg border border-input bg-background text-sm focus:ring-2 focus:ring-ring outline-none uppercase"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleApplyDiscount()}
+                          loading={validatingDiscount}
+                          disabled={!discountCode}
+                        >
+                          Áp dụng
+                        </Button>
                       </div>
-                    )}
-                  </div>
+
+                      {myDiscounts && myDiscounts.length > 0 && (
+                        <div className="space-y-2">
+                          <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Voucher của bạn</p>
+                          <div className="flex flex-wrap gap-2">
+                            {myDiscounts.filter((d: any) => d.soLuongBanDau === 0 || d.soLuongDaDung < d.soLuongBanDau).map((disc: any) => (
+                              <button
+                                key={disc.id}
+                                onClick={() => {
+                                  setDiscountCode(disc.code)
+                                  handleApplyDiscount(disc.code)
+                                }}
+                                className={`text-left p-2 rounded-lg border transition-all flex items-center gap-2 max-w-[200px] relative ${
+                                  appliedDiscount?.code === disc.code
+                                  ? 'border-primary bg-primary/5 ring-1 ring-primary'
+                                  : 'border-dashed border-muted-foreground/30 hover:border-primary/50'
+                                }`}
+                              >
+                                <div className="bg-primary/10 p-1.5 rounded-md">
+                                  <Ticket className="size-3.5 text-primary" />
+                                </div>
+                                <div className="min-w-0 pr-6">
+                                  <p className="text-xs font-bold truncate">{disc.code}</p>
+                                  <p className="text-[10px] text-muted-foreground truncate">{disc.noiDung}</p>
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   {appliedDiscount && (
                     <div className="mb-4 p-3 rounded-lg bg-success/5 border border-success/20 text-xs text-success flex items-center justify-between">

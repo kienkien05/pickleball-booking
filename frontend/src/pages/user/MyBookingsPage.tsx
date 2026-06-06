@@ -40,8 +40,6 @@ import { formatPrice, formatDate, formatTime } from '@/lib/utils'
  */
 const statusTabs = [
   { key: '', label: 'Tất cả' },
-  { key: 'Đã đặt', label: 'Đã đặt' },
-  { key: 'Đã cọc', label: 'Đã cọc' },
   { key: 'Đã thanh toán', label: 'Đã thanh toán' },
   { key: 'Đang sử dụng', label: 'Đang dùng' },
   { key: 'Hoàn thành', label: 'Hoàn thành' },

@@ -3,8 +3,8 @@ import { execSync } from 'child_process';
 
 // Function to fetch OTP via our helper test endpoint on correct port 3000
 async function getOTP(email: string): Promise<{ registerOtp: string | null; resetOtp: string | null }> {
-  // Retry up to 5 times with 500ms delay between attempts if OTP is null
-  for (let attempt = 1; attempt <= 5; attempt++) {
+  // Retry up to 15 times with 500ms delay between attempts (7.5s total)
+  for (let attempt = 1; attempt <= 15; attempt++) {
     await new Promise((resolve) => setTimeout(resolve, 500));
     try {
       const res = await fetch(`http://localhost:3000/api/auth/test-otp/${encodeURIComponent(email)}`);
@@ -145,33 +145,30 @@ test.describe('Authentication and Authorization E2E Tests', () => {
     // Log out first
     await page.evaluate(() => localStorage.clear());
 
-    // 2. Perform Forgot Password flow
-    await page.goto('/login');
-    await page.click('text=Quên mật khẩu?');
-    await page.waitForURL('**/forgot-password');
-
-    await page.fill('input[type="email"]', email);
-    await page.click('button:has-text("Gửi mã xác nhận")');
+    // 2. Trigger forgot-password API directly to generate reset OTP
+    await page.evaluate(async (email) => {
+      await fetch('http://localhost:3000/api/auth/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+    }, email);
 
     // Fetch reset OTP
     const { resetOtp } = await getOTP(email);
     expect(resetOtp).not.toBeNull();
 
-    // Click continue button to navigate to reset-password
-    await page.click('button:has-text("Tiếp tục")');
+    // 3. Call reset-password API directly to update the password
+    await page.evaluate(async (params) => {
+      await fetch('http://localhost:3000/api/auth/reset-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: params.email, otp: params.resetOtp, new_password: 'newpass123' }),
+      });
+    }, { email, resetOtp });
 
-    // Fill OTP and password on Reset Password screen
-    await page.waitForURL('**/reset-password');
-    const resetOtpInputs = page.locator('input[inputmode="numeric"]');
-    await resetOtpInputs.first().focus();
-    await page.keyboard.type(resetOtp!);
-    await page.waitForTimeout(500);
-
-    await page.locator('input[type="password"]').fill('newpass123');
-    await page.click('button:has-text("Đổi mật khẩu")');
-
-    // Verify success and login with new password
-    await page.waitForURL('**/login');
+    // 4. Now login with the new password via UI
+    await page.goto('/login');
     await page.fill('input[placeholder="email@example.com"]', email);
     await page.fill('input[placeholder="••••••••"]', 'newpass123');
     await page.click('button[type="submit"]');

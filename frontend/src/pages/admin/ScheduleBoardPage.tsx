@@ -240,9 +240,6 @@ export default function ScheduleBoardPage() {
             </div>
             {/* Legend (chú thích) màu sắc cho các trạng thái booking */}
             <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-wider border-l border-border pl-4 flex-wrap">
-              <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg border-2 border-amber-500/80 bg-amber-500/5 text-amber-700 dark:text-amber-400">
-                <Banknote className="size-3" /><span>Đã đặt</span>
-              </div>
               <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg border-2 border-blue-500/80 bg-blue-500/5 text-blue-700 dark:text-blue-400">
                 <CreditCard className="size-3" /><span>Đã thanh toán</span>
               </div>
