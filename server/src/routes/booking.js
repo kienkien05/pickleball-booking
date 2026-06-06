@@ -23,6 +23,7 @@ const { authenticate } = require('../middleware/auth');
 const { cancelBookingWithReason, checkAndRewardLoyalty } = require('../utils/bookingCancellation');
 const { validateDiscountForUse, markDiscountUsed } = require('../utils/discount');
 const { notifyAdmins } = require('../utils/notifications');
+const { createVNPayUrl, verifyVNPaySignature } = require('../utils/vnpay');
 const router = express.Router();
 
 const AUTO_BOOKING_DAYS = 30;
@@ -359,8 +360,8 @@ router.post('/', authenticate, async (req, res) => {
       const finalPriceForThisSlot = isLast ? remainingFinal : Math.round(planned.originalPrice * discountRatio);
       const discountForThisSlot = planned.originalPrice - finalPriceForThisSlot;
       remainingFinal -= finalPriceForThisSlot;
-      // Chỉ tạo đơn sau khi người dùng chọn phương thức thanh toán online/chuyển khoản hợp lệ.
-      const bookingStatus = 'Đã thanh toán';
+      // Đặt trạng thái ban đầu là Chờ thanh toán
+      const bookingStatus = 'Chờ thanh toán';
       const booking = await client.query(
         `INSERT INTO bookings
           (nguoiDungId, sanId, khungGioId, ngayChoi, tongTien, tienDaCoc, giaGoc, tienGiam, trangThai, isAutoBooking, autoBookingSeriesId, maGiamGia)
@@ -383,14 +384,14 @@ router.post('/', authenticate, async (req, res) => {
       const bookingId = booking.rows[0].id;
       bookingIds.push(bookingId);
 
-      // Tạo bản ghi thanh toán (payment) cho từng booking
+      // Tạo bản ghi thanh toán (payment) ở trạng thái Chờ thanh toán
       await client.query(
         'INSERT INTO payments (donDatId, soTien, loaiThanhToan, trangThai) VALUES ($1, $2, $3, $4)',
         [
           bookingId,
           finalPriceForThisSlot,
           `${autoBook ? 'VIP Auto 30 ngày' : 'Full'} - ${paymentMethodLabel(phuongThuc)}`,
-          'Thành công',
+          'Chờ thanh toán',
         ]
       );
 
@@ -414,41 +415,19 @@ router.post('/', authenticate, async (req, res) => {
       );
     }
 
-    if (autoBook) {
-      await client.query(
-        "INSERT INTO notifications (nguoiDungId, tieuDe, noiDung, loaiThongBao, maDonDat) VALUES ($1, $2, $3, 'vip_auto_success', $4)",
-        [
-          req.user.id,
-          'VIP tự động đặt sân 30 ngày',
-          `Đã khóa ${bookingDates.length} buổi trong 30 ngày cho lịch VIP của bạn. Tổng thanh toán: ${totalPrice.toLocaleString('vi-VN')}đ. Dịch vụ áp dụng: ${repeatServicesForFuture ? 'tất cả các buổi' : 'buổi đầu tiên'}.`,
-          bookingIds[0],
-        ]
-      );
-      await notifyAdmins(client, {
-        title: 'Khách tạo lịch VIP tự động',
-        message: `User #${req.user.id} đã tạo chuỗi ${bookingDates.length} buổi, tổng tiền ${totalPrice.toLocaleString('vi-VN')}đ.`,
-        type: 'vip_auto_success',
-        bookingId: bookingIds[0],
-      });
-    } else {
-      // Gửi thông báo xác nhận đặt sân cho từng booking
-      for (const bid of bookingIds) {
-        await client.query(
-          "INSERT INTO notifications (nguoiDungId, tieuDe, noiDung, loaiThongBao, maDonDat) VALUES ($1, $2, $3, 'booking_confirmed', $4)",
-          [req.user.id, 'Đặt sân thành công', `Đơn đặt sân #${bid} đã được xác nhận`, bid]
-        );
-      }
-      await notifyAdmins(client, {
-        title: 'Có đơn đặt sân mới',
-        message: `User #${req.user.id} vừa tạo ${bookingIds.length} đơn đặt sân. Tổng tiền ${totalPrice.toLocaleString('vi-VN')}đ.`,
-        type: 'booking_confirmed',
-        bookingId: bookingIds[0],
-      });
-    }
+    // Tạo URL thanh toán VNPay Sandbox
+    const txnRef = `${bookingIds.join('_')}_${Date.now()}`;
+    const ipAddr = req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1';
+    const paymentUrl = createVNPayUrl({
+      amount: totalPrice,
+      txnRef,
+      returnUrl: 'http://localhost:5173/payment/sepay-return',
+      ipAddr,
+    });
 
     // Commit transaction - lưu tất cả thay đổi vào DB
     await client.query('COMMIT');
-    res.status(201).json({ data: { bookingIds, totalPrice, autoBookingSeriesId, bookingDates } });
+    res.status(201).json({ data: { bookingIds, totalPrice, autoBookingSeriesId, bookingDates, paymentUrl } });
   } catch (err) {
     // Nếu có lỗi: ROLLBACK toàn bộ transaction
     await client.query('ROLLBACK');
@@ -473,6 +452,137 @@ router.post('/', authenticate, async (req, res) => {
  *
  * Yêu cầu: authenticate
  */
+/**
+ * GET /bookings/vnpay-verify
+ * Xác thực thanh toán từ VNPay sandbox
+ */
+router.get('/vnpay-verify', async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const params = req.query;
+    const secureHash = params.vnp_SecureHash;
+
+    if (!secureHash) {
+      return res.status(400).json({ error: 'Thiếu chữ ký xác thực' });
+    }
+
+    const isValid = verifyVNPaySignature(params);
+    if (!isValid) {
+      return res.status(400).json({ error: 'Chữ ký không hợp lệ' });
+    }
+
+    const responseCode = params.vnp_ResponseCode;
+    const txnRef = params.vnp_TxnRef;
+
+    if (!txnRef) {
+      return res.status(400).json({ error: 'Thiếu mã tham chiếu giao dịch' });
+    }
+
+    const parts = txnRef.split('_');
+    // Bỏ phần tử cuối cùng là timestamp
+    const bookingIds = parts.slice(0, -1).map(Number);
+
+    if (bookingIds.length === 0 || bookingIds.some(isNaN)) {
+      return res.status(400).json({ error: 'Mã đặt sân không hợp lệ' });
+    }
+
+    await client.query('BEGIN');
+
+    if (responseCode === '00') {
+      // Thanh toán thành công!
+      // Cập nhật trạng thái booking và payment
+      await client.query(
+        "UPDATE bookings SET trangThai = 'Đã thanh toán', updated_at = NOW() WHERE id = ANY($1::int[]) AND trangThai = 'Chờ thanh toán'",
+        [bookingIds]
+      );
+
+      await client.query(
+        "UPDATE payments SET trangThai = 'Thành công' WHERE donDatId = ANY($1::int[]) AND trangThai = 'Chờ thanh toán'",
+        [bookingIds]
+      );
+
+      // Gửi thông báo cho từng booking nếu chưa gửi
+      const bookingsRes = await client.query(
+        'SELECT b.*, u.hoTen FROM bookings b JOIN users u ON b.nguoiDungId = u.id WHERE b.id = ANY($1::int[])',
+        [bookingIds]
+      );
+
+      if (bookingsRes.rows.length > 0) {
+        const firstBooking = bookingsRes.rows[0];
+        const userId = firstBooking.nguoiDungId || firstBooking.nguoidungid;
+        const isAutoBooking = firstBooking.isAutoBooking || firstBooking.isautobooking;
+        const totalPrice = bookingsRes.rows.reduce((sum, b) => sum + (parseFloat(b.tongTien || b.tongtien) || 0), 0);
+
+        if (isAutoBooking) {
+          // Gửi thông báo tự động đặt lịch VIP
+          const notifCheck = await client.query(
+            "SELECT id FROM notifications WHERE nguoiDungId = $1 AND loaiThongBao = 'vip_auto_success' AND maDonDat = $2",
+            [userId, bookingIds[0]]
+          );
+          if (notifCheck.rows.length === 0) {
+            await client.query(
+              "INSERT INTO notifications (nguoiDungId, tieuDe, noiDung, loaiThongBao, maDonDat) VALUES ($1, $2, $3, 'vip_auto_success', $4)",
+              [
+                userId,
+                'VIP tự động đặt sân 30 ngày',
+                `Đã khóa ${bookingIds.length} buổi trong 30 ngày cho lịch VIP của bạn. Tổng thanh toán: ${totalPrice.toLocaleString('vi-VN')}đ.`,
+                bookingIds[0],
+              ]
+            );
+            await notifyAdmins(client, {
+              title: 'Khách tạo lịch VIP tự động',
+              message: `User #${userId} đã tạo chuỗi ${bookingIds.length} buổi, tổng tiền ${totalPrice.toLocaleString('vi-VN')}đ.`,
+              type: 'vip_auto_success',
+              bookingId: bookingIds[0],
+            });
+          }
+        } else {
+          for (const bid of bookingIds) {
+            const notifCheck = await client.query(
+              "SELECT id FROM notifications WHERE nguoiDungId = $1 AND loaiThongBao = 'booking_confirmed' AND maDonDat = $2",
+              [userId, bid]
+            );
+            if (notifCheck.rows.length === 0) {
+              await client.query(
+                "INSERT INTO notifications (nguoiDungId, tieuDe, noiDung, loaiThongBao, maDonDat) VALUES ($1, $2, $3, 'booking_confirmed', $4)",
+                [userId, 'Đặt sân thành công', `Đơn đặt sân #${bid} đã được xác nhận`, bid]
+              );
+            }
+          }
+          await notifyAdmins(client, {
+            title: 'Có đơn đặt sân mới',
+            message: `User #${userId} vừa tạo ${bookingIds.length} đơn đặt sân. Tổng tiền ${totalPrice.toLocaleString('vi-VN')}đ.`,
+            type: 'booking_confirmed',
+            bookingId: bookingIds[0],
+          });
+        }
+      }
+
+      await client.query('COMMIT');
+      return res.json({ success: true, message: 'Thanh toán thành công' });
+    } else {
+      // Hủy bỏ hoặc lỗi
+      await client.query(
+        "UPDATE bookings SET trangThai = 'Đã hủy', ghiChu = 'Thanh toán thất bại qua VNPay', updated_at = NOW() WHERE id = ANY($1::int[]) AND trangThai = 'Chờ thanh toán'",
+        [bookingIds]
+      );
+
+      await client.query(
+        "UPDATE payments SET trangThai = 'Thất bại' WHERE donDatId = ANY($1::int[]) AND trangThai = 'Chờ thanh toán'",
+        [bookingIds]
+      );
+
+      await client.query('COMMIT');
+      return res.status(400).json({ error: 'Giao dịch không thành công hoặc bị hủy' });
+    }
+  } catch (err) {
+    await client.query('ROLLBACK');
+    return res.status(500).json({ error: err.message });
+  } finally {
+    client.release();
+  }
+});
+
 router.get('/my', authenticate, async (req, res, next) => {
   try {
     const { page = 1, limit = 50, status } = req.query;
