@@ -23,6 +23,8 @@ import { Modal, ModalFooter } from '@/components/ui/Modal'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { formatPrice, formatDate, formatTime } from '@/lib/utils'
 
+const CHECK_IN_QR_STATUSES = new Set(['Đã thanh toán', 'Đã cọc', 'Đã đặt'])
+
 /**
  * Trang chi tiết đơn đặt sân
  * @description Component hiển thị đầy đủ thông tin của một đơn đặt sân,
@@ -50,15 +52,16 @@ export default function BookingDetailPage() {
     enabled: !!id,
   })
 
+  const canRequestCheckInQR = booking ? CHECK_IN_QR_STATUSES.has(booking.trangThai) : false
+
   /**
    * Truy vấn lấy mã QR check-in cho đơn đặt sân
-   * @enabled chỉ lấy QR khi đơn tồn tại và chưa bị hủy hay hoàn thành
-   *   (đơn "Đã hủy" hoặc "Hoàn thành" không cần QR nữa)
+   * @enabled chỉ lấy QR khi đơn ở trạng thái có thể check-in.
    */
   const { data: qrData } = useQuery({
     queryKey: ['bookings', id, 'qr'],
     queryFn: () => bookingService.getBookingQR(id!).then(r => r.data.data ?? r.data),
-    enabled: !!id && booking?.trangThai !== 'Đã hủy' && booking?.trangThai !== 'Hoàn thành',
+    enabled: !!id && canRequestCheckInQR,
   })
 
   /**
@@ -128,7 +131,8 @@ export default function BookingDetailPage() {
   }
 
   const isAutoBooking = booking.isAutoBooking === true || booking.autoBookingSeriesId
-  const canCancel = booking.trangThai === 'Đã thanh toán' || booking.trangThai === 'Đã cọc' || booking.trangThai === 'Đã đặt'
+  const canCancel = CHECK_IN_QR_STATUSES.has(booking.trangThai)
+  const canShowCheckInQR = CHECK_IN_QR_STATUSES.has(booking.trangThai)
 
   // --- Giao diện chính của chi tiết đơn đặt sân ---
   return (
@@ -231,7 +235,7 @@ export default function BookingDetailPage() {
         )}
 
         {/* Mã QR Check-in (chỉ hiển thị khi có dữ liệu QR từ API) */}
-        {qrData?.qr && (
+        {canShowCheckInQR && qrData?.qr && (
           <div className="pt-6 border-t border-border text-center bg-muted/20 rounded-xl p-4 mt-4">
             <p className="text-sm font-bold mb-3 uppercase tracking-wider">Mã QR Check-in</p>
             {/* QR code được render từ URL (base64 hoặc URL ảnh) */}

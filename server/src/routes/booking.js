@@ -27,6 +27,14 @@ const { createVNPayUrl, verifyVNPaySignature } = require('../utils/vnpay');
 const router = express.Router();
 
 const AUTO_BOOKING_DAYS = 30;
+const CHECK_IN_QR_STATUSES = new Set(['Đã thanh toán', 'Đã cọc', 'Đã đặt']);
+const PAYMENT_TIMEOUT_MS = 15 * 60 * 1000;
+
+function isTxnRefExpired(txnRef) {
+  const parts = String(txnRef || '').split('_');
+  const timestamp = Number(parts[parts.length - 1]);
+  return Number.isFinite(timestamp) && timestamp > 0 && Date.now() - timestamp > PAYMENT_TIMEOUT_MS;
+}
 
 function formatDateLocal(date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
@@ -437,6 +445,58 @@ router.post('/', authenticate, async (req, res) => {
   }
 });
 
+router.post('/:id/payment-url', authenticate, async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT b.*, p.trangThai as payment_status
+       FROM bookings b
+       LEFT JOIN (
+         SELECT DISTINCT ON (donDatId) donDatId, trangThai
+         FROM payments
+         ORDER BY donDatId, id DESC
+       ) p ON b.id = p.donDatId
+       WHERE b.id = $1 AND b.nguoiDungId = $2`,
+      [req.params.id, req.user.id]
+    );
+
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Không tìm thấy đơn đặt sân' });
+
+    const booking = result.rows[0];
+    const status = booking.trangThai || booking.trangthai;
+    const paymentStatus = booking.payment_status;
+    if (status !== 'Chờ thanh toán') {
+      return res.status(400).json({ error: 'Chỉ có thể thanh toán lại đơn đang chờ thanh toán' });
+    }
+    if (!paymentStatus) {
+      return res.status(400).json({ error: 'Không tìm thấy thông tin thanh toán của đơn' });
+    }
+    if (paymentStatus && !['Chờ thanh toán', 'Chờ xác nhận'].includes(paymentStatus)) {
+      return res.status(400).json({ error: 'Trạng thái thanh toán của đơn không hợp lệ' });
+    }
+
+    const amount = parseFloat(booking.tongTien || booking.tongtien) || 0;
+    if (amount <= 0) return res.status(400).json({ error: 'Số tiền thanh toán không hợp lệ' });
+
+    await pool.query(
+      "UPDATE payments SET trangThai = 'Chờ thanh toán', ngayGiaoDich = NOW() WHERE donDatId = $1 AND trangThai IN ('Chờ thanh toán', 'Chờ xác nhận')",
+      [booking.id]
+    );
+
+    const txnRef = `${booking.id}_${Date.now()}`;
+    const ipAddr = req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1';
+    const paymentUrl = createVNPayUrl({
+      amount,
+      txnRef,
+      returnUrl: 'http://localhost:5173/payment/sepay-return',
+      ipAddr,
+    });
+
+    res.json({ data: { paymentUrl } });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 /**
  * GET /bookings/my - Lấy danh sách đơn đặt sân của user hiện tại.
  *
@@ -526,9 +586,11 @@ router.get('/vnpay-verify', async (req, res) => {
       return res.status(400).json({ error: 'Mã đặt sân không hợp lệ' });
     }
 
+    const paymentExpired = isTxnRefExpired(txnRef);
+
     await client.query('BEGIN');
 
-    if (responseCode === '00') {
+    if (responseCode === '00' && !paymentExpired) {
       // Thanh toán thành công!
       // Cập nhật trạng thái booking và payment
       await client.query(
@@ -631,9 +693,11 @@ router.get('/vnpay-verify', async (req, res) => {
       return res.json({ success: true, message: 'Thanh toán thành công', courtId });
     } else {
       // Hủy bỏ hoặc lỗi
+      const failureMessage = paymentExpired ? 'Giao dịch đã quá hạn thanh toán' : 'Giao dịch không thành công hoặc bị hủy';
+      const failureNote = paymentExpired ? 'Thanh toán quá hạn qua VNPay' : 'Thanh toán thất bại qua VNPay';
       await client.query(
-        "UPDATE bookings SET trangThai = 'Đã hủy', ghiChu = 'Thanh toán thất bại qua VNPay', updated_at = NOW() WHERE id = ANY($1::int[]) AND trangThai = 'Chờ thanh toán'",
-        [bookingIds]
+        "UPDATE bookings SET trangThai = 'Đã hủy', ghiChu = $2, updated_at = NOW() WHERE id = ANY($1::int[]) AND trangThai = 'Chờ thanh toán'",
+        [bookingIds, failureNote]
       );
 
       await client.query(
@@ -642,7 +706,34 @@ router.get('/vnpay-verify', async (req, res) => {
       );
 
       await client.query('COMMIT');
-      return res.status(400).json({ error: 'Giao dịch không thành công hoặc bị hủy' });
+      if (req.query.format === 'html' || (req.headers.accept && req.headers.accept.includes('text/html'))) {
+        return res.status(400).send(`
+          <!DOCTYPE html>
+          <html>
+            <head>
+              <meta charset="UTF-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <title>Thanh toán không thành công</title>
+              <style>
+                body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; text-align: center; padding: 50px 20px; background: #f8fafc; color: #1e293b; }
+                .card { background: white; padding: 30px; border-radius: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); max-width: 400px; margin: 0 auto; }
+                h1 { color: #ef4444; font-size: 24px; margin-top: 15px; margin-bottom: 10px; }
+                p { font-size: 14px; color: #64748b; line-height: 1.6; }
+                .icon { font-size: 56px; font-weight: 800; color: #ef4444; }
+              </style>
+            </head>
+            <body>
+              <div class="card">
+                <div class="icon">!</div>
+                <h1>Thanh toán không thành công</h1>
+                <p>${failureMessage}.</p>
+                <p style="font-weight: bold; color: #ef4444; margin-top: 20px;">Vui lòng tạo giao dịch mới nếu bạn vẫn muốn đặt sân.</p>
+              </div>
+            </body>
+          </html>
+        `);
+      }
+      return res.status(400).json({ error: failureMessage });
     }
   } catch (err) {
     await client.query('ROLLBACK');
@@ -995,12 +1086,22 @@ router.post('/:id/noshow', authenticate, async (req, res) => {
 router.get('/:id/qr', authenticate, async (req, res) => {
   try {
     const QRCode = require('qrcode');
-    const result = await pool.query('SELECT id, sanId, ngayChoi FROM bookings WHERE id = $1', [req.params.id]);
+    const result = await pool.query('SELECT id, sanId, ngayChoi, nguoiDungId, trangThai FROM bookings WHERE id = $1', [req.params.id]);
     if (result.rows.length === 0) return res.status(404).json({ error: 'Không tìm thấy' });
+    const booking = result.rows[0];
+    const isAdmin = req.user.role === 'admin' || req.user.role === 'Admin' || req.user.vaiTro === 'Admin';
+    const ownerId = booking.nguoiDungId || booking.nguoidungid;
+    if (!isAdmin && String(ownerId) !== String(req.user.id)) {
+      return res.status(403).json({ error: 'Không có quyền xem đơn này' });
+    }
+    const status = booking.trangThai || booking.trangthai;
+    if (!CHECK_IN_QR_STATUSES.has(status)) {
+      return res.status(400).json({ error: 'Chỉ tạo QR check-in cho đơn Đã thanh toán, Đã cọc hoặc Đã đặt' });
+    }
     // QR code chứa ID của booking để admin quét check-in
-    const qrData = String(result.rows[0].id);
+    const qrData = String(booking.id);
     const qrImage = await QRCode.toDataURL(qrData, { width: 300, margin: 2 });
-    res.json({ data: { qr: qrImage, bookingId: result.rows[0].id } });
+    res.json({ data: { qr: qrImage, bookingId: booking.id } });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

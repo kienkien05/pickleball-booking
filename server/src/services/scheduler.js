@@ -84,12 +84,12 @@ async function handleBookingStatus() {
       );
     }
 
-    // 2. Hủy quá hạn thanh toán: chỉ áp dụng cho đơn đã cọc/pending online
+    // 2. Hủy quá hạn thanh toán: áp dụng cho đơn pending online hoặc đã cọc nhưng chưa hoàn tất
     const paymentTimeoutResult = await client.query(
       `SELECT DISTINCT b.*
        FROM bookings b
        JOIN payments p ON p.donDatId = b.id
-       WHERE b.trangThai = 'Đã cọc'
+       WHERE b.trangThai IN ('Chờ thanh toán', 'Đã cọc')
        AND p.trangThai IN ('Chờ thanh toán', 'Chờ xác nhận')
        AND p.ngayGiaoDich <= NOW() - INTERVAL '15 minutes'`
     );

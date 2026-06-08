@@ -17,7 +17,7 @@
 
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus, Pencil, Trash2, Package } from 'lucide-react'
+import { Plus, Pencil, Trash2, Package, Search } from 'lucide-react'
 import { toast } from 'sonner'
 import { serviceService } from '@/services'
 import { Button } from '@/components/ui/Button'
@@ -41,6 +41,7 @@ export default function ServicesManagePage() {
    * Mặc định: tên rỗng, đơn giá rỗng, loại "Đồ uống", số lượng tồn = 0, trạng thái "Còn hàng".
    */
   const [form, setForm] = useState({ tenDichVu: '', donGia: '', loaiDichVu: 'Đồ uống', soLuongTon: '0', trangThai: 'Còn hàng' })
+  const [searchTerm, setSearchTerm] = useState('')
   /** ID dịch vụ được chọn để xóa (null = không có modal xóa nào mở) */
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const queryClient = useQueryClient()
@@ -55,6 +56,10 @@ export default function ServicesManagePage() {
   })
   /** Chuẩn hóa dữ liệu thành mảng dịch vụ */
   const list = Array.isArray(services) ? services : services?.services ?? []
+  const normalizedSearch = searchTerm.trim().toLowerCase()
+  const filteredList = normalizedSearch
+    ? list.filter((svc: any) => String(svc.tenDichVu || '').toLowerCase().includes(normalizedSearch))
+    : list
 
   /**
    * Mutation lưu (thêm mới hoặc cập nhật) dịch vụ.
@@ -94,6 +99,17 @@ export default function ServicesManagePage() {
         </Button>
       </div>
 
+      <div className="relative max-w-sm">
+        <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+        <input
+          type="search"
+          value={searchTerm}
+          onChange={e => setSearchTerm(e.target.value)}
+          placeholder="Tìm theo tên dịch vụ..."
+          className="w-full h-10 rounded-lg border border-input bg-background pl-10 pr-3 text-sm outline-none focus:ring-2 focus:ring-ring"
+        />
+      </div>
+
       {/* Loading skeleton */}
       {isLoading ? (
         <div className="space-y-3">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}</div>
@@ -112,7 +128,7 @@ export default function ServicesManagePage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {list.map((svc: any) => (
+              {filteredList.map((svc: any) => (
                 <tr key={svc.id} className="hover:bg-muted/30">
                   <td className="px-4 py-3 font-medium">{svc.tenDichVu}</td>
                   <td className="px-4 py-3">{svc.loaiDichVu}</td>
@@ -135,7 +151,7 @@ export default function ServicesManagePage() {
                 </tr>
               ))}
               {/* Trạng thái rỗng */}
-              {list.length === 0 && (
+              {filteredList.length === 0 && (
                 <tr><td colSpan={6} className="px-4 py-12 text-center text-muted-foreground"><Package className="size-10 mx-auto mb-2 opacity-30" />Chưa có dịch vụ nào</td></tr>
               )}
             </tbody>

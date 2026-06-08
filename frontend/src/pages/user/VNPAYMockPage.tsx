@@ -1,7 +1,25 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { ShieldCheck, Info, XCircle, CreditCard, Landmark, Loader2, QrCode } from 'lucide-react'
+import { ShieldCheck, Info, XCircle, CreditCard, Landmark, Loader2, QrCode, Clock } from 'lucide-react'
 import api from '@/services/api'
+
+const PAYMENT_TIMEOUT_SECONDS = 15 * 60
+
+function getTxnStartedAt(txnRef: string) {
+  const parts = txnRef.split('_')
+  const timestamp = Number(parts[parts.length - 1])
+  return Number.isFinite(timestamp) && timestamp > 0 ? timestamp : Date.now()
+}
+
+function getRemainingSeconds(startedAt: number) {
+  return Math.max(0, PAYMENT_TIMEOUT_SECONDS - Math.floor((Date.now() - startedAt) / 1000))
+}
+
+function formatCountdown(totalSeconds: number) {
+  const minutes = Math.floor(totalSeconds / 60)
+  const seconds = totalSeconds % 60
+  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
+}
 
 export default function VNPAYMockPage() {
   const [searchParams] = useSearchParams()
@@ -16,6 +34,11 @@ export default function VNPAYMockPage() {
   const vnp_TxnRef = searchParams.get('vnp_TxnRef') || ''
   const vnp_OrderInfo = searchParams.get('vnp_OrderInfo') || ''
   const vnp_ReturnUrl = searchParams.get('vnp_ReturnUrl') || 'http://localhost:5173/payment/sepay-return'
+  const paymentStartedAt = useMemo(() => getTxnStartedAt(vnp_TxnRef), [vnp_TxnRef])
+  const [remainingSeconds, setRemainingSeconds] = useState(() => getRemainingSeconds(paymentStartedAt))
+  const isExpired = remainingSeconds <= 0
+  const countdownLabel = formatCountdown(remainingSeconds)
+  const countdownPercent = Math.max(0, Math.min(100, (remainingSeconds / PAYMENT_TIMEOUT_SECONDS) * 100))
 
   // Định dạng số tiền từ đơn vị cents (VNPay nhân 100)
   const amountVND = parseInt(vnp_Amount, 10) / 100
@@ -25,8 +48,31 @@ export default function VNPAYMockPage() {
   const [cardHolder, setCardHolder] = useState('NGUYEN VAN A')
   const [cardDate, setCardDate] = useState('07/15')
 
+  const redirectPayment = (responseCode: '00' | '24', delayMs = 1500) => {
+    setStep('processing')
+    window.setTimeout(() => {
+      const redirectParams = new URLSearchParams({
+        vnp_ResponseCode: responseCode,
+        vnp_TxnRef,
+        vnp_Amount,
+        vnp_OrderInfo,
+        vnp_SecureHash: 'mock_hash',
+      })
+
+      if (responseCode === '00') {
+        redirectParams.set('vnp_TransactionNo', Math.floor(Math.random() * 100000000).toString())
+      }
+
+      window.location.href = `${vnp_ReturnUrl}?${redirectParams.toString()}`
+    }, delayMs)
+  }
+
   const handlePayClick = (e: React.FormEvent) => {
     e.preventDefault()
+    if (isExpired) {
+      setErrorMsg('Giao dịch đã hết thời gian thanh toán')
+      return
+    }
     if (!cardNumber || !cardHolder || !cardDate) {
       setErrorMsg('Vui lòng điền đầy đủ thông tin thẻ')
       return
@@ -37,54 +83,42 @@ export default function VNPAYMockPage() {
 
   const handleVerifyOtp = (e: React.FormEvent) => {
     e.preventDefault()
+    if (isExpired) {
+      setErrorMsg('Giao dịch đã hết thời gian thanh toán')
+      return
+    }
     setErrorMsg('')
-    setStep('processing')
-
-    // Giả lập xử lý thanh toán 1.5 giây
-    setTimeout(() => {
-      // Chuyển hướng về ReturnUrl với vnp_ResponseCode = 00 (Thành công)
-      const redirectParams = new URLSearchParams({
-        vnp_ResponseCode: '00',
-        vnp_TxnRef,
-        vnp_Amount,
-        vnp_OrderInfo,
-        vnp_TransactionNo: Math.floor(Math.random() * 100000000).toString(),
-        vnp_SecureHash: 'mock_hash',
-      })
-      window.location.href = `${vnp_ReturnUrl}?${redirectParams.toString()}`
-    }, 1500)
+    redirectPayment('00')
   }
 
   const handleConfirmQR = () => {
-    setStep('processing')
-    setTimeout(() => {
-      // Chuyển hướng về ReturnUrl với vnp_ResponseCode = 00 (Thành công)
-      const redirectParams = new URLSearchParams({
-        vnp_ResponseCode: '00',
-        vnp_TxnRef,
-        vnp_Amount,
-        vnp_OrderInfo,
-        vnp_TransactionNo: Math.floor(Math.random() * 100000000).toString(),
-        vnp_SecureHash: 'mock_hash',
-      })
-      window.location.href = `${vnp_ReturnUrl}?${redirectParams.toString()}`
-    }, 1500)
+    if (isExpired) {
+      setErrorMsg('Giao dịch đã hết thời gian thanh toán')
+      return
+    }
+    redirectPayment('00')
+  }
+
+  const cancelPayment = (delayMs = 1000) => {
+    redirectPayment('24', delayMs)
   }
 
   const handleCancelPayment = () => {
-    setStep('processing')
-    setTimeout(() => {
-      // Chuyển hướng về ReturnUrl với vnp_ResponseCode = 24 (Hủy giao dịch bởi khách hàng)
-      const redirectParams = new URLSearchParams({
-        vnp_ResponseCode: '24',
-        vnp_TxnRef,
-        vnp_Amount,
-        vnp_OrderInfo,
-        vnp_SecureHash: 'mock_hash',
-      })
-      window.location.href = `${vnp_ReturnUrl}?${redirectParams.toString()}`
-    }, 1000)
+    cancelPayment()
   }
+
+  useEffect(() => {
+    const updateCountdown = () => setRemainingSeconds(getRemainingSeconds(paymentStartedAt))
+    updateCountdown()
+    const interval = window.setInterval(updateCountdown, 1000)
+    return () => window.clearInterval(interval)
+  }, [paymentStartedAt])
+
+  useEffect(() => {
+    if (remainingSeconds > 0 || step === 'processing') return
+    setErrorMsg('Giao dịch đã hết thời gian thanh toán')
+    cancelPayment(0)
+  }, [remainingSeconds, step])
 
   // Lấy IP cục bộ của server và cấu hình polling kiểm tra trạng thái thanh toán từ điện thoại
   useEffect(() => {
@@ -172,6 +206,24 @@ export default function VNPAYMockPage() {
                 {amountVND.toLocaleString('vi-VN')} VND
               </p>
             </div>
+            <div className="pt-3 border-t border-slate-100">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-xs text-slate-400 uppercase font-semibold">Thời gian còn lại</p>
+                <div className={`inline-flex items-center gap-1.5 font-mono text-sm font-extrabold ${isExpired ? 'text-red-600' : 'text-blue-600'}`}>
+                  <Clock className="size-4" />
+                  {countdownLabel}
+                </div>
+              </div>
+              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100">
+                <div
+                  className={`h-full rounded-full transition-all duration-500 ${isExpired ? 'bg-red-500' : 'bg-blue-600'}`}
+                  style={{ width: `${countdownPercent}%` }}
+                />
+              </div>
+              <p className="mt-2 text-[11px] leading-relaxed text-slate-500">
+                Hết thời gian, giao dịch sẽ tự hủy và đơn sẽ không được giữ thanh toán.
+              </p>
+            </div>
             <div>
               <p className="text-xs text-slate-400 uppercase font-semibold">Nội dung</p>
               <p className="text-sm text-slate-600 leading-snug">{vnp_OrderInfo}</p>
@@ -249,8 +301,9 @@ export default function VNPAYMockPage() {
                 <button
                   type="button"
                   onClick={handleConfirmQR}
-                  title="Click vào mã QR để giả lập quét thành công"
-                  className="p-4 bg-white border-2 border-slate-100 hover:border-blue-400 rounded-2xl shadow-inner flex flex-col items-center justify-center cursor-pointer transition-all group relative overflow-hidden"
+                  disabled={isExpired}
+                  title={isExpired ? 'Giao dịch đã hết hạn' : 'Click vào mã QR để giả lập quét thành công'}
+                  className={`p-4 bg-white border-2 border-slate-100 rounded-2xl shadow-inner flex flex-col items-center justify-center transition-all group relative overflow-hidden ${isExpired ? 'cursor-not-allowed opacity-60' : 'cursor-pointer hover:border-blue-400'}`}
                 >
                   <img src={qrCodeUrl} alt="VNPay Mock QR Code" className="size-48 object-contain transition-transform group-hover:scale-105" />
                   <div className="absolute inset-0 bg-blue-600/5 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
@@ -259,6 +312,11 @@ export default function VNPAYMockPage() {
                     </span>
                   </div>
                 </button>
+
+                <div className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-bold ${isExpired ? 'bg-red-50 text-red-600 border border-red-100' : 'bg-blue-50 text-blue-700 border border-blue-100'}`}>
+                  <Clock className="size-3.5" />
+                  {isExpired ? 'Giao dịch đã hết hạn' : `QR hết hạn sau ${countdownLabel}`}
+                </div>
 
 
                 <div className="w-full pt-4 border-t">
@@ -324,7 +382,8 @@ export default function VNPAYMockPage() {
                     <div className="pt-4 border-t flex flex-col sm:flex-row gap-3">
                       <button
                         type="submit"
-                        className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-xl transition-all shadow-sm text-sm"
+                        disabled={isExpired}
+                        className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded-xl transition-all shadow-sm text-sm"
                       >
                         Tiếp tục thanh toán
                       </button>
@@ -368,7 +427,8 @@ export default function VNPAYMockPage() {
                     <div className="pt-4 border-t flex flex-col sm:flex-row gap-3">
                       <button
                         type="submit"
-                        className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-4 rounded-xl transition-all shadow-sm text-sm"
+                        disabled={isExpired}
+                        className="flex-1 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded-xl transition-all shadow-sm text-sm"
                       >
                         Xác nhận thanh toán
                       </button>

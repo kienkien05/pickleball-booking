@@ -25,7 +25,7 @@
 
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus, Pencil, Trash2, Ticket, Settings, Shield, Filter } from 'lucide-react'
+import { Plus, Pencil, Trash2, Ticket, Settings, Shield, Filter, Search } from 'lucide-react'
 import { toast } from 'sonner'
 import { discountService, courtService } from '@/services'
 import { Button } from '@/components/ui/Button'
@@ -64,6 +64,7 @@ export default function DiscountsManagePage() {
    * Mặc định là true (ẩn mã hệ thống).
    */
   const [hideSystemCodes, setHideSystemCodes] = useState(true)
+  const [searchTerm, setSearchTerm] = useState('')
   const queryClient = useQueryClient()
 
   /**
@@ -98,9 +99,17 @@ export default function DiscountsManagePage() {
    *   và mã cá nhân (có nguoiDungId).
    * - Nếu hideSystemCodes = false: hiển thị tất cả.
    */
-  const list = hideSystemCodes
+  const visibleDiscounts = hideSystemCodes
     ? allDiscounts.filter(d => !d.code.startsWith('LTY10-') && !d.code.startsWith('LOYAL') && !d.nguoiDungId)
     : allDiscounts
+  const normalizedSearch = searchTerm.trim().toLowerCase()
+  const list = normalizedSearch
+    ? visibleDiscounts.filter(d => {
+        const code = String(d.code || '').toLowerCase()
+        const content = String(d.noiDung || '').toLowerCase()
+        return code.includes(normalizedSearch) || content.includes(normalizedSearch)
+      })
+    : visibleDiscounts
   /** Chuẩn hóa danh sách sân thành mảng */
   const courtList = Array.isArray(courts) ? courts : []
 
@@ -213,6 +222,17 @@ export default function DiscountsManagePage() {
         <Button onClick={() => { setEditDiscount(null); setShowForm(true) }}><Plus className="size-4 mr-2" />Thêm mã</Button>
       </div>
 
+      <div className="relative max-w-sm">
+        <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+        <input
+          type="search"
+          value={searchTerm}
+          onChange={e => setSearchTerm(e.target.value)}
+          placeholder="Tìm theo mã hoặc nội dung..."
+          className="w-full h-10 rounded-lg border border-input bg-background pl-10 pr-3 text-sm outline-none focus:ring-2 focus:ring-ring"
+        />
+      </div>
+
       {/* Loading skeleton */}
       {isLoading ? (
         <div className="space-y-3">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}</div>
@@ -267,7 +287,7 @@ export default function DiscountsManagePage() {
               ))}
               {/* Trạng thái rỗng */}
               {list.length === 0 && (
-                <tr><td colSpan={5} className="px-4 py-12 text-center text-muted-foreground">Chưa có mã giảm giá nào</td></tr>
+                <tr><td colSpan={7} className="px-4 py-12 text-center text-muted-foreground">Chưa có mã giảm giá nào</td></tr>
               )}
             </tbody>
           </table>

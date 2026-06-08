@@ -16,7 +16,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
-import { Plus, Pencil, Trash2, MapPin } from 'lucide-react'
+import { Plus, Pencil, Trash2, MapPin, Search } from 'lucide-react'
 import { toast } from 'sonner'
 import { courtService } from '@/services'
 import { Button } from '@/components/ui/Button'
@@ -55,6 +55,7 @@ export default function CourtsManagePage() {
    * Mặc định trạng thái là "Sẵn sàng" khi tạo mới.
    */
   const [form, setForm] = useState<CourtForm>(createEmptyCourtForm)
+  const [searchTerm, setSearchTerm] = useState('')
   /** ID của sân đang được chọn để xóa (null nếu không có xác nhận xóa nào đang mở) */
   const [deleteId, setDeleteId] = useState<string | null>(null)
   /** QueryClient để làm mới cache sau khi thực hiện mutation */
@@ -75,6 +76,10 @@ export default function CourtsManagePage() {
    * API có thể trả về mảng trực tiếp hoặc object chứa thuộc tính `courts`.
    */
   const courtList = Array.isArray(courts) ? courts : courts?.courts ?? []
+  const normalizedSearch = searchTerm.trim().toLowerCase()
+  const filteredCourtList = normalizedSearch
+    ? courtList.filter((court: any) => String(court.tenSan || '').toLowerCase().includes(normalizedSearch))
+    : courtList
 
   /**
    * Mutation để thêm mới hoặc cập nhật sân.
@@ -173,6 +178,17 @@ export default function CourtsManagePage() {
         <Button onClick={openCreate}><Plus className="size-4 mr-2" />Thêm sân</Button>
       </div>
 
+      <div className="relative max-w-sm">
+        <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+        <input
+          type="search"
+          value={searchTerm}
+          onChange={e => setSearchTerm(e.target.value)}
+          placeholder="Tìm theo tên sân..."
+          className="w-full h-10 rounded-lg border border-input bg-background pl-10 pr-3 text-sm outline-none focus:ring-2 focus:ring-ring"
+        />
+      </div>
+
       {/* Hiển thị skeleton loading trong khi dữ liệu đang được tải */}
       {isLoading ? (
         <div className="space-y-3">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-16 w-full" />)}</div>
@@ -189,7 +205,7 @@ export default function CourtsManagePage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {courtList.map((court: any) => (
+              {filteredCourtList.map((court: any) => (
                 <tr key={court.id} className="hover:bg-muted/30">
                   <td className="px-4 py-3 font-medium">{court.tenSan}</td>
                   <td className="px-4 py-3 text-muted-foreground hidden sm:table-cell max-w-xs truncate">{court.moTa}</td>
@@ -212,7 +228,7 @@ export default function CourtsManagePage() {
                 </tr>
               ))}
               {/* Hiển thị thông báo khi danh sách trống */}
-              {courtList.length === 0 && (
+              {filteredCourtList.length === 0 && (
                 <tr><td colSpan={4} className="px-4 py-12 text-center text-muted-foreground"><MapPin className="size-10 mx-auto mb-2 opacity-30" />Chưa có sân nào</td></tr>
               )}
             </tbody>

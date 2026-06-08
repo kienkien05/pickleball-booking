@@ -188,6 +188,9 @@ export const bookingService = {
   /** Xem chi tiết 1 đơn (kèm dịch vụ, thanh toán) */
   getBookingById: (id: string) => api.get(`/bookings/${id}`),
 
+  /** Tạo lại URL thanh toán cho đơn đang chờ thanh toán */
+  getPaymentUrl: (id: string) => api.post(`/bookings/${id}/payment-url`),
+
   /** Lấy mã QR của đơn (dùng để check-in) */
   getBookingQR: (id: string) => api.get(`/bookings/${id}/qr`),
 

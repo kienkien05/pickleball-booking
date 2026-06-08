@@ -57,12 +57,24 @@ const statusTabs = [
  * - Đã hủy: đỏ (destructive).
  */
 const statusColors: Record<string, string> = {
+  'Chờ thanh toán': 'bg-amber-500/10 text-amber-600',
   'Đã đặt': 'bg-amber-500/10 text-amber-600',
   'Đã cọc': 'bg-purple-500/10 text-purple-600',
   'Đã thanh toán': 'bg-blue-500/10 text-blue-600',
   'Đang sử dụng': 'bg-success/10 text-success',
   'Hoàn thành': 'bg-muted text-muted-foreground',
   'Đã hủy': 'bg-destructive/10 text-destructive',
+}
+
+const PAYMENT_PENDING_STATUSES = new Set(['Chờ thanh toán'])
+const BOOKING_DETAIL_STATUSES = new Set(['Đã thanh toán', 'Đã cọc', 'Đã đặt', 'Đang sử dụng', 'Hoàn thành'])
+
+function isPaymentPending(status?: string) {
+  return PAYMENT_PENDING_STATUSES.has(String(status || ''))
+}
+
+function canOpenBookingDetail(status?: string) {
+  return BOOKING_DETAIL_STATUSES.has(String(status || ''))
 }
 
 /**
@@ -91,6 +103,7 @@ export default function MyBookingsPage() {
    * Khi thay đổi -> queryKey thay đổi -> React Query tự động re-fetch.
    */
   const [statusFilter, setStatusFilter] = useState('')
+  const [payingBookingId, setPayingBookingId] = useState<string | null>(null)
 
   /**
    * ID của booking đang được yêu cầu hủy.
@@ -147,6 +160,32 @@ export default function MyBookingsPage() {
       toast.error(err.response?.data?.message || err.response?.data?.error || 'Không thể hủy đặt sân')
     },
   })
+
+  const resumePaymentMutation = useMutation({
+    mutationFn: (id: string) => bookingService.getPaymentUrl(id),
+    onMutate: (id: string) => {
+      setPayingBookingId(id)
+    },
+    onSuccess: (res: any) => {
+      const paymentUrl = res.data?.data?.paymentUrl || res.data?.paymentUrl
+      if (!paymentUrl) {
+        toast.error('Không lấy được link thanh toán')
+        return
+      }
+      window.location.href = paymentUrl
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.message || err.response?.data?.error || 'Không thể mở lại trang thanh toán')
+    },
+    onSettled: () => {
+      setPayingBookingId(null)
+    },
+  })
+
+  const handleContinuePayment = (booking: any) => {
+    if (!isPaymentPending(booking.trangThai)) return
+    resumePaymentMutation.mutate(String(booking.id))
+  }
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
@@ -210,10 +249,21 @@ export default function MyBookingsPage() {
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   {/* Thông tin chính của booking */}
                   <div>
-                    {/* Tên sân, link đến trang chi tiết booking */}
-                    <Link to={`/booking/${booking.id}`} className="font-semibold hover:text-primary transition-colors">
-                      {booking.tenSan || `Sân #${booking.sanId}`}
-                    </Link>
+                    {/* Tên sân: đơn chờ thanh toán mở lại QR thanh toán, các trạng thái còn lại mở chi tiết */}
+                    {isPaymentPending(booking.trangThai) ? (
+                      <button
+                        type="button"
+                        onClick={() => handleContinuePayment(booking)}
+                        disabled={payingBookingId === String(booking.id)}
+                        className="font-semibold text-left hover:text-primary transition-colors disabled:opacity-60"
+                      >
+                        {payingBookingId === String(booking.id) ? 'Đang mở thanh toán...' : (booking.tenSan || `Sân #${booking.sanId}`)}
+                      </button>
+                    ) : (
+                      <Link to={`/booking/${booking.id}`} className="font-semibold hover:text-primary transition-colors">
+                        {booking.tenSan || `Sân #${booking.sanId}`}
+                      </Link>
+                    )}
                     {/* Ngày chơi và khung giờ */}
                     <p className="text-sm text-muted-foreground mt-1">
                       {booking.ngayChoi ? formatDate(booking.ngayChoi) : ''} • {booking.gioBatDau ? formatTime(booking.gioBatDau) : ''} - {booking.gioKetThuc ? formatTime(booking.gioKetThuc) : ''}
@@ -232,21 +282,23 @@ export default function MyBookingsPage() {
                         {booking.trangThai}
                       </span>
 
-                      {/* Nút "Xem hóa đơn & QR check-in": hiển thị cho các booking còn hiệu lực */}
-                      {(booking.trangThai === 'Đã thanh toán' || booking.trangThai === 'Đã cọc' || booking.trangThai === 'Đã đặt' || booking.trangThai === 'Đang sử dụng' || booking.trangThai === 'Hoàn thành') && (
-                        <Link to={`/booking/${booking.id}`}>
-                          <Button variant="outline" size="sm" className="text-[10px] h-8 px-3 border-primary/30 text-primary hover:bg-primary/5">
-                            <QrCode className="size-3 mr-1" /> Xem hóa đơn & QR check-in
+                      <div className="flex flex-wrap justify-end gap-2">
+                        {/* Nút "Hủy": nằm bên trái nút xem QR */}
+                        {(booking.trangThai === 'Đã thanh toán' || booking.trangThai === 'Đã cọc' || booking.trangThai === 'Đã đặt') && (
+                          <Button variant="outline" size="sm" onClick={() => setCancelId(booking.id)}>
+                            <XCircle className="size-3 mr-1" /> Hủy
                           </Button>
-                        </Link>
-                      )}
+                        )}
 
-                      {/* Nút "Hủy": chỉ hiển thị cho booking ở trạng thái Đã thanh toán, Đã cọc hoặc Đã đặt */}
-                      {(booking.trangThai === 'Đã thanh toán' || booking.trangThai === 'Đã cọc' || booking.trangThai === 'Đã đặt') && (
-                        <Button variant="outline" size="sm" onClick={() => setCancelId(booking.id)}>
-                          <XCircle className="size-3 mr-1" /> Hủy
-                        </Button>
-                      )}
+                        {/* Nút "Xem hóa đơn & QR check-in": hiển thị cho các booking còn hiệu lực */}
+                        {canOpenBookingDetail(booking.trangThai) && (
+                          <Link to={`/booking/${booking.id}`}>
+                            <Button variant="outline" size="sm" className="text-[10px] h-8 px-3 border-primary/30 text-primary hover:bg-primary/5">
+                              <QrCode className="size-3 mr-1" /> Xem hóa đơn & QR check-in
+                            </Button>
+                          </Link>
+                        )}
+                      </div>
                     </div>
                   </div>
 
