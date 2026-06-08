@@ -34,3 +34,14 @@ test-results
 
 
 frontend/dist
+
+# Local generated artifacts
+.spreadsheet_work/
+*.docx
+tools/
+
+# Runtime uploads created during local testing
+server/public/uploads/courts/[0-9]-*.jpg
+
+# Local test artifacts
+tests/

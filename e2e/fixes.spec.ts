@@ -6,6 +6,12 @@ function getExecResult(stdout: string): string {
   return lines[lines.length - 1];
 }
 
+function futureDate(daysFromToday = 3): string {
+  const date = new Date();
+  date.setDate(date.getDate() + daysFromToday);
+  return date.toISOString().slice(0, 10);
+}
+
 test.describe('Verification of Fixes E2E Tests', () => {
   test.describe.configure({ mode: 'serial' });
 
@@ -291,8 +297,10 @@ test.describe('Verification of Fixes E2E Tests', () => {
 
   // ── FIX-009: Synchronization of "Chờ xác nhận" payment state to "Đã hủy" ────
   test('FIX-009: Đồng bộ trạng thái thanh toán Chờ xác nhận thành Đã hủy khi hủy đơn', async ({ page }) => {
+    const playDate = futureDate(3);
+
     // 1. Đặt sân qua API bằng userToken
-    const bookingRes = await page.evaluate(async (token) => {
+    const bookingRes = await page.evaluate(async ({ token, playDate }) => {
       const res = await fetch('http://localhost:3001/api/bookings', {
         method: 'POST',
         headers: {
@@ -301,13 +309,13 @@ test.describe('Verification of Fixes E2E Tests', () => {
         },
         body: JSON.stringify({
           sanId: 2,
-          ngayChoi: '2026-06-05',
+          ngayChoi: playDate,
           khungGioIds: [13],
           phuongThuc: 'transfer'
         })
       });
       return { status: res.status, body: await res.json() };
-    }, userToken);
+    }, { token: userToken, playDate });
 
     expect(bookingRes.status).toBe(201);
     const bookingId = bookingRes.body.data.bookingIds[0];
@@ -334,6 +342,7 @@ test.describe('Verification of Fixes E2E Tests', () => {
   // ── FIX-010: user_vouchers usage history after cancellation ───────────
   test('FIX-010: Hủy đơn không cho dùng lại voucher usage_limit_per_user=1', async ({ page }) => {
     const code = `FIX010_${Date.now()}`;
+    const playDate = futureDate(4);
 
     // 1. Tạo mã giảm giá riêng cho test, giới hạn mỗi user 1 lần
     const discountRes = await page.evaluate(async ({ token, code }) => {
@@ -368,7 +377,7 @@ test.describe('Verification of Fixes E2E Tests', () => {
     expect(getExecResult(initialStatus)).toBe('Active');
 
     // 4. Tạo booking mới sử dụng mã giảm giá vừa tạo
-    const bookingRes = await page.evaluate(async ({ token, code }) => {
+    const bookingRes = await page.evaluate(async ({ token, code, playDate }) => {
       const res = await fetch('http://localhost:3001/api/bookings', {
         method: 'POST',
         headers: {
@@ -377,14 +386,14 @@ test.describe('Verification of Fixes E2E Tests', () => {
         },
         body: JSON.stringify({
           sanId: 2,
-          ngayChoi: '2026-06-06',
+          ngayChoi: playDate,
           khungGioIds: [14],
           phuongThuc: 'transfer',
           maGiamGia: code
         })
       });
       return { status: res.status, body: await res.json() };
-    }, { token: userToken, code });
+    }, { token: userToken, code, playDate });
 
     expect(bookingRes.status).toBe(201);
     const bookingId = bookingRes.body.data.bookingIds[0];

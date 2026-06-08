@@ -52,13 +52,13 @@ export default function BookingDetailPage() {
 
   /**
    * Truy vấn lấy mã QR check-in cho đơn đặt sân
-   * @enabled chỉ lấy QR khi đơn tồn tại và chưa bị hủy hay hoàn thành
-   *   (đơn "Đã hủy" hoặc "Hoàn thành" không cần QR nữa)
+   * @enabled chỉ lấy QR khi đơn đã thanh toán.
+   *   Đơn "Đã cọc" đang chờ thanh toán không được truy cập QR check-in.
    */
   const { data: qrData } = useQuery({
     queryKey: ['bookings', id, 'qr'],
     queryFn: () => bookingService.getBookingQR(id!).then(r => r.data.data ?? r.data),
-    enabled: !!id && booking?.trangThai !== 'Đã hủy' && booking?.trangThai !== 'Hoàn thành',
+    enabled: !!id && booking?.trangThai === 'Đã thanh toán',
   })
 
   /**

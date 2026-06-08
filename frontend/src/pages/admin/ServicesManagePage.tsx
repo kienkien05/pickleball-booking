@@ -5,6 +5,7 @@
  * Các dịch vụ này được khách hàng đặt kèm khi đặt sân (ví dụ: đồ uống, dụng cụ).
  * Chức năng chính:
  * - Hiển thị danh sách tất cả dịch vụ (dạng bảng).
+ * - Tìm kiếm dịch vụ theo tên, loại, trạng thái, giá hoặc số lượng tồn.
  * - Thêm mới dịch vụ (tên, loại, số lượng tồn, đơn giá, trạng thái).
  * - Chỉnh sửa thông tin dịch vụ hiện có.
  * - Xóa dịch vụ (có modal xác nhận).
@@ -17,7 +18,7 @@
 
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus, Pencil, Trash2, Package } from 'lucide-react'
+import { Plus, Pencil, Trash2, Package, Search } from 'lucide-react'
 import { toast } from 'sonner'
 import { serviceService } from '@/services'
 import { Button } from '@/components/ui/Button'
@@ -32,6 +33,8 @@ import { formatPrice } from '@/lib/utils'
  * @returns Giao diện bảng danh sách dịch vụ kèm modal thêm/sửa/xóa.
  */
 export default function ServicesManagePage() {
+  /** Từ khóa tìm kiếm dịch vụ */
+  const [search, setSearch] = useState('')
   /** Dịch vụ đang được chỉnh sửa (null = chế độ thêm mới) */
   const [editService, setEditService] = useState<any>(null)
   /** Trạng thái hiển thị modal form thêm/sửa dịch vụ */
@@ -55,6 +58,20 @@ export default function ServicesManagePage() {
   })
   /** Chuẩn hóa dữ liệu thành mảng dịch vụ */
   const list = Array.isArray(services) ? services : services?.services ?? []
+  const normalizedSearch = search.trim().toLowerCase()
+  const filteredList = normalizedSearch
+    ? list.filter((svc: any) => {
+      const values = [
+        svc.tenDichVu,
+        svc.loaiDichVu,
+        svc.trangThai,
+        String(svc.soLuongTon ?? 0),
+        String(svc.donGia ?? 0),
+        formatPrice(Number(svc.donGia || 0)),
+      ]
+      return values.some(value => String(value || '').toLowerCase().includes(normalizedSearch))
+    })
+    : list
 
   /**
    * Mutation lưu (thêm mới hoặc cập nhật) dịch vụ.
@@ -94,6 +111,18 @@ export default function ServicesManagePage() {
         </Button>
       </div>
 
+      {/* Thanh tìm kiếm dịch vụ */}
+      <div className="relative max-w-md">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+        <input
+          type="text"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="Tìm theo tên, loại, trạng thái..."
+          className="w-full h-11 pl-10 pr-4 rounded-lg border border-input bg-background focus:ring-2 focus:ring-ring outline-none"
+        />
+      </div>
+
       {/* Loading skeleton */}
       {isLoading ? (
         <div className="space-y-3">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}</div>
@@ -112,7 +141,7 @@ export default function ServicesManagePage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {list.map((svc: any) => (
+              {filteredList.map((svc: any) => (
                 <tr key={svc.id} className="hover:bg-muted/30">
                   <td className="px-4 py-3 font-medium">{svc.tenDichVu}</td>
                   <td className="px-4 py-3">{svc.loaiDichVu}</td>
@@ -135,8 +164,13 @@ export default function ServicesManagePage() {
                 </tr>
               ))}
               {/* Trạng thái rỗng */}
-              {list.length === 0 && (
-                <tr><td colSpan={6} className="px-4 py-12 text-center text-muted-foreground"><Package className="size-10 mx-auto mb-2 opacity-30" />Chưa có dịch vụ nào</td></tr>
+              {filteredList.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="px-4 py-12 text-center text-muted-foreground">
+                    <Package className="size-10 mx-auto mb-2 opacity-30" />
+                    {list.length === 0 ? 'Chưa có dịch vụ nào' : 'Không tìm thấy dịch vụ phù hợp'}
+                  </td>
+                </tr>
               )}
             </tbody>
           </table>

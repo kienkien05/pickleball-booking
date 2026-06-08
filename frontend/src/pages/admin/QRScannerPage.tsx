@@ -7,11 +7,11 @@
  * - Nhập mã đơn hàng thủ công để tra cứu.
  * - Hiển thị chi tiết đơn đặt sân sau khi quét/tra cứu thành công
  *   (tên sân, khách hàng, ngày chơi, trạng thái, dịch vụ đi kèm, tổng tiền).
- * - Thực hiện check-in cho đơn đang hợp lệ (Đã đặt/Đã cọc/Đã thanh toán -> Đang sử dụng).
+ * - Thực hiện check-in cho đơn đã thanh toán (Đã thanh toán -> Đang sử dụng).
  *
  * Luồng hoạt động:
  * 1. Admin quét QR hoặc nhập mã đơn -> tìm thông tin đơn đặt sân.
- * 2. Hiển thị chi tiết đơn và cho phép check-in nếu trạng thái là "Đã đặt", "Đã cọc" hoặc "Đã thanh toán".
+ * 2. Hiển thị chi tiết đơn và cho phép check-in nếu trạng thái là "Đã thanh toán".
  * 3. Sau khi check-in, trạng thái đơn cập nhật thành "Đang sử dụng".
  */
 
@@ -200,7 +200,7 @@ export default function QRScannerPage() {
             </div>
           </div>
           {/* Nút check-in - hiển thị khi đơn còn hợp lệ trước giờ chơi */}
-          {(result.trangThai === 'Đã thanh toán' || result.trangThai === 'Đã cọc' || result.trangThai === 'Đã đặt') && (
+          {result.trangThai === 'Đã thanh toán' && (
             <Button className="w-full mt-4" onClick={() => checkinMutation.mutate(result.id)} loading={checkinMutation.isPending}>
               <LogIn className="size-4 mr-2" />Check-in ngay
             </Button>

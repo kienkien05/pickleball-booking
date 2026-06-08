@@ -89,7 +89,7 @@ async function handleBookingStatus() {
       `SELECT DISTINCT b.*
        FROM bookings b
        JOIN payments p ON p.donDatId = b.id
-       WHERE b.trangThai = 'Đã cọc'
+       WHERE b.trangThai IN ('Đã cọc', 'Chờ thanh toán')
        AND p.trangThai IN ('Chờ thanh toán', 'Chờ xác nhận')
        AND p.ngayGiaoDich <= NOW() - INTERVAL '15 minutes'`
     );
@@ -106,7 +106,17 @@ async function handleBookingStatus() {
     const noShowResult = await client.query(
       `SELECT b.* FROM bookings b
        JOIN timeslots t ON b.khungGioId = t.id
-       WHERE b.trangThai IN ('Đã thanh toán', 'Đã đặt', 'Đã cọc')
+       WHERE (
+         b.trangThai IN ('Đã thanh toán', 'Đã đặt')
+         OR (
+           b.trangThai = 'Đã cọc'
+           AND NOT EXISTS (
+             SELECT 1 FROM payments p
+             WHERE p.donDatId = b.id
+             AND p.trangThai IN ('Chờ thanh toán', 'Chờ xác nhận')
+           )
+         )
+       )
        AND (
          b.ngayChoi < $1::date
          OR (b.ngayChoi = $1::date AND t.gioBatDau <= $2::time)

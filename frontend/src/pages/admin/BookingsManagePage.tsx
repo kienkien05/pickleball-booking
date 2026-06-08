@@ -14,7 +14,8 @@
  *   - Tìm kiếm: theo tên sân, tên khách hàng, hoặc mã đơn
  *   - Lọc theo ngày cụ thể
  *   - Các thao tác khả dụng phụ thuộc vào trạng thái hiện tại của đơn:
- *     + "Đã đặt" / "Đã cọc" / "Đã thanh toán": có thể Check-in hoặc đánh dấu vắng mặt
+ *     + "Đã thanh toán": có thể Check-in hoặc đánh dấu vắng mặt
+ *     + "Đã đặt" / "Đã cọc": chỉ đánh dấu vắng mặt/hủy theo policy, không được Check-in
  *     + "Đang sử dụng": có thể Check-out
  *     + Các trạng thái khác: không có thao tác nào
  *   - Mỗi thao tác cần xác nhận trước khi thực hiện
@@ -133,15 +134,18 @@ export default function BookingsManagePage() {
    * @param b - Đối tượng đơn đặt sân
    * @returns Mảng các thao tác { type, label, icon, variant }
    * @logic
-   *   - "Đã đặt" / "Đã cọc" / "Đã thanh toán": Check-in + Vắng mặt
+   *   - "Đã thanh toán": Check-in + Vắng mặt
+   *   - "Đã đặt" / "Đã cọc": chỉ Vắng mặt
    *   - "Đang sử dụng": Check-out
    *   - Các trạng thái khác: không có thao tác nào (mảng rỗng)
    */
   const getActions = (b: any) => {
     const actions: { type: 'checkin' | 'checkout' | 'noshow'; label: string; icon: any; variant: any }[] = []
-    if (b.trangThai === 'Đã thanh toán' || b.trangThai === 'Đã cọc' || b.trangThai === 'Đã đặt') {
-      // Đơn đã đặt/đã cọc/đã thanh toán: có thể check-in hoặc đánh dấu vắng mặt
+    if (b.trangThai === 'Đã thanh toán') {
+      // Chỉ đơn đã thanh toán mới được check-in
       actions.push({ type: 'checkin', label: 'Check-in', icon: LogIn, variant: 'success' })
+      actions.push({ type: 'noshow', label: 'Vắng mặt', icon: UserX, variant: 'destructive' })
+    } else if (b.trangThai === 'Đã cọc' || b.trangThai === 'Đã đặt') {
       actions.push({ type: 'noshow', label: 'Vắng mặt', icon: UserX, variant: 'destructive' })
     } else if (b.trangThai === 'Đang sử dụng') {
       // Đơn đang sử dụng: có thể check-out (kết thúc phiên chơi)

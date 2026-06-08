@@ -16,6 +16,7 @@ export default function VNPAYMockPage() {
   const vnp_TxnRef = searchParams.get('vnp_TxnRef') || ''
   const vnp_OrderInfo = searchParams.get('vnp_OrderInfo') || ''
   const vnp_ReturnUrl = searchParams.get('vnp_ReturnUrl') || 'http://localhost:5173/payment/sepay-return'
+  const apiPort = import.meta.env.VITE_API_PORT || '3001'
 
   // Định dạng số tiền từ đơn vị cents (VNPay nhân 100)
   const amountVND = parseInt(vnp_Amount, 10) / 100
@@ -128,7 +129,7 @@ export default function VNPAYMockPage() {
 
   // URL QR Code test (sử dụng API QR Code công khai để tạo mã QR chứa link callback thành công qua mạng LAN)
   const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(
-    `http://${localIp}:3000/api/bookings/vnpay-verify?vnp_ResponseCode=00&vnp_TxnRef=${vnp_TxnRef}&vnp_Amount=${vnp_Amount}&vnp_SecureHash=mock_hash&format=html`
+    `http://${localIp}:${apiPort}/api/bookings/vnpay-verify?vnp_ResponseCode=00&vnp_TxnRef=${vnp_TxnRef}&vnp_Amount=${vnp_Amount}&vnp_SecureHash=mock_hash&format=html`
   )}`
 
   return (
