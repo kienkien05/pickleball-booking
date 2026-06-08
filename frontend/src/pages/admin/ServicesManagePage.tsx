@@ -44,6 +44,7 @@ export default function ServicesManagePage() {
    * Mặc định: tên rỗng, đơn giá rỗng, loại "Đồ uống", số lượng tồn = 0, trạng thái "Còn hàng".
    */
   const [form, setForm] = useState({ tenDichVu: '', donGia: '', loaiDichVu: 'Đồ uống', soLuongTon: '0', trangThai: 'Còn hàng' })
+
   /** ID dịch vụ được chọn để xóa (null = không có modal xóa nào mở) */
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const queryClient = useQueryClient()
