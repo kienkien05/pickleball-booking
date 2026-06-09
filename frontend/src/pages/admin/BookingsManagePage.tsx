@@ -10,12 +10,12 @@
  * @access Admin (yêu cầu quyền admin)
  *
  * @businessLogic
- *   - Bộ lọc trạng thái: Tất cả, Đã đặt, Đã cọc, Đã thanh toán, Đang dùng, Hoàn thành, Đã hủy
+ *   - Bộ lọc trạng thái: Tất cả, Chờ thanh toán, Đã thanh toán, Đang dùng, Hoàn thành, Đã hủy
  *   - Tìm kiếm: theo tên sân, tên khách hàng, hoặc mã đơn
  *   - Lọc theo ngày cụ thể
  *   - Các thao tác khả dụng phụ thuộc vào trạng thái hiện tại của đơn:
  *     + "Đã thanh toán": có thể Check-in hoặc đánh dấu vắng mặt
- *     + "Đã đặt" / "Đã cọc": chỉ đánh dấu vắng mặt/hủy theo policy, không được Check-in
+ *     + "Đã đặt" / "Chờ thanh toán": chỉ đánh dấu vắng mặt/hủy theo policy, không được Check-in
  *     + "Đang sử dụng": có thể Check-out
  *     + Các trạng thái khác: không có thao tác nào
  *   - Mỗi thao tác cần xác nhận trước khi thực hiện
@@ -39,7 +39,7 @@ import { cn } from '@/lib/utils'
  */
 const statusTabs = [
   { key: '', label: 'Tất cả' },
-  { key: 'Đã cọc', label: 'Đã cọc' },
+  { key: 'Chờ thanh toán', label: 'Chờ thanh toán' },
   { key: 'Đã thanh toán', label: 'Đã thanh toán' },
   { key: 'Đang sử dụng', label: 'Đang dùng' },
   { key: 'Hoàn thành', label: 'Hoàn thành' },
@@ -135,7 +135,7 @@ export default function BookingsManagePage() {
    * @returns Mảng các thao tác { type, label, icon, variant }
    * @logic
    *   - "Đã thanh toán": Check-in + Vắng mặt
-   *   - "Đã đặt" / "Đã cọc": chỉ Vắng mặt
+   *   - "Đã đặt" / "Chờ thanh toán": chỉ Vắng mặt
    *   - "Đang sử dụng": Check-out
    *   - Các trạng thái khác: không có thao tác nào (mảng rỗng)
    */
@@ -145,7 +145,7 @@ export default function BookingsManagePage() {
       // Chỉ đơn đã thanh toán mới được check-in
       actions.push({ type: 'checkin', label: 'Check-in', icon: LogIn, variant: 'success' })
       actions.push({ type: 'noshow', label: 'Vắng mặt', icon: UserX, variant: 'destructive' })
-    } else if (b.trangThai === 'Đã cọc' || b.trangThai === 'Đã đặt') {
+    } else if (b.trangThai === 'Chờ thanh toán' || b.trangThai === 'Đã đặt') {
       actions.push({ type: 'noshow', label: 'Vắng mặt', icon: UserX, variant: 'destructive' })
     } else if (b.trangThai === 'Đang sử dụng') {
       // Đơn đang sử dụng: có thể check-out (kết thúc phiên chơi)
@@ -227,14 +227,14 @@ export default function BookingsManagePage() {
                     <td className="px-4 py-3 text-xs text-muted-foreground">{booking.loaiThanhToan || 'N/A'}</td>
                     {/* Trạng thái với badge màu tương ứng:
                         - Đã đặt: vàng/cam
-                        - Đã cọc: tím
+                        - Chờ thanh toán: cam
                         - Đã thanh toán: xanh dương
                         - Đang sử dụng: xanh lá
                         - Hoàn thành: xám
                         - Đã hủy/vắng mặt: đỏ */}
                     <td className="px-4 py-3">
                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${booking.trangThai === 'Đã đặt' ? 'bg-amber-500/10 text-amber-600' :
-                          booking.trangThai === 'Đã cọc' ? 'bg-purple-500/10 text-purple-600' :
+                          booking.trangThai === 'Chờ thanh toán' ? 'bg-orange-500/10 text-orange-600' :
                             booking.trangThai === 'Đã thanh toán' ? 'bg-blue-500/10 text-blue-600' :
                               booking.trangThai === 'Đang sử dụng' ? 'bg-success/10 text-success' :
                                 booking.trangThai === 'Hoàn thành' ? 'bg-muted text-muted-foreground' :

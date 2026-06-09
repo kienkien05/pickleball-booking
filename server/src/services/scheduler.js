@@ -5,7 +5,7 @@
  *
  * 1. handleBookingStatus() - Chạy mỗi phút (* * * * *):
  *    - Tự động check-out: các đơn 'Đang sử dụng' mà đã quá giờ kết thúc -> chuyển thành 'Hoàn thành'
- *    - Hủy vắng mặt (no-show): các đơn 'Đã thanh toán', 'Đã cọc' hoặc 'Đã đặt'
+ *    - Hủy vắng mặt (no-show): các đơn 'Đã thanh toán', 'Chờ thanh toán' hoặc 'Đã đặt'
  *      mà quá 15 phút sau giờ bắt đầu vẫn chưa check-in -> tự động hủy có lý do rõ ràng
  *
  * 2. autoCancelPastBookings() - Chạy hàng ngày lúc 00:05 (5 0 * * *):
@@ -16,7 +16,7 @@
  *    - Luồng legacy cho dữ liệu VIP cũ chưa có autoBookingSeriesId.
  *      Luồng VIP mới tạo đủ booking 30 ngày ngay tại API /bookings.
  *    - Nếu khung giờ đã có người đặt -> gửi thông báo xung đột và tắt auto-booking
- *    - Nếu khung giờ trống -> tự động tạo đơn mới với trạng thái 'Đã cọc' (cọc 10%)
+ *    - Nếu khung giờ trống -> tự động tạo đơn mới với trạng thái 'Chờ thanh toán'
  *    - Tham số force: nếu true thì bỏ qua kiểm tra thứ 2 (dùng cho testing/admin trigger)
  *
  * 4. startScheduler(cron) - Khởi động tất cả cron jobs:
@@ -38,7 +38,7 @@ function formatDateLocal(date) {
  *
  * Chạy mỗi phút để kiểm tra:
  * - Tìm các booking 'Đang sử dụng' có giờ kết thúc <= thời gian hiện tại -> tự động check-out
- * - Tìm các booking 'Đã thanh toán'/'Đã cọc'/'Đã đặt' quá 15 phút sau giờ bắt đầu -> hủy vắng mặt
+ * - Tìm các booking 'Đã thanh toán'/'Chờ thanh toán'/'Đã đặt' quá 15 phút sau giờ bắt đầu -> hủy vắng mặt
  *
  * Mỗi lần cập nhật trạng thái đều gửi thông báo (notification) cho người dùng liên quan.
  */
@@ -84,14 +84,14 @@ async function handleBookingStatus() {
       );
     }
 
-    // 2. Hủy quá hạn thanh toán: áp dụng cho đơn pending online hoặc đã cọc nhưng chưa hoàn tất
+    // 2. Hủy quá hạn thanh toán: áp dụng cho đơn chờ thanh toán quá 15 phút
     const paymentTimeoutResult = await client.query(
       `SELECT DISTINCT b.*
        FROM bookings b
        JOIN payments p ON p.donDatId = b.id
-       WHERE b.trangThai IN ('Đã cọc', 'Chờ thanh toán')
+       WHERE b.trangThai = 'Chờ thanh toán'
        AND p.trangThai IN ('Chờ thanh toán', 'Chờ xác nhận')
-       AND p.ngayGiaoDich <= NOW() - INTERVAL '15 minutes'`
+       AND COALESCE(p.expires_at, p.ngayGiaoDich + INTERVAL '15 minutes') <= NOW()`
     );
 
     if (paymentTimeoutResult.rows.length > 0) {
@@ -102,14 +102,14 @@ async function handleBookingStatus() {
       await cancelBookingWithReason(client, booking, 'PAYMENT_TIMEOUT');
     }
 
-    // 3. Hủy vắng mặt (no-show): tìm booking đã thanh toán/đã đặt/đã cọc nhưng quá 15 phút chưa check-in
+    // 3. Hủy vắng mặt (no-show): tìm booking đã thanh toán/đã đặt/chờ thanh toán nhưng quá 15 phút chưa check-in
     const noShowResult = await client.query(
       `SELECT b.* FROM bookings b
        JOIN timeslots t ON b.khungGioId = t.id
        WHERE (
          b.trangThai IN ('Đã thanh toán', 'Đã đặt')
          OR (
-           b.trangThai = 'Đã cọc'
+           b.trangThai = 'Chờ thanh toán'
            AND NOT EXISTS (
              SELECT 1 FROM payments p
              WHERE p.donDatId = b.id
@@ -177,7 +177,7 @@ async function autoCancelPastBookings() {
  * 1. Lấy danh sách tất cả VIP có lịch sử auto-booking cũ (isAutoBooking = TRUE, chưa có autoBookingSeriesId)
  * 2. Với mỗi VIP, lấy lịch đặt gần nhất và tính ngày tiếp theo (cách 7 ngày)
  * 3. Nếu ngày đó đã có booking trùng -> gửi thông báo xung đột và tắt auto-booking
- * 4. Nếu khung giờ còn trống -> tự động tạo booking mới trạng thái 'Đã cọc' (cọc 10%),
+ * 4. Nếu khung giờ còn trống -> tự động tạo booking mới trạng thái 'Chờ thanh toán',
  *    gửi thông báo thành công cho VIP
  *
  * @param {boolean} force - Nếu true thì bỏ qua kiểm tra thứ 2 (dùng cho admin trigger thủ công)
@@ -267,7 +267,7 @@ async function processVipAutoBooking(force = false) {
       const slotPrice = parseFloat(slot.rows[0].mucgia);
       const booking = await client.query(
         `INSERT INTO bookings (nguoiDungId, sanId, khungGioId, ngayChoi, tongTien, tienDaCoc, trangThai, isAutoBooking)
-         VALUES ($1, $2, $3, $4, $5, $6, 'Đã cọc', TRUE) RETURNING id`,
+         VALUES ($1, $2, $3, $4, $5, $6, 'Chờ thanh toán', TRUE) RETURNING id`,
         [vip.nguoidungid, vip.sanid, vip.khunggioid, targetDate, slotPrice, Math.round(slotPrice * 0.1)]
       );
 

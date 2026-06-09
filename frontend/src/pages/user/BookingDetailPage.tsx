@@ -23,7 +23,7 @@ import { Modal, ModalFooter } from '@/components/ui/Modal'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { formatPrice, formatDate, formatTime } from '@/lib/utils'
 
-const CHECK_IN_QR_STATUSES = new Set(['Đã thanh toán', 'Đã cọc', 'Đã đặt'])
+const CHECK_IN_QR_STATUSES = new Set(['Đã thanh toán', 'Đã đặt'])
 
 /**
  * Trang chi tiết đơn đặt sân
@@ -57,7 +57,7 @@ export default function BookingDetailPage() {
   /**
    * Truy vấn lấy mã QR check-in cho đơn đặt sân
    * @enabled chỉ lấy QR khi đơn đã thanh toán.
-   *   Đơn "Đã cọc" đang chờ thanh toán không được truy cập QR check-in.
+   *   Đơn "Chờ thanh toán" không được truy cập QR check-in.
    */
   const { data: qrData } = useQuery({
     queryKey: ['bookings', id, 'qr'],
@@ -172,14 +172,14 @@ export default function BookingDetailPage() {
           )}
           <div className="flex justify-between text-sm"><span>Hình thức thanh toán</span><span className="font-medium">{booking.loaiThanhToan || 'N/A'}</span></div>
           {/* Hiển thị trạng thái với màu sắc tương ứng:
-              - Đã cọc: màu tím
+              - Chờ thanh toán: màu cam
               - Đã thanh toán: màu xanh dương
               - Đang sử dụng: màu success (xanh lá)
               - Hoàn thành: màu xám
               - Các trạng thái khác (Đã hủy, ...): màu đỏ */}
           <div className="flex justify-between text-sm"><span>Trạng thái</span><span className={`font-medium ${
             booking.trangThai === 'Đã thanh toán' ? 'text-blue-600' :
-            booking.trangThai === 'Đã cọc' ? 'text-purple-600' :
+            booking.trangThai === 'Chờ thanh toán' ? 'text-orange-600' :
             booking.trangThai === 'Đã đặt' ? 'text-amber-600' :
             booking.trangThai === 'Đang sử dụng' ? 'text-success' :
             booking.trangThai === 'Hoàn thành' ? 'text-muted-foreground' : 'text-destructive'

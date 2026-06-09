@@ -14,7 +14,7 @@
  *   + Xanh lá (green): Đang sử dụng (đã check-in).
  *   + Xám (slate): Hoàn thành.
  *   + Đỏ (red): Đã hủy.
- *   + Tím (purple): Đã cọc.
+ *   + Cam (orange): Chờ thanh toán.
  * - Tooltip chi tiết khi hover vào mỗi block đặt sân: tên khách, sân, giờ,
  *   loại đặt (định kỳ/vãng lai), VIP/thường.
  * - Hỗ trợ hiển thị cả trường hợp chọn tất cả sân (gộp khung giờ từ mọi sân).
@@ -357,7 +357,7 @@ function BookingBlock({ booking: b, showCourt, isFirstRow }: { booking: any; sho
    * - Đang sử dụng: xanh lá (green) - đã check-in.
    * - Hoàn thành: xám (slate).
    * - Đã hủy: đỏ (red).
-   * - Đã cọc: tím (purple) - mới đặt cọc một phần.
+   * - Chờ thanh toán: cam (orange) - đang chờ thanh toán.
    */
   const statusColors: Record<string, string> = {
     'Đã đặt': 'bg-amber-500/[0.04] text-amber-700 border-amber-500/80 dark:text-amber-400 dark:border-amber-500',
@@ -365,7 +365,7 @@ function BookingBlock({ booking: b, showCourt, isFirstRow }: { booking: any; sho
     'Đang sử dụng': 'bg-green-500/[0.04] text-green-700 border-green-500/80 dark:text-green-400 dark:border-green-500',
     'Hoàn thành': 'bg-muted/20 text-muted-foreground border-slate-300 dark:border-slate-700',
     'Đã hủy': 'bg-red-500/5 text-red-600 border-red-500/50 dark:text-red-400 dark:bg-red-500/10',
-    'Đã cọc': 'bg-purple-500/[0.04] text-purple-700 border-purple-500/80 dark:text-purple-400 dark:border-purple-500',
+    'Chờ thanh toán': 'bg-orange-500/[0.04] text-orange-700 border-orange-500/80 dark:text-orange-400 dark:border-orange-500',
   }
 
   /** Màu mặc định: VIP -> vàng, thường -> tím indigo */
@@ -389,7 +389,7 @@ function BookingBlock({ booking: b, showCourt, isFirstRow }: { booking: any; sho
     isUsing ? 'bg-green-500 animate-pulse' : // Đang sử dụng -> chấm nhấp nháy
     status === 'Đã đặt' ? 'bg-amber-500' :
     status === 'Đã thanh toán' ? 'bg-blue-500' :
-    status === 'Đã cọc' ? 'bg-purple-500' :
+    status === 'Chờ thanh toán' ? 'bg-orange-500' :
     isVip ? 'bg-amber-500' : 'bg-indigo-500'
 
   /** Icon cho trạng thái đặc biệt: Hoàn thành -> CheckCircle, Đã hủy -> XCircle */
@@ -404,14 +404,14 @@ function BookingBlock({ booking: b, showCourt, isFirstRow }: { booking: any; sho
     isUsing ? 'Dùng' :
     status === 'Đã đặt' ? 'Đã đặt' :
     status === 'Đã thanh toán' ? 'Đã TT' :
-    status === 'Đã cọc' ? 'Đã cọc' : ''
+    status === 'Chờ thanh toán' ? 'Chờ TT' : ''
 
   /** Màu chữ của nhãn trạng thái */
   const statusLabelColor =
     isUsing ? 'text-green-600' :
     status === 'Đã đặt' ? 'text-amber-600' :
     status === 'Đã thanh toán' ? 'text-blue-600' :
-    status === 'Đã cọc' ? 'text-purple-600' :
+    status === 'Chờ thanh toán' ? 'text-orange-600' :
     'opacity-40'
 
   /** Màu chữ trạng thái trong tooltip hover */
@@ -421,7 +421,7 @@ function BookingBlock({ booking: b, showCourt, isFirstRow }: { booking: any; sho
     isUsing ? 'text-green-500' :
     status === 'Đã đặt' ? 'text-amber-500' :
     status === 'Đã thanh toán' ? 'text-blue-500' :
-    status === 'Đã cọc' ? 'text-purple-500' :
+    status === 'Chờ thanh toán' ? 'text-orange-500' :
     'text-primary'
 
   /** Màu nền icon trong tooltip hover */
@@ -429,7 +429,7 @@ function BookingBlock({ booking: b, showCourt, isFirstRow }: { booking: any; sho
     isVip ? 'bg-amber-500/20 text-amber-500'
       : status === 'Đã thanh toán' ? 'bg-blue-500/20 text-blue-500'
       : status === 'Đã đặt' ? 'bg-amber-500/20 text-amber-500'
-      : status === 'Đã cọc' ? 'bg-purple-500/20 text-purple-500'
+      : status === 'Chờ thanh toán' ? 'bg-orange-500/20 text-orange-500'
       : 'bg-indigo-500/20 text-indigo-500'
 
   return (

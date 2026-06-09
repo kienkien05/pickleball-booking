@@ -68,6 +68,8 @@ const FIELD_MAP = {
   dondatid: 'donDatId', dichvuid: 'dichVuId', soluong: 'soLuong',
   // payments - bảng thanh toán
   sotien: 'soTien', loaithanhtoan: 'loaiThanhToan', ngaygiaodich: 'ngayGiaoDich',
+  txn_ref: 'txnRef', expires_at: 'expiresAt',
+  txnref: 'txnRef', expiresat: 'expiresAt', payment_status: 'paymentStatus',
   // reviews - bảng đánh giá
   diemsao: 'diemSao', binhluan: 'binhLuan', ngaytao: 'ngayTao',
   // notifications - bảng thông báo
@@ -203,7 +205,7 @@ async function initDatabase() {
         tienDaCoc DECIMAL(15,2) DEFAULT 0,
         giaGoc DECIMAL(15,2),
         tienGiam DECIMAL(15,2) DEFAULT 0,
-        trangThai VARCHAR(50) DEFAULT 'Đã cọc',
+        trangThai VARCHAR(50) DEFAULT 'Chờ thanh toán',
         isAutoBooking BOOLEAN DEFAULT FALSE,
         autoBookingSeriesId INTEGER,
         ghiChu TEXT,
@@ -240,7 +242,9 @@ async function initDatabase() {
         soTien DECIMAL(15,2) NOT NULL,
         loaiThanhToan VARCHAR(50) NOT NULL,
         ngayGiaoDich TIMESTAMP DEFAULT NOW(),
-        trangThai VARCHAR(50) DEFAULT 'Thành công'
+        trangThai VARCHAR(50) DEFAULT 'Thành công',
+        txn_ref VARCHAR(255),
+        expires_at TIMESTAMPTZ
       );
 
       CREATE TABLE IF NOT EXISTS reviews (
@@ -304,6 +308,13 @@ async function initDatabase() {
     // Thêm cột nguoiDungId vào bảng discounts cho database đã tồn tại (tương thích ngược)
     await client.query("ALTER TABLE discounts ADD COLUMN IF NOT EXISTS nguoiDungId INTEGER REFERENCES users(id) ON DELETE CASCADE").catch(() => {});
 
+    // Thêm các cột hồ sơ người dùng cho database cũ.
+    await client.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS soDienThoai VARCHAR(15)").catch(() => {});
+    await client.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS gioiTinh VARCHAR(10)").catch(() => {});
+    await client.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS diaChi VARCHAR(255)").catch(() => {});
+    await client.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url VARCHAR(500)").catch(() => {});
+    await client.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT NOW()").catch(() => {});
+
     // Thêm cột billing (giá gốc, tiền giảm) vào bảng bookings cho database cũ
     await client.query("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS giaGoc DECIMAL(15,2)").catch(() => {});
     await client.query("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS tienGiam DECIMAL(15,2) DEFAULT 0").catch(() => {});
@@ -335,6 +346,10 @@ async function initDatabase() {
         UNIQUE (nguoiDungId, discountId)
       )
     `).catch(() => {});
+
+    // Thêm cột txn_ref và expires_at cho bảng payments (lưu thông tin thanh toán)
+    await client.query("ALTER TABLE payments ADD COLUMN IF NOT EXISTS txn_ref VARCHAR(255)").catch(() => {});
+    await client.query("ALTER TABLE payments ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ").catch(() => {});
 
     // Thêm cột số lượng tồn cho bảng services
     await client.query("ALTER TABLE services ADD COLUMN IF NOT EXISTS soLuongTon INTEGER DEFAULT 0").catch(() => {});

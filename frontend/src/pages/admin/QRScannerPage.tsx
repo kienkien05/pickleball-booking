@@ -161,7 +161,7 @@ export default function QRScannerPage() {
             {/* Trạng thái đơn với màu sắc tương ứng */}
             <p><strong>Trạng thái:</strong> <span className={
               result.trangThai === 'Đã thanh toán' ? 'text-blue-600 font-medium' :
-              result.trangThai === 'Đã cọc' ? 'text-purple-600 font-medium' :
+              result.trangThai === 'Chờ thanh toán' ? 'text-orange-600 font-medium' :
               result.trangThai === 'Đã đặt' ? 'text-amber-600 font-medium' :
               result.trangThai === 'Đang sử dụng' ? 'text-success font-medium' :
               result.trangThai === 'Hoàn thành' ? 'text-muted-foreground' : 'text-destructive'

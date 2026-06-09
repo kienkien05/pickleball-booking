@@ -61,6 +61,30 @@ function generateOTP() {
   return String(Math.floor(100000 + Math.random() * 900000));
 }
 
+function getField(row, ...keys) {
+  for (const key of keys) {
+    if (row && row[key] !== undefined && row[key] !== null) return row[key];
+  }
+  return undefined;
+}
+
+function formatAuthUser(user) {
+  const role = getField(user, 'vaiTro', 'vaitro');
+  const status = getField(user, 'trangThai', 'trangthai');
+  return {
+    id: String(getField(user, 'id')),
+    email: getField(user, 'email'),
+    full_name: getField(user, 'hoTen', 'hoten'),
+    phone_number: getField(user, 'soDienThoai', 'sodienthoai'),
+    role: role === 'Admin' ? 'admin' : 'user',
+    is_vip: getField(user, 'isVIP', 'isvip'),
+    gender: getField(user, 'gioiTinh', 'gioitinh'),
+    address: getField(user, 'diaChi', 'diachi'),
+    avatar_url: getField(user, 'avatar_url'),
+    is_active: status !== 'Locked',
+  };
+}
+
 /**
  * POST /register - Đăng ký tài khoản mới.
  *
@@ -150,11 +174,7 @@ router.post('/verify-register', async (req, res) => {
     res.json({
       data: {
         token,
-        user: {
-          id: String(user.id), email: user.email, full_name: user.hoTen,
-          phone_number: user.soDienThoai, role: user.vaiTro === 'Admin' ? 'admin' : 'user',
-          is_vip: user.isVIP, is_active: user.trangThai !== 'Locked',
-        }
+        user: formatAuthUser(user)
       }
     });
   } catch (err) {
@@ -198,7 +218,7 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ error: 'Email hoặc mật khẩu không đúng' });
     }
     const user = result.rows[0];
-    if (user.trangThai === 'Locked') {
+    if (getField(user, 'trangThai', 'trangthai') === 'Locked') {
       return res.status(403).json({ error: 'Tài khoản đã bị khóa. Vui lòng liên hệ Admin' });
     }
     const valid = await bcrypt.compare(password, user.matKhau);
@@ -210,12 +230,7 @@ router.post('/login', async (req, res) => {
     res.json({
       data: {
         token,
-        user: {
-          id: String(user.id), email: user.email, full_name: user.hoTen,
-          phone_number: user.soDienThoai, role: user.vaiTro === 'Admin' ? 'admin' : 'user',
-          is_vip: user.isVIP, is_active: user.trangThai !== 'Locked',
-          avatar_url: user.avatar_url, address: user.diachi, gender: user.gioitinh,
-        }
+        user: formatAuthUser(user)
       }
     });
   } catch (err) {
@@ -288,17 +303,10 @@ router.get('/profile', authenticate, async (req, res, next) => {
     if (result.rows.length === 0) return res.status(404).json({ error: 'Không tìm thấy' });
     const u = result.rows[0];
     // Nếu tài khoản bị khóa -> trả về 403 để frontend tự động logout ngay lập tức
-    if (u.trangThai === 'Locked') {
+    if (getField(u, 'trangThai', 'trangthai') === 'Locked') {
       return res.status(403).json({ error: 'Tài khoản đã bị khóa. Vui lòng liên hệ Admin' });
     }
-    res.json({
-      data: {
-        id: String(u.id), email: u.email, full_name: u.hoTen, phone_number: u.soDienThoai,
-        role: u.vaiTro === 'Admin' ? 'admin' : 'user', is_vip: u.isVIP,
-        gender: u.gioitinh, address: u.diachi, avatar_url: u.avatar_url,
-        is_active: u.trangThai !== 'Locked',
-      }
-    });
+    res.json({ data: formatAuthUser(u) });
   } catch (err) {
     next(err);
   }
@@ -330,13 +338,7 @@ router.put('/profile', authenticate, async (req, res) => {
     values.push(req.user.id);
     const result = await pool.query(`UPDATE users SET ${fields.join(', ')} WHERE id = $${idx} RETURNING id, hoTen, email, soDienThoai, vaiTro, isVIP, gioiTinh, diaChi, avatar_url, trangThai`, values);
     const u = result.rows[0];
-    res.json({
-      data: {
-        id: String(u.id), email: u.email, full_name: u.hoTen, phone_number: u.soDienThoai,
-        role: u.vaiTro === 'Admin' ? 'admin' : 'user', is_vip: u.isVIP,
-        gender: u.gioitinh, address: u.diachi, avatar_url: u.avatar_url,
-      }
-    });
+    res.json({ data: formatAuthUser(u) });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

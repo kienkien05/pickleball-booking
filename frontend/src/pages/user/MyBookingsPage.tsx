@@ -3,7 +3,7 @@
  * người dùng hiện tại và cho phép hủy đặt sân.
  *
  * Trang này cung cấp:
- * - Thanh tabs lọc theo trạng thái đặt sân: Tất cả, Đã đặt, Đã cọc, Đã thanh toán,
+ * - Thanh tabs lọc theo trạng thái đặt sân: Tất cả, Chờ thanh toán, Đã thanh toán,
  *   Đang sử dụng, Hoàn thành, Đã hủy.
  * - Danh sách booking dưới dạng card, mỗi card hiển thị:
  *   + Tên sân (link đến trang chi tiết booking).
@@ -12,7 +12,7 @@
  *   + Tổng tiền.
  *   + Badge trạng thái với màu sắc tương ứng.
  *   + Nút "Xem hóa đơn & QR check-in" cho các booking đang hoạt động.
- *   + Nút "Hủy" cho các booking ở trạng thái Đã thanh toán, Đã cọc hoặc Đã đặt.
+ *   + Nút "Hủy" cho các booking ở trạng thái Đã thanh toán, Chờ thanh toán hoặc Đã đặt.
  *   + Danh sách dịch vụ đi kèm (nếu có).
  * - Modal xác nhận hủy với cảnh báo chính sách hủy (trước 3 tiếng).
  *
@@ -40,6 +40,7 @@ import { formatPrice, formatDate, formatTime } from '@/lib/utils'
  */
 const statusTabs = [
   { key: '', label: 'Tất cả' },
+  { key: 'Chờ thanh toán', label: 'Chờ thanh toán' },
   { key: 'Đã thanh toán', label: 'Đã thanh toán' },
   { key: 'Đang sử dụng', label: 'Đang dùng' },
   { key: 'Hoàn thành', label: 'Hoàn thành' },
@@ -50,16 +51,15 @@ const statusTabs = [
  * Bảng màu sắc cho từng trạng thái booking.
  * Dùng để hiển thị badge trạng thái với màu nền (bg) và màu chữ (text) tương ứng.
  * - Đã đặt: vàng (amber).
- * - Đã cọc: tím (purple).
+ * - Chờ thanh toán: cam (orange).
  * - Đã thanh toán: xanh dương (blue).
  * - Đang sử dụng: xanh lá (success).
  * - Hoàn thành: xám (muted).
  * - Đã hủy: đỏ (destructive).
  */
 const statusColors: Record<string, string> = {
-  'Chờ thanh toán': 'bg-amber-500/10 text-amber-600',
+  'Chờ thanh toán': 'bg-orange-500/10 text-orange-600',
   'Đã đặt': 'bg-amber-500/10 text-amber-600',
-  'Đã cọc': 'bg-purple-500/10 text-purple-600',
   'Đã thanh toán': 'bg-blue-500/10 text-blue-600',
   'Đang sử dụng': 'bg-success/10 text-success',
   'Hoàn thành': 'bg-muted text-muted-foreground',
@@ -67,7 +67,7 @@ const statusColors: Record<string, string> = {
 }
 
 const PAYMENT_PENDING_STATUSES = new Set(['Chờ thanh toán'])
-const BOOKING_DETAIL_STATUSES = new Set(['Đã thanh toán', 'Đã cọc', 'Đã đặt', 'Đang sử dụng', 'Hoàn thành'])
+const BOOKING_DETAIL_STATUSES = new Set(['Đã thanh toán', 'Đã đặt', 'Đang sử dụng', 'Hoàn thành'])
 
 function isPaymentPending(status?: string) {
   return PAYMENT_PENDING_STATUSES.has(String(status || ''))
@@ -103,16 +103,8 @@ export default function MyBookingsPage() {
    * Khi thay đổi -> queryKey thay đổi -> React Query tự động re-fetch.
    */
   const [statusFilter, setStatusFilter] = useState('')
-  const [payingBookingId, setPayingBookingId] = useState<string | null>(null)
-
-  /**
-   * ID của booking đang được yêu cầu hủy.
-   * Khi khác null -> modal xác nhận hủy sẽ mở ra.
-   * Khi = null -> modal đóng.
-   */
   const [cancelId, setCancelId] = useState<string | null>(null)
-
-  /** QueryClient để invalidate cache sau khi hủy booking thành công */
+  const [payingBookingId, setPayingBookingId] = useState<string | null>(null)
   const queryClient = useQueryClient()
 
   /**
@@ -163,21 +155,18 @@ export default function MyBookingsPage() {
 
   const resumePaymentMutation = useMutation({
     mutationFn: (id: string) => bookingService.getPaymentUrl(id),
-    onMutate: (id: string) => {
-      setPayingBookingId(id)
-    },
+    onMutate: (id: string) => setPayingBookingId(id),
     onSuccess: (res: any) => {
       const paymentUrl = res.data?.data?.paymentUrl || res.data?.paymentUrl
       if (!paymentUrl) {
         toast.error('Không lấy được link thanh toán')
+        setPayingBookingId(null)
         return
       }
       window.location.href = paymentUrl
     },
     onError: (err: any) => {
       toast.error(err.response?.data?.message || err.response?.data?.error || 'Không thể mở lại trang thanh toán')
-    },
-    onSettled: () => {
       setPayingBookingId(null)
     },
   })
@@ -222,9 +211,9 @@ export default function MyBookingsPage() {
          * - Tổng tiền (format VND).
          * - Badge trạng thái với màu tương ứng.
          * - Nút "Xem hóa đơn & QR check-in" cho các booking còn hiệu lực:
-         *   + Đã thanh toán, Đã cọc, Đã đặt, Đang sử dụng, Hoàn thành.
+         *   + Đã thanh toán, Đã đặt, Đang sử dụng, Hoàn thành.
          * - Nút "Hủy" cho các booking có thể hủy:
-         *   + Chỉ Đã thanh toán, Đã cọc và Đã đặt (không hủy được Đang sử dụng hay Hoàn thành).
+         *   + Chỉ Đã thanh toán, Chờ thanh toán và Đã đặt (không hủy được Đang sử dụng hay Hoàn thành).
          * - Danh sách dịch vụ đi kèm (nếu có).
          */}
         {isLoading ? (
@@ -284,7 +273,7 @@ export default function MyBookingsPage() {
 
                       <div className="flex flex-wrap justify-end gap-2">
                         {/* Nút "Hủy": nằm bên trái nút xem QR */}
-                        {(booking.trangThai === 'Đã thanh toán' || booking.trangThai === 'Đã cọc' || booking.trangThai === 'Đã đặt') && (
+                        {(booking.trangThai === 'Đã thanh toán' || booking.trangThai === 'Đã đặt') && (
                           <Button variant="outline" size="sm" onClick={() => setCancelId(booking.id)}>
                             <XCircle className="size-3 mr-1" /> Hủy
                           </Button>

@@ -10,7 +10,7 @@ function getField(row, ...keys) {
 
 function isPaidBooking(booking) {
   const status = getField(booking, 'trangThai', 'trangthai');
-  return status === 'Đã thanh toán' || status === 'Đã cọc';
+  return status === 'Đã thanh toán';
 }
 
 function withNoRefundIfPaid(booking, message) {

@@ -27,13 +27,65 @@ const { createVNPayUrl, verifyVNPaySignature } = require('../utils/vnpay');
 const router = express.Router();
 
 const AUTO_BOOKING_DAYS = 30;
-const CHECK_IN_QR_STATUSES = new Set(['Đã thanh toán', 'Đã cọc', 'Đã đặt']);
+const CHECK_IN_QR_STATUSES = new Set(['Đã thanh toán', 'Đã đặt']);
 const PAYMENT_TIMEOUT_MS = 15 * 60 * 1000;
 
-function isTxnRefExpired(txnRef) {
+function getRowField(row, ...keys) {
+  for (const key of keys) {
+    if (row && row[key] !== undefined && row[key] !== null) return row[key];
+  }
+  return undefined;
+}
+
+function getTxnRefTimestamp(txnRef) {
   const parts = String(txnRef || '').split('_');
   const timestamp = Number(parts[parts.length - 1]);
+  return Number.isFinite(timestamp) && timestamp > 0 ? timestamp : null;
+}
+
+function isTxnRefExpired(txnRef) {
+  const timestamp = getTxnRefTimestamp(txnRef);
   return Number.isFinite(timestamp) && timestamp > 0 && Date.now() - timestamp > PAYMENT_TIMEOUT_MS;
+}
+
+function getPaymentExpiryTime(payment) {
+  const storedExpiresAt = getRowField(payment, 'expiresAt', 'expiresat', 'expires_at');
+  if (storedExpiresAt) {
+    const expiresAt = new Date(storedExpiresAt).getTime();
+    if (Number.isFinite(expiresAt)) return expiresAt;
+  }
+
+  const createdAt = getRowField(payment, 'ngayGiaoDich', 'ngaygiaodich');
+  if (createdAt) {
+    const createdTime = new Date(createdAt).getTime();
+    if (Number.isFinite(createdTime)) return createdTime + PAYMENT_TIMEOUT_MS;
+  }
+
+  return null;
+}
+
+function buildReusableTxnRef(bookingId, payment) {
+  const storedTxnRef = getRowField(payment, 'txnRef', 'txnref', 'txn_ref');
+  if (storedTxnRef) return storedTxnRef;
+
+  const createdAt = getRowField(payment, 'ngayGiaoDich', 'ngaygiaodich');
+  const createdTime = createdAt ? new Date(createdAt).getTime() : NaN;
+  if (!Number.isFinite(createdTime)) return null;
+  return `${bookingId}_${createdTime}`;
+}
+
+function isPaymentExpired(payment) {
+  const expiresAt = getPaymentExpiryTime(payment);
+  return expiresAt !== null && expiresAt < Date.now();
+}
+
+function hasTxnRefTimestampMismatch(incomingTxnRef, payment) {
+  const storedTxnRef = getRowField(payment, 'txnRef', 'txnref', 'txn_ref');
+  if (!storedTxnRef) return false;
+
+  const incomingTimestamp = getTxnRefTimestamp(incomingTxnRef);
+  const storedTimestamp = getTxnRefTimestamp(storedTxnRef);
+  return incomingTimestamp !== null && storedTimestamp !== null && incomingTimestamp !== storedTimestamp;
 }
 
 function formatDateLocal(date) {
@@ -362,14 +414,18 @@ router.post('/', authenticate, async (req, res) => {
     const bookingIds = [];
     let remainingFinal = totalPrice;
 
+    // Tạo txnRef và expiresAt chung cho toàn bộ đơn (dùng chung cho VNPay)
+    const sharedTxnRef = `${Date.now()}`;
+    const paymentExpiresAt = new Date(Date.now() + PAYMENT_TIMEOUT_MS);
+
     for (let i = 0; i < plannedBookings.length; i++) {
       const planned = plannedBookings[i];
       const isLast = i === plannedBookings.length - 1;
       const finalPriceForThisSlot = isLast ? remainingFinal : Math.round(planned.originalPrice * discountRatio);
       const discountForThisSlot = planned.originalPrice - finalPriceForThisSlot;
       remainingFinal -= finalPriceForThisSlot;
-      // Giữ slot trong 15 phút bằng trạng thái Đã cọc, payment mới là phần chờ thanh toán.
-      const bookingStatus = 'Đã cọc';
+      // Tạo booking với trạng thái Chờ thanh toán
+      const bookingStatus = 'Chờ thanh toán';
       const booking = await client.query(
         `INSERT INTO bookings
           (nguoiDungId, sanId, khungGioId, ngayChoi, tongTien, tienDaCoc, giaGoc, tienGiam, trangThai, isAutoBooking, autoBookingSeriesId, maGiamGia)
@@ -392,14 +448,18 @@ router.post('/', authenticate, async (req, res) => {
       const bookingId = booking.rows[0].id;
       bookingIds.push(bookingId);
 
-      // Tạo bản ghi thanh toán (payment) ở trạng thái Chờ thanh toán
+      // Tạo bản ghi thanh toán (payment) ở trạng thái Chờ thanh toán, lưu txnRef và expiresAt
+      // Mỗi payment lưu txnRef riêng = bookingId_sharedTxnRef để dễ tra cứu
+      const paymentTxnRef = `${bookingId}_${sharedTxnRef}`;
       await client.query(
-        'INSERT INTO payments (donDatId, soTien, loaiThanhToan, trangThai) VALUES ($1, $2, $3, $4)',
+        'INSERT INTO payments (donDatId, soTien, loaiThanhToan, trangThai, txn_ref, expires_at) VALUES ($1, $2, $3, $4, $5, $6)',
         [
           bookingId,
           finalPriceForThisSlot,
           `${autoBook ? 'VIP Auto 30 ngày' : 'Full'} - ${paymentMethodLabel(phuongThuc)}`,
           'Chờ thanh toán',
+          paymentTxnRef,
+          paymentExpiresAt,
         ]
       );
 
@@ -423,8 +483,8 @@ router.post('/', authenticate, async (req, res) => {
       );
     }
 
-    // Tạo URL thanh toán VNPay Sandbox
-    const txnRef = `${bookingIds.join('_')}_${Date.now()}`;
+    // Tạo URL thanh toán VNPay Sandbox với txnRef chứa timestamp gốc
+    const txnRef = `${bookingIds.join('_')}_${sharedTxnRef}`;
     const ipAddr = req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1';
     const paymentUrl = createVNPayUrl({
       amount: totalPrice,
@@ -448,10 +508,10 @@ router.post('/', authenticate, async (req, res) => {
 router.post('/:id/payment-url', authenticate, async (req, res) => {
   try {
     const result = await pool.query(
-      `SELECT b.*, p.trangThai as payment_status
+      `SELECT b.*, p.trangThai as payment_status, p.txn_ref as txnRef, p.expires_at as expiresAt, p.ngayGiaoDich
        FROM bookings b
        LEFT JOIN (
-         SELECT DISTINCT ON (donDatId) donDatId, trangThai
+         SELECT DISTINCT ON (donDatId) donDatId, trangThai, txn_ref, expires_at, ngayGiaoDich
          FROM payments
          ORDER BY donDatId, id DESC
        ) p ON b.id = p.donDatId
@@ -463,7 +523,7 @@ router.post('/:id/payment-url', authenticate, async (req, res) => {
 
     const booking = result.rows[0];
     const status = booking.trangThai || booking.trangthai;
-    const paymentStatus = booking.payment_status;
+    const paymentStatus = getRowField(booking, 'paymentStatus', 'payment_status');
     if (status !== 'Chờ thanh toán') {
       return res.status(400).json({ error: 'Chỉ có thể thanh toán lại đơn đang chờ thanh toán' });
     }
@@ -474,19 +534,32 @@ router.post('/:id/payment-url', authenticate, async (req, res) => {
       return res.status(400).json({ error: 'Trạng thái thanh toán của đơn không hợp lệ' });
     }
 
+    const paymentExpiryTime = getPaymentExpiryTime(booking);
+    if (paymentExpiryTime !== null && paymentExpiryTime < Date.now()) {
+      return res.status(400).json({ error: 'Đơn đã quá hạn thanh toán (15 phút). Vui lòng đặt lại sân.' });
+    }
+
     const amount = parseFloat(booking.tongTien || booking.tongtien) || 0;
     if (amount <= 0) return res.status(400).json({ error: 'Số tiền thanh toán không hợp lệ' });
 
+    // Dùng lại txnRef đã lưu; dữ liệu cũ thiếu txn_ref sẽ dựng từ ngayGiaoDich, không dùng Date.now().
+    const reusableTxnRef = buildReusableTxnRef(booking.id, booking);
+    if (!reusableTxnRef || paymentExpiryTime === null) {
+      return res.status(400).json({ error: 'Không tìm thấy mã giao dịch. Vui lòng đặt lại sân.' });
+    }
+
     await pool.query(
-      "UPDATE payments SET trangThai = 'Chờ thanh toán', ngayGiaoDich = NOW() WHERE donDatId = $1 AND trangThai IN ('Chờ thanh toán', 'Chờ xác nhận')",
-      [booking.id]
+      `UPDATE payments
+       SET txn_ref = COALESCE(txn_ref, $2),
+           expires_at = COALESCE(expires_at, $3)
+       WHERE donDatId = $1 AND trangThai IN ('Chờ thanh toán', 'Chờ xác nhận')`,
+      [booking.id, reusableTxnRef, new Date(paymentExpiryTime)]
     );
 
-    const txnRef = `${booking.id}_${Date.now()}`;
     const ipAddr = req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1';
     const paymentUrl = createVNPayUrl({
       amount,
-      txnRef,
+      txnRef: reusableTxnRef,
       returnUrl: 'http://localhost:5173/payment/sepay-return',
       ipAddr,
     });
@@ -586,7 +659,24 @@ router.get('/vnpay-verify', async (req, res) => {
       return res.status(400).json({ error: 'Mã đặt sân không hợp lệ' });
     }
 
-    const paymentExpired = isTxnRefExpired(txnRef);
+    const incomingTxnTimestamp = getTxnRefTimestamp(txnRef);
+    if (incomingTxnTimestamp === null) {
+      return res.status(400).json({ error: 'Mã tham chiếu giao dịch không hợp lệ' });
+    }
+
+    const paymentsRes = await client.query(
+      `SELECT DISTINCT ON (donDatId) donDatId, trangThai, txn_ref, expires_at, ngayGiaoDich
+       FROM payments
+       WHERE donDatId = ANY($1::int[])
+       ORDER BY donDatId, id DESC`,
+      [bookingIds]
+    );
+    const paymentRows = paymentsRes.rows;
+    const missingPaymentRows = paymentRows.length !== bookingIds.length;
+    const paymentExpired = missingPaymentRows
+      || isTxnRefExpired(txnRef)
+      || paymentRows.some(row => isPaymentExpired(row))
+      || paymentRows.some(row => hasTxnRefTimestampMismatch(txnRef, row));
 
     await client.query('BEGIN');
 
@@ -594,12 +684,12 @@ router.get('/vnpay-verify', async (req, res) => {
       // Thanh toán thành công!
       // Cập nhật trạng thái booking và payment
       await client.query(
-        "UPDATE bookings SET trangThai = 'Đã thanh toán', updated_at = NOW() WHERE id = ANY($1::int[]) AND trangThai IN ('Đã cọc', 'Chờ thanh toán')",
+        "UPDATE bookings SET trangThai = 'Đã thanh toán', updated_at = NOW() WHERE id = ANY($1::int[]) AND trangThai = 'Chờ thanh toán'",
         [bookingIds]
       );
 
       await client.query(
-        "UPDATE payments SET trangThai = 'Thành công' WHERE donDatId = ANY($1::int[]) AND trangThai = 'Chờ thanh toán'",
+        "UPDATE payments SET trangThai = 'Thành công' WHERE donDatId = ANY($1::int[]) AND trangThai IN ('Chờ thanh toán', 'Chờ xác nhận')",
         [bookingIds]
       );
 
@@ -696,12 +786,12 @@ router.get('/vnpay-verify', async (req, res) => {
       const failureMessage = paymentExpired ? 'Giao dịch đã quá hạn thanh toán' : 'Giao dịch không thành công hoặc bị hủy';
       const failureNote = paymentExpired ? 'Thanh toán quá hạn qua VNPay' : 'Thanh toán thất bại qua VNPay';
       await client.query(
-        "UPDATE bookings SET trangThai = 'Đã hủy', ghiChu = $2, updated_at = NOW() WHERE id = ANY($1::int[]) AND trangThai IN ('Đã cọc', 'Chờ thanh toán')",
+        "UPDATE bookings SET trangThai = 'Đã hủy', ghiChu = $2, updated_at = NOW() WHERE id = ANY($1::int[]) AND trangThai = 'Chờ thanh toán'",
         [bookingIds, failureNote]
       );
 
       await client.query(
-        "UPDATE payments SET trangThai = 'Thất bại' WHERE donDatId = ANY($1::int[]) AND trangThai = 'Chờ thanh toán'",
+        "UPDATE payments SET trangThai = 'Thất bại' WHERE donDatId = ANY($1::int[]) AND trangThai IN ('Chờ thanh toán', 'Chờ xác nhận')",
         [bookingIds]
       );
 
@@ -748,12 +838,19 @@ router.get('/my', authenticate, async (req, res, next) => {
     const { page = 1, limit = 50, status } = req.query;
     const offset = (page - 1) * limit;
     let query = `
-      SELECT b.*, c.tenSan, t.gioBatDau, t.gioKetThuc, p.loaiThanhToan
+      SELECT b.*, c.tenSan, t.gioBatDau, t.gioKetThuc, p.loaiThanhToan,
+             COALESCE(
+               p.txn_ref,
+               CASE WHEN p.ngayGiaoDich IS NOT NULL
+                 THEN b.id::text || '_' || FLOOR(EXTRACT(EPOCH FROM p.ngayGiaoDich) * 1000)::bigint::text
+               END
+             ) as txnRef,
+             COALESCE(p.expires_at, p.ngayGiaoDich + INTERVAL '15 minutes') as expiresAt
       FROM bookings b
       JOIN courts c ON b.sanId = c.id
       JOIN timeslots t ON b.khungGioId = t.id
       LEFT JOIN (
-        SELECT DISTINCT ON (donDatId) donDatId, loaiThanhToan
+        SELECT DISTINCT ON (donDatId) donDatId, loaiThanhToan, txn_ref, expires_at, ngayGiaoDich
         FROM payments
         ORDER BY donDatId, id DESC
       ) p ON b.id = p.donDatId
@@ -803,13 +900,20 @@ router.get('/', authenticate, async (req, res) => {
     }
     const offset = (page - 1) * limit;
     let query = `
-      SELECT b.*, c.tenSan, t.gioBatDau, t.gioKetThuc, u.hoTen as full_name, u.email, p.loaiThanhToan
+      SELECT b.*, c.tenSan, t.gioBatDau, t.gioKetThuc, u.hoTen as full_name, u.email, p.loaiThanhToan,
+             COALESCE(
+               p.txn_ref,
+               CASE WHEN p.ngayGiaoDich IS NOT NULL
+                 THEN b.id::text || '_' || FLOOR(EXTRACT(EPOCH FROM p.ngayGiaoDich) * 1000)::bigint::text
+               END
+             ) as txnRef,
+             COALESCE(p.expires_at, p.ngayGiaoDich + INTERVAL '15 minutes') as expiresAt
       FROM bookings b
       JOIN courts c ON b.sanId = c.id
       JOIN timeslots t ON b.khungGioId = t.id
       JOIN users u ON b.nguoiDungId = u.id
       LEFT JOIN (
-        SELECT DISTINCT ON (donDatId) donDatId, loaiThanhToan
+        SELECT DISTINCT ON (donDatId) donDatId, loaiThanhToan, txn_ref, expires_at, ngayGiaoDich
         FROM payments
         ORDER BY donDatId, id DESC
       ) p ON b.id = p.donDatId
@@ -846,13 +950,21 @@ router.get('/', authenticate, async (req, res) => {
 router.get('/:id', authenticate, async (req, res) => {
   try {
     const result = await pool.query(
-      `SELECT b.*, c.tenSan, t.gioBatDau, t.gioKetThuc, u.hoTen as full_name, p.loaiThanhToan
+      `SELECT b.*, c.tenSan, t.gioBatDau, t.gioKetThuc, u.hoTen as full_name,
+              p.loaiThanhToan, p.trangThai as payment_status,
+              COALESCE(
+                p.txn_ref,
+                CASE WHEN p.ngayGiaoDich IS NOT NULL
+                  THEN b.id::text || '_' || FLOOR(EXTRACT(EPOCH FROM p.ngayGiaoDich) * 1000)::bigint::text
+                END
+              ) as txnRef,
+              COALESCE(p.expires_at, p.ngayGiaoDich + INTERVAL '15 minutes') as expiresAt
        FROM bookings b
        JOIN courts c ON b.sanId = c.id
        JOIN timeslots t ON b.khungGioId = t.id
        JOIN users u ON b.nguoiDungId = u.id
        LEFT JOIN (
-         SELECT DISTINCT ON (donDatId) donDatId, loaiThanhToan
+         SELECT DISTINCT ON (donDatId) donDatId, loaiThanhToan, trangThai, txn_ref, expires_at, ngayGiaoDich
          FROM payments
          ORDER BY donDatId, id DESC
        ) p ON b.id = p.donDatId
@@ -882,7 +994,7 @@ router.get('/:id', authenticate, async (req, res) => {
  *
  * Quy tắc hủy:
  * 1. Chỉ user sở hữu đơn mới được hủy (kiểm tra nguoiDungId)
- * 2. Chỉ hủy được đơn ở trạng thái 'Đã thanh toán', 'Đã cọc' hoặc 'Đã đặt'
+ * 2. Chỉ hủy được đơn ở trạng thái 'Đã thanh toán', 'Chờ thanh toán' hoặc 'Đã đặt'
  * 3. Quy tắc 3 tiếng: phải hủy trước giờ bắt đầu ít nhất 3 tiếng
  *    - Nếu còn dưới 3 tiếng -> không cho hủy
  *
@@ -907,8 +1019,8 @@ router.post('/:id/cancel', authenticate, async (req, res) => {
     const booking = result.rows[0];
 
     // Chỉ cho hủy đơn đang ở trạng thái có thể hủy
-    if (booking.trangThai !== 'Đã thanh toán' && booking.trangThai !== 'Đã đặt' && booking.trangThai !== 'Đã cọc') {
-      return res.status(400).json({ error: 'Chỉ có thể hủy đơn ở trạng thái Đã thanh toán, Đã cọc hoặc Đã đặt' });
+    if (booking.trangThai !== 'Đã thanh toán' && booking.trangThai !== 'Đã đặt' && booking.trangThai !== 'Chờ thanh toán') {
+      return res.status(400).json({ error: 'Chỉ có thể hủy đơn ở trạng thái Đã thanh toán, Chờ thanh toán hoặc Đã đặt' });
     }
 
     // Kiểm tra quy tắc 3 tiếng: tính số giờ còn lại từ hiện tại đến giờ bắt đầu
@@ -950,8 +1062,8 @@ router.post('/:id/checkin', authenticate, async (req, res) => {
     const result = await pool.query('SELECT * FROM bookings WHERE id = $1', [req.params.id]);
     if (result.rows.length === 0) return res.status(404).json({ error: 'Không tìm thấy' });
     const booking = result.rows[0];
-    if (booking.trangThai !== 'Đã thanh toán') {
-      return res.status(400).json({ error: 'Chỉ check-in đơn đã thanh toán. Đơn đang chờ thanh toán chưa được sử dụng QR check-in.' });
+    if (!CHECK_IN_QR_STATUSES.has(booking.trangThai)) {
+      return res.status(400).json({ error: 'Chỉ check-in đơn Đã thanh toán hoặc Đã đặt. Đơn đang chờ thanh toán chưa được sử dụng QR check-in.' });
     }
 
     const ngayChoiStr = toDateStringLocal(booking.ngayChoi);
@@ -1049,7 +1161,7 @@ router.post('/:id/checkout', authenticate, async (req, res) => {
  *
  * Quy tắc:
  * - Chỉ admin mới được thực hiện
- * - Chỉ áp dụng cho đơn 'Đã thanh toán', 'Đã cọc' hoặc 'Đã đặt'
+ * - Chỉ áp dụng cho đơn 'Đã thanh toán', 'Chờ thanh toán' hoặc 'Đã đặt'
  * - Sau khi đánh dấu: trạng thái -> 'Đã hủy', ghiChu = 'No-show'
  * - Gửi thông báo hủy vắng mặt cho khách
  *
@@ -1064,8 +1176,8 @@ router.post('/:id/noshow', authenticate, async (req, res) => {
     const result = await pool.query('SELECT * FROM bookings WHERE id = $1', [req.params.id]);
     if (result.rows.length === 0) return res.status(404).json({ error: 'Không tìm thấy' });
     const booking = result.rows[0];
-    if (booking.trangThai !== 'Đã thanh toán' && booking.trangThai !== 'Đã đặt' && booking.trangThai !== 'Đã cọc') {
-      return res.status(400).json({ error: 'Chỉ hủy vắng mặt đơn Đã thanh toán, Đã cọc hoặc Đã đặt' });
+    if (booking.trangThai !== 'Đã thanh toán' && booking.trangThai !== 'Đã đặt' && booking.trangThai !== 'Chờ thanh toán') {
+      return res.status(400).json({ error: 'Chỉ hủy vắng mặt đơn Đã thanh toán, Chờ thanh toán hoặc Đã đặt' });
     }
     await cancelBookingWithReason(pool, booking, 'ADMIN_NOSHOW');
     res.json({ message: 'Đã hủy vắng mặt. Nếu đơn đã thanh toán/cọc, hệ thống áp dụng chính sách không hoàn tiền.' });
@@ -1094,8 +1206,8 @@ router.get('/:id/qr', authenticate, async (req, res) => {
     if (!isAdmin && String(ownerId) !== String(req.user.id)) {
       return res.status(403).json({ error: 'Không có quyền xem QR của đơn này' });
     }
-    if (booking.trangThai !== 'Đã thanh toán' && booking.trangThai !== 'Đang sử dụng') {
-      return res.status(403).json({ error: 'Chỉ hiển thị QR check-in sau khi đơn đã thanh toán' });
+    if (!CHECK_IN_QR_STATUSES.has(booking.trangThai) && booking.trangThai !== 'Đang sử dụng') {
+      return res.status(403).json({ error: 'Chỉ hiển thị QR check-in sau khi đơn đã thanh toán hoặc đã được xác nhận' });
     }
     // QR code chứa ID của booking để admin quét check-in
     const qrData = String(booking.id);
